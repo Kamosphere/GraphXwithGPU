@@ -22,12 +22,11 @@ class GPUNative extends Serializable {
   // messageId is used to mark when the vertex will be in active in the next iteration
   // in the first iteration messageId is set in the graph (the boolean variable) when the graph created
   // after calculation the messageId will be overwritten in the native function
-  // messageId and the returned hashmap will be mixed as EdgeTriplet
   @native def GPUSSSP(vertexNumber: Long,
                       VertexSets: util.ArrayList[VertexSet],
                       EdgeSets: util.ArrayList[EdgeSet],
                       sourceId: util.ArrayList[Long])
-  : util.ArrayList[VertexSet]
+  : ArrayBuffer[(VertexId, SPMapWithActive)]
 
   def GPUProcess(partitionVertex: util.ArrayList[VertexSet],
                  partitionEdge: util.ArrayList[EdgeSet],
@@ -43,21 +42,9 @@ class GPUNative extends Serializable {
 
     System.loadLibrary("GPUSSSP")
 
-    //pass them through JNI
-    val running = GPUSSSP(vertexNumbers, partitionVertex, partitionEdge, sourceId)
+    //pass them through JNI and get arrayBuffer back
+    val result = GPUSSSP(vertexNumbers, partitionVertex, partitionEdge, sourceId)
 
-    // collect the results and carry them out
-    val result = new ArrayBuffer[(VertexId, SPMapWithActive)]
-
-    var temp : VertexSet = null
-    val iter = running.iterator()
-    while(iter.hasNext){
-      temp = iter.next()
-      result.+=((
-        temp.VertexId(),
-        (temp.ifActive(), temp.Attr().asScala
-      )))
-    }
     result
   }
 }

@@ -2,6 +2,10 @@ package edu.ustc.nodb.SSSP
 
 import java.util
 
+import edu.ustc.nodb.SSSP.SSSPinGPU.SPMapWithActive
+
+import scala.collection.JavaConverters._
+
 class EdgeSet (inSrc : Long, inDst : Long, inAttr : Double) extends Serializable {
 
   private[this] var _SrcId: Long = inSrc
@@ -38,6 +42,11 @@ class VertexSet (vid: Long, activeness: Boolean, attr: util.HashMap[Long, Double
   // that's it
   def addAttr(id: Long, distance : Double): Unit ={
     _Attr.put(id, distance)
+  }
+
+  // pair of data structure, used in JNI
+  def TupleReturn(): (Long, SPMapWithActive) = {
+    (_VertexId,(_ifActive, _Attr.asScala))
   }
 
   private[this] var _ifActive: Boolean = activeness

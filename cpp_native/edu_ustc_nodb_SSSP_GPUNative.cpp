@@ -76,20 +76,24 @@ JNIEXPORT jobject JNICALL Java_edu_ustc_nodb_SSSP_GPUNative_GPUSSSP
     jclass c_ArrayList = env->FindClass("java/util/ArrayList");
     jmethodID id_ArrayList_size = env->GetMethodID(c_ArrayList, "size", "()I");
     jmethodID id_ArrayList_get = env->GetMethodID(c_ArrayList, "get", "(I)Ljava/lang/Object;");
-    jmethodID id_ArrayList_add = env->GetMethodID(c_ArrayList, "add", "(Ljava/lang/Object;)Z");
-    jmethodID ArrayListConstructor = env->GetMethodID(c_ArrayList, "<init>", "()V");
 
     jclass n_VertexSet = env->FindClass("edu/ustc/nodb/SSSP/VertexSet");
     jmethodID id_VertexSet_VertexId = env->GetMethodID(n_VertexSet, "VertexId", "()J");
     jmethodID id_VertexSet_ifActive = env->GetMethodID(n_VertexSet, "ifActive", "()Z");
     jmethodID id_VertexSet_Attr = env->GetMethodID(n_VertexSet, "Attr", "()Ljava/util/HashMap;");
     jmethodID id_VertexSet_addAttr = env->GetMethodID(n_VertexSet, "addAttr", "(JD)V");
+    jmethodID id_VertexSet_TupleReturn = env->GetMethodID(n_VertexSet, "TupleReturn", "()Lscala/Tuple2;");
     jmethodID VertexSetConstructor = env->GetMethodID(n_VertexSet, "<init>", "(JZ)V");
 
     jclass n_EdgeSet = env->FindClass("edu/ustc/nodb/SSSP/EdgeSet");
     jmethodID id_EdgeSet_SrcId = env->GetMethodID(n_EdgeSet, "SrcId", "()J");
     jmethodID id_EdgeSet_DstId = env->GetMethodID(n_EdgeSet, "DstId", "()J");
     jmethodID id_EdgeSet_Attr = env->GetMethodID(n_EdgeSet, "Attr", "()D");
+
+    jclass c_ArrayBuffer = env->FindClass("scala/collection/mutable/ArrayBuffer");
+    jmethodID ArrayBufferConstructor = env->GetMethodID(c_ArrayBuffer, "<init>", "()V");
+    jmethodID id_ArrayBuffer_pluseq = env->GetMethodID(c_ArrayBuffer, "$plus$eq",
+                                                       "(Ljava/lang/Object;)Lscala/collection/mutable/ArrayBuffer;");
 
     /* unused signature
 
@@ -216,7 +220,7 @@ JNIEXPORT jobject JNICALL Java_edu_ustc_nodb_SSSP_GPUNative_GPUSSSP
 
     //int sizeReturned = static_cast<int>(actMessageID.size());
 
-    jobject vertexSubModified = env->NewObject(c_ArrayList, ArrayListConstructor);
+    jobject vertexSubModified = env->NewObject(c_ArrayBuffer, ArrayBufferConstructor);
 
     for (const auto &it : g.vList) {
 
@@ -234,7 +238,13 @@ JNIEXPORT jobject JNICALL Java_edu_ustc_nodb_SSSP_GPUNative_GPUSSSP
                 env->CallObjectMethod(messageUnit, id_VertexSet_addAttr, messageDstId, messageDist);
             }
 
-            env->CallObjectMethod(vertexSubModified, id_ArrayList_add, messageUnit);
+            // run the method to get the returned pair, no need to arrange data in another loop
+            jobject TupleUnit = env->CallObjectMethod(messageUnit, id_VertexSet_TupleReturn);
+
+            env->CallObjectMethod(vertexSubModified, id_ArrayBuffer_pluseq, TupleUnit);
+
+            env->DeleteLocalRef(messageUnit);
+            env->DeleteLocalRef(TupleUnit);
         }
 
     }

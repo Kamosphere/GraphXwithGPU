@@ -10,7 +10,7 @@ extern "C" {
 /*
  * Class:     edu_ustc_nodb_SSSP_GPUNative
  * Method:    GPUSSSP
- * Signature: (JLjava/util/ArrayList;Ljava/util/ArrayList;Ljava/util/ArrayList;)Ljava/util/ArrayList;
+ * Signature: (JLjava/util/ArrayList;Ljava/util/ArrayList;Ljava/util/ArrayList;)Lscala/collection/mutable/ArrayBuffer;
  */
 JNIEXPORT jobject JNICALL Java_edu_ustc_nodb_SSSP_GPUNative_GPUSSSP
   (JNIEnv *, jobject, jlong, jobject, jobject, jobject);

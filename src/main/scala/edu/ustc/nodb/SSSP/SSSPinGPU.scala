@@ -1,10 +1,9 @@
 package edu.ustc.nodb.SSSP
 
-import java.{lang, util}
+import java.util
 
 import org.apache.spark.SparkConf
 import org.apache.spark.broadcast.Broadcast
-import org.apache.spark.graphx.PartitionStrategy._
 import org.apache.spark.graphx._
 import org.apache.spark.rdd.RDD
 
