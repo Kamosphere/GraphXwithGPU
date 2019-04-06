@@ -94,11 +94,13 @@ JNIEXPORT jobject JNICALL Java_edu_ustc_nodb_SSSP_GPUNative_GPUSSSP
     jmethodID ArrayBufferConstructor = env->GetMethodID(c_ArrayBuffer, "<init>", "()V");
     jmethodID id_ArrayBuffer_pluseq = env->GetMethodID(c_ArrayBuffer, "$plus$eq",
                                                        "(Ljava/lang/Object;)Lscala/collection/mutable/ArrayBuffer;");
+													   
+	jclass c_Long = env->FindClass("java/lang/Long");
+    jmethodID longValue = env->GetMethodID(c_Long, "longValue", "()J");
 
     /* unused signature
 
-    jclass c_Long = env->FindClass("java/lang/Long");
-    jmethodID longValue = env->GetMethodID(c_Long, "longValue", "()J");
+
     jmethodID LongConstructor = env->GetMethodID(c_Long, "<init>", "(J)V");
 
     jclass c_Double = env->FindClass("java/lang/Double");
@@ -132,9 +134,9 @@ JNIEXPORT jobject JNICALL Java_edu_ustc_nodb_SSSP_GPUNative_GPUSSSP
 
     for(jint i = 0; i < lenMarkID; i++){
 
-        jlong start = env->CallLongMethod(markId, id_ArrayList_get, i);
-        //jlong jMarkIDUnit = env->CallLongMethod(start, longValue);
-        markID.insert(static_cast<int>(start));
+        jobject start = env->CallObjectMethod(markId, id_ArrayList_get, i);
+        jlong jMarkIDUnit = env->CallLongMethod(start, longValue);
+        markID.insert(static_cast<int>(jMarkIDUnit));
 
     }
 
