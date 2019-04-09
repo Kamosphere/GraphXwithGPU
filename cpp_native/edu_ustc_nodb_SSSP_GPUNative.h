@@ -9,11 +9,19 @@ extern "C" {
 #endif
 /*
  * Class:     edu_ustc_nodb_SSSP_GPUNative
- * Method:    GPUSSSP
- * Signature: (JLjava/util/ArrayList;Ljava/util/ArrayList;Ljava/util/ArrayList;)Lscala/collection/mutable/ArrayBuffer;
+ * Method:    GPUClientSSSP
+ * Signature: (JLjava/util/ArrayList;Ljava/util/ArrayList;Ljava/util/ArrayList;I)Lscala/collection/mutable/ArrayBuffer;
  */
-JNIEXPORT jobject JNICALL Java_edu_ustc_nodb_SSSP_GPUNative_GPUSSSP
-  (JNIEnv *, jobject, jlong, jobject, jobject, jobject);
+JNIEXPORT jobject JNICALL Java_edu_ustc_nodb_SSSP_GPUNative_GPUClientSSSP
+  (JNIEnv *, jobject, jlong, jobject, jobject, jobject, jint);
+
+/*
+ * Class:     edu_ustc_nodb_SSSP_GPUNative
+ * Method:    GPUServerShutdown
+ * Signature: (I)Z
+ */
+JNIEXPORT jboolean JNICALL Java_edu_ustc_nodb_SSSP_GPUNative_GPUServerShutdown
+  (JNIEnv *, jobject, jint);
 
 #ifdef __cplusplus
 }

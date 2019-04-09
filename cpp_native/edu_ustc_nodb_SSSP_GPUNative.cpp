@@ -5,6 +5,8 @@
 #include <string>
 #include "Graph_Algo/core/Graph.h"
 #include "Graph_Algo/algo/BellmanFord/BellmanFord.h"
+#include "Graph_Algo/srv/UtilServer.h"
+#include "Graph_Algo/srv/UtilClient.h"
 #include <cstdlib>
 #include <chrono>
 
@@ -69,9 +71,42 @@ map<int, double> generate_vertexAttr_map(JNIEnv * env, jobject& attrArr){
 
 }
 
-JNIEXPORT jobject JNICALL Java_edu_ustc_nodb_SSSP_GPUNative_GPUSSSP
+// throw error to JVM
+
+jint throwNoClassDefError( JNIEnv *env, const char *message )
+{
+    jclass exClass;
+    const char *className = "java/lang/NoClassDefFoundError";
+
+    exClass = env->FindClass(className);
+    if (exClass == nullptr) {
+        return throwNoClassDefError( env, className );
+    }
+
+    return env->ThrowNew( exClass, message );
+}
+
+// throw error to JVM
+
+jint throwIllegalArgument( JNIEnv *env, const char *message )
+{
+    jclass exClass;
+    const char *className = "java/lang/IllegalArgumentException" ;
+
+    exClass = env->FindClass( className );
+    if ( exClass == nullptr ) {
+        return throwNoClassDefError( env, className );
+    }
+
+    return env->ThrowNew( exClass, message );
+}
+
+JNIEXPORT jobject JNICALL Java_edu_ustc_nodb_SSSP_GPUNative_GPUClientSSSP
   (JNIEnv * env, jobject superClass,
-          jlong vertexNum, jobject vertexLL, jobject edgeLL, jobject markId) {
+          jlong vertexNum, jobject vertexLL, jobject edgeLL, jobject markId, jint pid) {
+
+    jclass c_Long = env->FindClass("java/lang/Long");
+    jmethodID longValue = env->GetMethodID(c_Long, "longValue", "()J");
 
     jclass c_ArrayList = env->FindClass("java/util/ArrayList");
     jmethodID id_ArrayList_size = env->GetMethodID(c_ArrayList, "size", "()I");
@@ -117,31 +152,56 @@ JNIEXPORT jobject JNICALL Java_edu_ustc_nodb_SSSP_GPUNative_GPUSSSP
 
     //---------Entity---------
 
-    vector<Edge> edges;
     map<int, map<int, double>> vertices;
-
     set<int> markID;
-    set<int> actMessageID;
 
     // the quantity of vertices in the whole graph
     int vertexNumbers = static_cast<int>(vertexNum);
+    int partitionID = static_cast<int>(pid);
 
     int lenMarkID = env->CallIntMethod(markId, id_ArrayList_size);
+    int lenVertex = env->CallIntMethod(vertexLL, id_ArrayList_size);
+    int lenEdge = env->CallIntMethod(edgeLL, id_ArrayList_size);
 
     // fill markID, which stored the landmark
 
     for(jint i = 0; i < lenMarkID; i++){
 
-        jlong start = env->CallLongMethod(markId, id_ArrayList_get, i);
-        //jlong jMarkIDUnit = env->CallLongMethod(start, longValue);
-        markID.insert(static_cast<int>(start));
+        jobject start = env->CallObjectMethod(markId, id_ArrayList_get, i);
+        jlong jMarkIDUnit = env->CallLongMethod(start, longValue);
+        markID.insert(static_cast<int>(jMarkIDUnit));
 
     }
 
-    int lenVertex = env->CallIntMethod(vertexLL, id_ArrayList_size);
+    //Init the Graph
+
+    int MarkIDCount = markID.size();
+    int *initVSet = new int [MarkIDCount];
+
+    int executeMark = 0;
+    for(auto mark : markID){
+        initVSet[executeMark] = mark;
+        executeMark++;
+    }
+
+    bool *AVCheckSet = new bool [vertexNumbers];
+    double *vValues = new double [vertexNumbers * MarkIDCount];
+
+    int *eSrcSet = new int [lenEdge];
+    int *eDstSet = new int [lenEdge];
+    double *eWeightSet = new double [lenEdge];
+
+    for(int i = 0; i < vertexNumbers; i++){
+        AVCheckSet[i]=false;
+        for(int j = 0; j < MarkIDCount; j++){
+            vValues[i * MarkIDCount + j] = (INT32_MAX >> 1);
+        }
+    }
+
 
     // fill vertices attributes
 
+    // extract vertices
     for (jint i = 0; i < lenVertex; i++) {
 
         jobject start = env->CallObjectMethod(vertexLL, id_ArrayList_get, i);
@@ -156,14 +216,32 @@ JNIEXPORT jobject JNICALL Java_edu_ustc_nodb_SSSP_GPUNative_GPUSSSP
         bool jVertexActive_get = env->CallBooleanMethod(start, id_VertexSet_ifActive);
         //bool jVertexActive_get = env->CallBooleanMethod(jVertexActive, boolValue);
 
-        //build active messages, which is used in graph constructor
-        if(jVertexActive_get) actMessageID.insert(static_cast<int>(jVertexId_get));
+        AVCheckSet[jVertexId_get]=jVertexActive_get;
 
         env->DeleteLocalRef(start);
         env->DeleteLocalRef(jVertexAttr);
     }
 
-    int lenEdge = env->CallIntMethod(edgeLL, id_ArrayList_size);
+    // fill array
+
+    for(int i = 0; i < vertexNumbers; i++){
+        auto itFind = vertices.find(i);
+        if(itFind != vertices.end()){
+            for(auto pairs : (*itFind).second){
+                int index = -1;
+                int j = 0;
+                while(j < MarkIDCount){
+                    if(initVSet[j] == pairs.first) {
+                        index = j;
+                        break;
+                    }
+                    j++;
+                }
+                if(index != -1)vValues[i * MarkIDCount + index] = pairs.second;
+            }
+        }
+    }
+
 
     // fill edges
 
@@ -171,70 +249,99 @@ JNIEXPORT jobject JNICALL Java_edu_ustc_nodb_SSSP_GPUNative_GPUSSSP
 
         jobject start = env->CallObjectMethod(edgeLL, id_ArrayList_get, i);
 
-        jlong jSrcId_get = env->CallLongMethod(start, id_EdgeSet_SrcId);
+        int jSrcId_get = env->CallLongMethod(start, id_EdgeSet_SrcId);
         //jlong SrcId_get = env->CallLongMethod(jSrcId, longValue);
-        jlong jDstId_get = env->CallLongMethod(start, id_EdgeSet_DstId);
+        int jDstId_get = env->CallLongMethod(start, id_EdgeSet_DstId);
         //jlong DstId_get = env->CallLongMethod(jDstId, longValue);
-        jdouble jAttr_get = env->CallDoubleMethod(start, id_EdgeSet_Attr);
+        double jAttr_get = env->CallDoubleMethod(start, id_EdgeSet_Attr);
         //jdouble Attr_get = env->CallDoubleMethod(jAttr, doubleValue);
 
-        edges.emplace_back(Edge(static_cast<int>(jSrcId_get), static_cast<int>(jDstId_get),jAttr_get));
+        eSrcSet[i]=jSrcId_get;
+        eDstSet[i]=jDstId_get;
+        eWeightSet[i]=jAttr_get;
 
         env->DeleteLocalRef(start);
     }
 
-    /*
+/*
     // test for multithreading environment
     std::string output = std::string();
 
-    for(auto ou : vertices){
-        output += std::to_string(ou.first) + ": ";
-        for(auto ov : ou.second){
-            if(ov.second>114514) ov.second = 114514;
-            output += "["+std::to_string(ov.first)+"->"+std::to_string(ov.second)+"] ";
+    for(int i = 0;i< vertexNumbers;i++){
+        output += to_string(i) + ": {";
+        for(int j = 0;j<MarkIDCount;j++){
+            output += " [" + to_string(initVSet[j])+": "+to_string(vValues[i * MarkIDCount + j]) + "] ";
         }
+        output += "}";
     }
 
     std::cout<<output<<std::endl;
 
     output.clear();
     // test end
-    */
 
-    // execute the sssp
-
-    Graph g = Graph(vertexNumbers, vertices, edges, actMessageID, markID);
-
-    BellmanFord executor = BellmanFord();
-
-    // deployment in CPU version is unnecessary
-    executor.Deploy(g, static_cast<int>(markID.size()));
-
-    // main SSSP step (CPU version) (time consume counting)
+*/
     //auto startTime = std::chrono::high_resolution_clock::now();
-    executor.ApplyStep(g, actMessageID);
+
+    // execute sssp using GPU in server-client mode
+    UtilClient execute = UtilClient(vertexNumbers, lenEdge, MarkIDCount, partitionID);
+
+    int chk = 0;
+
+    chk = execute.connect();
+    if (chk == -1)
+    {
+        throwIllegalArgument(env, "Cannot establish the connection with server correctly");
+    }
+
+
+    chk = execute.transfer(vValues, eSrcSet, eDstSet, eWeightSet, AVCheckSet, initVSet);
+
+
+    if(chk == -1)
+    {
+        throwIllegalArgument(env, "Cannot establish the connection with server correctly");
+    }
+
+    chk = execute.update(vValues, AVCheckSet);
+
+
+    if(chk == -1)
+    {
+        throwIllegalArgument(env, "Cannot establish the connection with server correctly");
+    }
+
+    execute.request();
+
+    //Collect data
+    for(int j = 0; j < vertexNumbers * MarkIDCount; j++)
+    {
+        if (execute.vValues[j] < vValues[j])
+            vValues[j] = execute.vValues[j];
+    }
+
+    for(int j = 0; j < vertexNumbers; j++)
+        AVCheckSet[j] = false | execute.AVCheckSet[j];
+
+
+    execute.disconnect();
+
     //std::chrono::nanoseconds duration = std::chrono::high_resolution_clock::now() - startTime;
     //std::cout<<"time: "<<duration.count()<<std::endl;
 
-    //after executing, package the vertex information
-
-    //int sizeReturned = static_cast<int>(actMessageID.size());
-
     jobject vertexSubModified = env->NewObject(c_ArrayBuffer, ArrayBufferConstructor);
 
-    for (const auto &it : g.vList) {
+    for(int i = 0; i < vertexNumbers; i++){
 
-        //only pass the modified attr
-        if(it.isActive){
+        if(AVCheckSet[i]){
 
-            jlong messageVid = it.vertexID;
-            jboolean messageActive = it.isActive;
+            jlong messageVid = i;
+            jboolean messageActive = true;
             jobject messageUnit = env->NewObject(n_VertexSet, VertexSetConstructor, messageVid, messageActive);
 
-            //using the inner method of VertexSet to add vertices active messages
-            for (auto inner : it.value) {
-                jlong messageDstId = inner.first;
-                jdouble messageDist = inner.second;
+            for (int j = 0; j < MarkIDCount; j++) {
+                jlong messageDstId = initVSet[j];
+                jdouble messageDist = vValues[i * MarkIDCount + j];
                 env->CallObjectMethod(messageUnit, id_VertexSet_addAttr, messageDstId, messageDist);
             }
 
@@ -246,10 +353,23 @@ JNIEXPORT jobject JNICALL Java_edu_ustc_nodb_SSSP_GPUNative_GPUSSSP
             env->DeleteLocalRef(messageUnit);
             env->DeleteLocalRef(TupleUnit);
         }
-
     }
 
-    // free in CPU version is unnecessary
-    executor.Free(g);
     return vertexSubModified;
+}
+
+// server shutdown
+
+JNIEXPORT jboolean JNICALL Java_edu_ustc_nodb_SSSP_GPUNative_GPUServerShutdown
+  (JNIEnv * env, jobject superClass, jint pid){
+    UtilClient control = UtilClient(0, 0, 0, pid);
+
+    int chk = control.connect();
+    if (chk == -1)
+    {
+        throwIllegalArgument(env, "Cannot establish the connection with server correctly");
+    }
+
+    control.shutdown();
+    return true;
 }

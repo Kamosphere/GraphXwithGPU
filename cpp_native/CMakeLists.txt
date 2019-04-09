@@ -41,5 +41,9 @@ add_library(GPUSSSP SHARED
         edu_ustc_nodb_SSSP_GPUNative.cpp)
 
 
-target_link_libraries(GPUSSSP algo_BellmanFord algo_BellmanFordGPU)
+target_link_libraries(GPUSSSP
+        algo_BellmanFord
+        algo_BellmanFordGPU
+        srv_UtilServer
+        srv_UtilClient)
 

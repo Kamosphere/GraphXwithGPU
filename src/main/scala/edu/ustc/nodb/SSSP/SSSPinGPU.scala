@@ -2,7 +2,7 @@ package edu.ustc.nodb.SSSP
 
 import java.util
 
-import org.apache.spark.SparkConf
+import org.apache.spark.{SparkConf, TaskContext}
 import org.apache.spark.broadcast.Broadcast
 import org.apache.spark.graphx._
 import org.apache.spark.rdd.RDD
@@ -18,6 +18,7 @@ object SSSPinGPU{
   // mutable.map stored the pairs of nearest distance from landmark
   type SPMapWithActive = (Boolean, mutable.Map[VertexId, Double])
 
+  // run the SSSP based on Pregel structure
   def run(graph: Graph[VertexId,Double],
           allSource: Broadcast[List[VertexId]],
           vertexNumbers: Long,
@@ -53,7 +54,7 @@ object SSSPinGPU{
 
     // run the first main SSSP process
     // algorithm should run at least once
-    var modifiedSubgraph : RDD[(VertexId, SPMapWithActive)] = g.triplets.mapPartitions(iter => {
+    var modifiedSubgraph : RDD[(VertexId, SPMapWithActive)] = g.triplets.mapPartitionsWithIndex((pid, iter) => {
 
       // collect the VertexSet and EdgeSet
       val partitionVertexTemp = new util.ArrayList[VertexSet](preSize)
@@ -99,10 +100,17 @@ object SSSPinGPU{
       }
 
       val Process = new GPUNative
-      val results : ArrayBuffer[(VertexId, SPMapWithActive)] = Process.GPUProcess(
-        partitionVertexTemp, partitionEdgeTemp, allSource, vertexNumbers)
+      var envInit : Boolean = false
 
+      while(! envInit){
+        envInit = Process.GPUInit(vertexNumbers.toInt,
+          partitionEdgeTemp.size(), allSource, pid)
+      }
+
+      val results : ArrayBuffer[(VertexId, SPMapWithActive)] = Process.GPUProcess(
+        partitionVertexTemp, partitionEdgeTemp, allSource, vertexNumbers, pid)
       results.iterator
+
     }).cache()
 
     /*
@@ -146,7 +154,7 @@ object SSSPinGPU{
       //run the main SSSP process
 
       //val startNew = System.nanoTime()
-      modifiedSubgraph = g.triplets.mapPartitions(iter => {
+      modifiedSubgraph = g.triplets.mapPartitionsWithIndex((pid, iter) => {
 
         // collect the VertexSet and EdgeSet
         val partitionVertexTemp = new util.ArrayList[VertexSet](preSize)
@@ -193,7 +201,7 @@ object SSSPinGPU{
 
         val Process = new GPUNative
         val results : ArrayBuffer[(VertexId, SPMapWithActive)] = Process.GPUProcess(
-          partitionVertexTemp, partitionEdgeTemp, allSource, vertexNumbers)
+          partitionVertexTemp, partitionEdgeTemp, allSource, vertexNumbers, pid)
         results.iterator
       }).cache()
 
@@ -232,9 +240,20 @@ object SSSPinGPU{
       }
       (b,result)
     })
-
     modifiedSubgraph.unpersist(blocking = false)
     g
+  }
+
+  // after running algorithm, close the server
+  def close(Graph: Graph[SPMapWithActive, Double]):Unit = {
+    Graph.vertices.foreachPartition(g=>{
+      val Process = new GPUNative
+      var envInit : Boolean = false
+      val pid = TaskContext.getPartitionId()
+      while(! envInit){
+        envInit = Process.GPUShutdown(pid)
+      }
+    })
   }
 }
 
