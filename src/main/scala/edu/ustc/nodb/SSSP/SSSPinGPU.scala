@@ -22,13 +22,15 @@ object SSSPinGPU{
   def run(graph: Graph[VertexId,Double],
           allSource: Broadcast[List[VertexId]],
           vertexNumbers: Long,
+          edgeNumbers: Long,
           parts: Int,
           maxIterations: Int = Int.MaxValue)
   : Graph[SPMapWithActive, Double] = {
 
     // vertexNumbers stands for the quantity of vertices in the whole graph
     // Assuming the graph is in equal distribution, preSize and preMap is used to avoid allocation arraycopy
-    val preSize : Int = (vertexNumbers.toInt/parts)+((vertexNumbers.toInt/parts)>>1)
+    val preVertexSize : Int = (vertexNumbers.toInt/parts)+((vertexNumbers.toInt/parts)>>1)
+    val preEdgeSize : Int = (edgeNumbers.toInt/parts)+((edgeNumbers.toInt/parts)>>1)
     val preMap : Int = allSource.value.length+1
 
     // initiate the graph
@@ -57,8 +59,9 @@ object SSSPinGPU{
     var modifiedSubgraph : RDD[(VertexId, SPMapWithActive)] = g.triplets.mapPartitionsWithIndex((pid, iter) => {
 
       // collect the VertexSet and EdgeSet
-      val partitionVertexTemp = new util.ArrayList[VertexSet](preSize)
-      val partitionEdgeTemp = new util.ArrayList[EdgeSet](preSize)
+      val partitionVertexTemp = new util.ArrayList[VertexSet](preVertexSize)
+      val partitionEdgeTemp = new util.ArrayList[EdgeSet](preEdgeSize)
+      val sourceList = allSource.value.toArray
 
       // used to remove the abundant vertices
       val VertexNumList = new util.HashSet[Long]
@@ -67,7 +70,7 @@ object SSSPinGPU{
       var tempSrcVertex : VertexSet = null
       var tempDstVertex : VertexSet = null
       var tempEdge : EdgeSet = null
-
+      val startNew = System.nanoTime()
       while(iter.hasNext){
 
         temp = iter.next()
@@ -104,11 +107,11 @@ object SSSPinGPU{
 
       while(! envInit){
         envInit = Process.GPUInit(vertexNumbers.toInt,
-          partitionEdgeTemp.size(), allSource, pid)
+          partitionEdgeTemp.size(), sourceList.length, pid)
       }
 
       val results : ArrayBuffer[(VertexId, SPMapWithActive)] = Process.GPUProcess(
-        partitionVertexTemp, partitionEdgeTemp, allSource, vertexNumbers, pid)
+        partitionVertexTemp, partitionEdgeTemp, sourceList, vertexNumbers, pid)
       results.iterator
 
     }).cache()
@@ -157,8 +160,9 @@ object SSSPinGPU{
       modifiedSubgraph = g.triplets.mapPartitionsWithIndex((pid, iter) => {
 
         // collect the VertexSet and EdgeSet
-        val partitionVertexTemp = new util.ArrayList[VertexSet](preSize)
-        val partitionEdgeTemp = new util.ArrayList[EdgeSet](preSize)
+        val partitionVertexTemp = new util.ArrayList[VertexSet](preVertexSize)
+        val partitionEdgeTemp = new util.ArrayList[EdgeSet](preEdgeSize)
+        val sourceList = allSource.value.toArray
 
         // used to remove the abundant vertices
         val VertexNumList = new util.HashSet[Long]
@@ -201,7 +205,7 @@ object SSSPinGPU{
 
         val Process = new GPUNative
         val results : ArrayBuffer[(VertexId, SPMapWithActive)] = Process.GPUProcess(
-          partitionVertexTemp, partitionEdgeTemp, allSource, vertexNumbers, pid)
+          partitionVertexTemp, partitionEdgeTemp, sourceList, vertexNumbers, pid)
         results.iterator
       }).cache()
 

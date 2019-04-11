@@ -34,16 +34,18 @@ class GPUNative extends Serializable {
   // execute SSSP algorithm
   def GPUProcess(partitionVertex: util.ArrayList[VertexSet],
                  partitionEdge: util.ArrayList[EdgeSet],
-                 allSource: Broadcast[List[VertexId]],
+                 allSource: Array[VertexId],
                  vertexNumbers: Long,
                  pid: Int)
   : ArrayBuffer[(VertexId, SPMapWithActive)] = {
 
     //initialize the source id array
-    val sourceId = new util.ArrayList[Long](allSource.value.length+(allSource.value.length>>1))
-    for(unit <- allSource.value){
+    val sourceDistinctOrdered = ArrayBuffer(allSource:_*).distinct.sorted
+    val sourceId = new util.ArrayList[Long](allSource.length+(allSource.length>>1))
+    for(unit <- sourceDistinctOrdered){
       sourceId.add(unit)
     }
+
     System.loadLibrary("GPUSSSP")
 
     //pass them through JNI and get arrayBuffer back
@@ -53,12 +55,14 @@ class GPUNative extends Serializable {
   }
 
   // before executing, run the server first
-  def GPUInit(vertexCount: Int, EdgeCount: Int, allSource: Broadcast[List[VertexId]], pid :Int):Boolean = {
+  def GPUInit(vertexCount: Int, EdgeCount: Int, sourceAmount: Int, pid :Int):Boolean = {
 
-    val sourceAmount = allSource.value.length
     val runningScript = "./cpp_native/build/bin/srv_UtilServerTest_BellmanFordGPU " + vertexCount.toString + " " + EdgeCount.toString + " " + sourceAmount.toString + " " + pid.toString
 
     Process(runningScript).run()
+
+    // too quickly for cuda init
+    Thread.sleep(2000)
 
     true
   }

@@ -67,7 +67,8 @@ object MainSSSP{
     val allSourceList = sc.broadcast(sourceList)
 
     // the quantity of vertices in the whole graph
-    val vertexNumbers : java.lang.Long = graph.vertices.count()
+    val vertexNumbers = graph.vertices.count()
+    val edgeNumbers = graph.edges.count()
 
     val startNormal = System.nanoTime()
     val ssspTest = new PregelSparkSSSP(graph, allSourceList)
@@ -79,7 +80,7 @@ object MainSSSP{
     println("-------------------------")
 
     val startNew = System.nanoTime()
-    val ssspGPUResult = SSSPinGPU.run(graph, allSourceList, vertexNumbers, parts.get)
+    val ssspGPUResult = SSSPinGPU.run(graph, allSourceList, vertexNumbers, edgeNumbers, parts.get)
     //val q = ssspGPUResult.vertices.count()
     println(ssspGPUResult.vertices.collect.mkString("\n"))
     val endNew = System.nanoTime()
