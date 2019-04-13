@@ -21,50 +21,65 @@ class GPUNative extends Serializable {
 
   // native function to execute SSSP algorithm
   @native def GPUClientSSSP(vertexNumber: Long,
-                      VertexSets: util.ArrayList[VertexSet],
-                      EdgeSets: util.ArrayList[EdgeSet],
-                      sourceId: util.ArrayList[Long],
-                      pid:Int)
+                            VertexSets: util.ArrayList[VertexSet],
+                            edgeSize: Int,
+                            markIdSize: Int,
+                            pid:Int)
   : ArrayBuffer[(VertexId, SPMapWithActive)]
 
   // native function to close server
   @native def GPUServerShutdown(pid: Int)
   : Boolean
 
+  // native function to init the edge
+  @native def GPUServerInit(vertexNumber: Long,
+                            EdgeSets: util.ArrayList[EdgeSet],
+                            sourceId: util.ArrayList[Long],
+                            pid:Int)
+  : Boolean
+
   // execute SSSP algorithm
   def GPUProcess(partitionVertex: util.ArrayList[VertexSet],
-                 partitionEdge: util.ArrayList[EdgeSet],
-                 allSource: Array[VertexId],
                  vertexNumbers: Long,
+                 edgeSize: Int,
+                 sourceAmount: Int,
                  pid: Int)
   : ArrayBuffer[(VertexId, SPMapWithActive)] = {
 
-    //initialize the source id array
-    val sourceDistinctOrdered = ArrayBuffer(allSource:_*).distinct.sorted
-    val sourceId = new util.ArrayList[Long](allSource.length+(allSource.length>>1))
-    for(unit <- sourceDistinctOrdered){
-      sourceId.add(unit)
-    }
-
     System.loadLibrary("GPUSSSP")
 
-    //pass them through JNI and get arrayBuffer back
-    val result = GPUClientSSSP(vertexNumbers, partitionVertex, partitionEdge, sourceId ,pid)
+    //pass vertices through JNI and get arrayBuffer back
+    val result = GPUClientSSSP(vertexNumbers, partitionVertex, edgeSize, sourceAmount, pid)
 
     result
   }
 
   // before executing, run the server first
-  def GPUInit(vertexCount: Int, EdgeCount: Int, sourceAmount: Int, pid :Int):Boolean = {
+  def GPUInit(vertexCount: Long, Edge: util.ArrayList[EdgeSet], sourceList: Array[VertexId], pid :Int):Boolean = {
 
-    val runningScript = "./cpp_native/build/bin/srv_UtilServerTest_BellmanFordGPU " + vertexCount.toString + " " + EdgeCount.toString + " " + sourceAmount.toString + " " + pid.toString
+    val runningScript =
+      "./cpp_native/build/bin/srv_UtilServerTest_BellmanFordGPU " + vertexCount.toString +
+        " " + Edge.size().toString + " " + sourceList.length.toString + " " + pid.toString
 
     Process(runningScript).run()
 
     // too quickly for cuda init
     Thread.sleep(2000)
 
-    true
+    System.loadLibrary("GPUSSSP")
+
+    //initialize the source id array
+    val sourceDistinctOrdered = ArrayBuffer(sourceList:_*).distinct.sorted
+    val sourceId = new util.ArrayList[Long](sourceList.length+(sourceList.length>>1))
+    for(unit <- sourceDistinctOrdered){
+      sourceId.add(unit)
+    }
+
+    // if not success, it will run again outside
+    val result = GPUServerInit(vertexCount, Edge, sourceId, pid)
+
+    result
+
   }
 
   // after executing, close the server and release the shared memory
