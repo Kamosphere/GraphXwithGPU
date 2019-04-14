@@ -67,32 +67,32 @@ JNIEXPORT jboolean JNICALL Java_edu_ustc_nodb_SSSP_GPUNative_GPUServerInit
     int vertexNumbers = static_cast<int>(vertexNum);
     int partitionID = static_cast<int>(pid);
 
+    //Init the Graph with blank vertices
+
+    vector<Vertex> vertices = vector<Vertex>();
+    double *vValues = new double [vertexNumbers * lenMarkID];
+
+    vector<Edge> edges = vector<Edge>();
+
+    for(int i = 0; i < vertexNumbers; i++){
+        vertices.emplace_back(Vertex(i, false, INVALID_INITV_INDEX));
+        for(int j = 0; j < lenMarkID; j++){
+            vValues[i * lenMarkID + j] = (INT32_MAX >> 1);
+        }
+    }
+
     // fill markID, which stored the landmark
 
     int *initVSet = new int [lenMarkID];
 
-    for(jint i = 0; i < lenMarkID; i++){
+    for(int i = 0; i < lenMarkID; i++){
 
         jobject start = env->CallObjectMethod(markId, id_ArrayList_get, i);
         jlong jMarkIDUnit = env->CallLongMethod(start, longValue);
+        vertices.at(jMarkIDUnit).initVIndex = i;
         initVSet[i] = jMarkIDUnit;
 
-    }
-
-    //Init the Graph with blank vertices
-
-    bool *AVCheckSet = new bool [vertexNumbers];
-    double *vValues = new double [vertexNumbers * lenMarkID];
-
-    int *eSrcSet = new int [lenEdge];
-    int *eDstSet = new int [lenEdge];
-    double *eWeightSet = new double [lenEdge];
-
-    for(int i = 0; i < vertexNumbers; i++){
-        AVCheckSet[i]=false;
-        for(int j = 0; j < lenMarkID; j++){
-            vValues[i * lenMarkID + j] = (INT32_MAX >> 1);
-        }
+        env->DeleteLocalRef(start);
     }
 
     // Init the Graph with existed edges
@@ -108,9 +108,7 @@ JNIEXPORT jboolean JNICALL Java_edu_ustc_nodb_SSSP_GPUNative_GPUServerInit
         double jAttr_get = env->CallDoubleMethod(start, id_EdgeSet_Attr);
         //jdouble Attr_get = env->CallDoubleMethod(jAttr, doubleValue);
 
-        eSrcSet[i]=jSrcId_get;
-        eDstSet[i]=jDstId_get;
-        eWeightSet[i]=jAttr_get;
+        edges.emplace_back(Edge(jSrcId_get, jDstId_get, jAttr_get));
 
         env->DeleteLocalRef(start);
     }
@@ -125,7 +123,7 @@ JNIEXPORT jboolean JNICALL Java_edu_ustc_nodb_SSSP_GPUNative_GPUServerInit
         return false;
     }
 
-    chk = execute.transfer(vValues, eSrcSet, eDstSet, eWeightSet, AVCheckSet, initVSet);
+    chk = execute.transfer(vValues, &vertices[0], &edges[0], initVSet);
 
     if(chk == -1){
         throwIllegalArgument(env, "Cannot establish the connection with server correctly");
@@ -204,19 +202,23 @@ JNIEXPORT jobject JNICALL Java_edu_ustc_nodb_SSSP_GPUNative_GPUClientSSSP
 
     //Init the vertices
 
-    bool *AVCheckSet = new bool [vertexNumbers];
+    vector<Vertex> vertices = vector<Vertex>();
     double *vValues = new double [vertexNumbers * lenMarkID];
 
     for(int i = 0; i < vertexNumbers; i++){
-        AVCheckSet[i]=false;
+        vertices.emplace_back(Vertex(i, false, INVALID_INITV_INDEX));
         for(int j = 0; j < lenMarkID; j++){
             vValues[i * lenMarkID + j] = (INT32_MAX >> 1);
         }
     }
 
+    for(jint i = 0; i < lenMarkID; i++){
+        vertices.at(execute.initVSet[i]).initVIndex = i;
+    }
+
     // fill vertices attributes
 
-    for (jint i = 0; i < lenVertex; i++) {
+    for (int i = 0; i < lenVertex; i++) {
 
         jobject start = env->CallObjectMethod(vertexLL, id_ArrayList_get, i);
         // jlong sig = env->CallStaticLongMethod(n_sztool, id_getSize, vertexLL);
@@ -239,16 +241,9 @@ JNIEXPORT jobject JNICALL Java_edu_ustc_nodb_SSSP_GPUNative_GPUClientSSSP
             int jVid = static_cast<int>(env->CallLongMethod(key, longValue)) ;
             double jDis = env->CallDoubleMethod(value, doubleValue);
 
-            int index = -1;
-            int j = 0;
-            while(j < lenMarkID){
-                if(execute.initVSet[j] == jVid) {
-                    index = j;
-                    break;
-                }
-                j++;
-            }
-            if(index != -1)vValues[jVertexId_get * lenMarkID + index] = jDis;
+            int index = vertices.at(jVid).initVIndex;
+
+            if(index != INVALID_INITV_INDEX)vValues[jVertexId_get * lenMarkID + index] = jDis;
 
             HasNext = (bool) env->CallBooleanMethod(obj_Iterator, id_hasNext);
 
@@ -261,9 +256,8 @@ JNIEXPORT jobject JNICALL Java_edu_ustc_nodb_SSSP_GPUNative_GPUClientSSSP
         env->DeleteLocalRef(obj_EntrySet);
 
         bool jVertexActive_get = env->CallBooleanMethod(start, id_VertexSet_ifActive);
-        //bool jVertexActive_get = env->CallBooleanMethod(jVertexActive, boolValue);
 
-        AVCheckSet[jVertexId_get]=jVertexActive_get;
+        vertices.at(jVertexId_get).isActive = jVertexActive_get;
 
         env->DeleteLocalRef(start);
         env->DeleteLocalRef(jVertexAttr);
@@ -291,7 +285,7 @@ JNIEXPORT jobject JNICALL Java_edu_ustc_nodb_SSSP_GPUNative_GPUClientSSSP
 
     // execute sssp using GPU in server-client mode
 
-    chk = execute.update(vValues, AVCheckSet);
+    chk = execute.update(vValues, &vertices[0]);
 
     if(chk == -1){
         throwIllegalArgument(env, "Cannot establish the connection with server correctly");
@@ -299,23 +293,13 @@ JNIEXPORT jobject JNICALL Java_edu_ustc_nodb_SSSP_GPUNative_GPUClientSSSP
 
     execute.request();
 
-    //Collect data
-    for(int j = 0; j < vertexNumbers * lenMarkID; j++){
-        if (execute.vValues[j] < vValues[j])
-            vValues[j] = execute.vValues[j];
-    }
-
-    for(int j = 0; j < vertexNumbers; j++){
-        AVCheckSet[j] = false | execute.AVCheckSet[j];
-    }
-
     //std::chrono::nanoseconds duration = std::chrono::high_resolution_clock::now() - startTime;
 
     jobject vertexSubModified = env->NewObject(c_ArrayBuffer, ArrayBufferConstructor);
 
     for(int i = 0; i < vertexNumbers; i++){
 
-        if(AVCheckSet[i]){
+        if(false | execute.vSet[i].isActive){
 
             jlong messageVid = i;
             jboolean messageActive = true;
@@ -324,7 +308,7 @@ JNIEXPORT jobject JNICALL Java_edu_ustc_nodb_SSSP_GPUNative_GPUClientSSSP
             for (int j = 0; j < lenMarkID; j++) {
 
                 jlong messageDstId = execute.initVSet[j];
-                jdouble messageDist = vValues[i * lenMarkID + j];
+                jdouble messageDist = execute.vValues[i * lenMarkID + j];
                 env->CallObjectMethod(messageUnit, id_VertexSet_addAttr, messageDstId, messageDist);
 
             }
