@@ -43,9 +43,9 @@ class GPUNative extends Serializable {
   : Boolean
 
   // execute SSSP algorithm
-  def GPUProcess(VertexID: ArrayBuffer[Long],
-                 VertexActive: ArrayBuffer[Boolean],
-                 VertexAttr: ArrayBuffer[Double],
+  def GPUProcess(VertexID: Array[Long],
+                 VertexActive: Array[Boolean],
+                 VertexAttr: Array[Double],
                  vertexNumbers: Long,
                  edgeSize: Int,
                  sourceAmount: Int,
@@ -56,7 +56,7 @@ class GPUNative extends Serializable {
 
     //pass vertices through JNI and get arrayBuffer back
     val result = GPUClientSSSP(vertexNumbers,
-      VertexID.toArray, VertexActive.toArray, VertexAttr.toArray,
+      VertexID, VertexActive, VertexAttr,
       edgeSize, sourceAmount, pid)
 
     result
@@ -64,9 +64,9 @@ class GPUNative extends Serializable {
 
   // before executing, run the server first
   def GPUInit(vertexCount: Long,
-              EdgeSrc: ArrayBuffer[VertexId],
-              EdgeDst: ArrayBuffer[VertexId],
-              EdgeAttr: ArrayBuffer[Double],
+              EdgeSrc: Array[VertexId],
+              EdgeDst: Array[VertexId],
+              EdgeAttr: Array[Double],
               sourceList: Array[VertexId],
               pid :Int):Boolean = {
 
@@ -77,11 +77,7 @@ class GPUNative extends Serializable {
     Process(runningScript).run()
 
     // too quickly for cuda init
-    Thread.sleep(1000)
-
-    val edgeSrcT = EdgeSrc.toArray
-    val edgeDstT = EdgeDst.toArray
-    val edgeAttrT = EdgeAttr.toArray
+    Thread.sleep(100)
 
     System.loadLibrary("GPUSSSP")
 
@@ -93,7 +89,7 @@ class GPUNative extends Serializable {
     }
 
     // if not success, it will run again outside
-    val result = GPUServerInit(vertexCount, edgeSrcT, edgeDstT, edgeAttrT, sourceId, pid)
+    val result = GPUServerInit(vertexCount, EdgeSrc, EdgeDst, EdgeAttr, sourceId, pid)
 
     result
 

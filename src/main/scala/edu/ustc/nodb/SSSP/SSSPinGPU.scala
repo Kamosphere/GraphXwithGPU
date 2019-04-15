@@ -29,8 +29,6 @@ object SSSPinGPU{
 
     // vertexNumbers stands for the quantity of vertices in the whole graph
     // Assuming the graph is in equal distribution, preSize and preMap is used to avoid allocation arraycopy
-    val preVertexSize : Int = (vertexNumbers.toInt/parts)+((vertexNumbers.toInt/parts)>>1)
-    val preEdgeSize : Int = (edgeNumbers.toInt/parts)+((edgeNumbers.toInt/parts)>>1)
     val preMap : Int = allSource.value.length+1
 
     // initiate the graph
@@ -52,20 +50,44 @@ object SSSPinGPU{
 
     var g = spGraph
 
+    val partitionSplit = g.triplets.mapPartitionsWithIndex((pid, iter) => {
+      var EdgeNum = 0
+      var VertexNum = 0
+      val VertexNumList = new util.HashSet[Long]
+      var temp : EdgeTriplet[SPMapWithActive,Double] = null
+
+      while(iter.hasNext){
+        temp = iter.next()
+        EdgeNum = EdgeNum + 1
+        if(! VertexNumList.contains(temp.srcId)){
+          VertexNumList.add(temp.srcId)
+          VertexNum = VertexNum + 1
+        }
+        if(! VertexNumList.contains(temp.dstId)){
+          VertexNumList.add(temp.dstId)
+          VertexNum = VertexNum + 1
+        }
+      }
+      Iterator((pid, (VertexNum, EdgeNum)))
+    }).collectAsMap()
+
     // run the first main SSSP process
     // algorithm should run at least once
     var modifiedSubGraph : RDD[(VertexId, SPMapWithActive)] = g.triplets.mapPartitionsWithIndex((pid, iter) => {
 
       // collect the VertexSet and EdgeSet
       //val partitionVertexTemp = new util.ArrayList[VertexSet](preVertexSize)
+      val preParameter = partitionSplit.get(pid)
+      val preVertexLength = preParameter.get._1
+      val preEdgeLength = preParameter.get._2
 
-      val pVertexIDTemp = new ArrayBuffer[Long](preVertexSize)
-      val pVertexActiveTemp = new ArrayBuffer[Boolean](preVertexSize)
-      val pVertexAttrTemp = new ArrayBuffer[Double](preVertexSize * preMap)
+      val pVertexIDTemp = new Array[Long](preVertexLength)
+      val pVertexActiveTemp = new Array[Boolean](preVertexLength)
+      val pVertexAttrTemp = new Array[Double](preVertexLength * preMap)
 
-      val pEdgeSrcIDTemp = new ArrayBuffer[Long](preEdgeSize)
-      val pEdgeDstIDTemp = new ArrayBuffer[Long](preEdgeSize)
-      val pEdgeAttrTemp = new ArrayBuffer[Double](preEdgeSize)
+      val pEdgeSrcIDTemp = new Array[Long](preEdgeLength)
+      val pEdgeDstIDTemp = new Array[Long](preEdgeLength)
+      val pEdgeAttrTemp = new Array[Double](preEdgeLength)
 
       //val partitionEdgeTemp = new util.ArrayList[EdgeSet](preEdgeSize)
       val sourceList = allSource.value.toArray
@@ -74,18 +96,22 @@ object SSSPinGPU{
       val VertexNumList = new util.HashSet[Long]
 
       var temp : EdgeTriplet[SPMapWithActive,Double] = null
+      var VertexIndex = 0
+      var EdgeIndex = 0
 
       while(iter.hasNext){
 
         temp = iter.next()
 
-        pEdgeSrcIDTemp.+=(temp.srcId)
-        pEdgeDstIDTemp.+=(temp.dstId)
-        pEdgeAttrTemp.+=(temp.attr)
+        pEdgeSrcIDTemp(EdgeIndex)=temp.srcId
+        pEdgeDstIDTemp(EdgeIndex)=temp.dstId
+        pEdgeAttrTemp(EdgeIndex)=temp.attr
+
+        EdgeIndex = EdgeIndex + 1
 
         if(! VertexNumList.contains(temp.srcId)){
-          pVertexIDTemp.+=(temp.srcId)
-          pVertexActiveTemp.+=(temp.srcAttr._1)
+          pVertexIDTemp(VertexIndex)=temp.srcId
+          pVertexActiveTemp(VertexIndex)=temp.srcAttr._1
           VertexNumList.add(temp.srcId)
 
           val settingArray = new Array[Double](preMap)
@@ -94,13 +120,13 @@ object SSSPinGPU{
             settingArray(part)=values
           }
           for(part <- 0 until (preMap - 1)){
-            pVertexAttrTemp.+=(settingArray(part))
+            pVertexAttrTemp(VertexIndex * (preMap - 1) + part) = settingArray(part)
           }
-
+          VertexIndex = VertexIndex + 1
         }
         if(! VertexNumList.contains(temp.dstId)){
-          pVertexIDTemp.+=(temp.dstId)
-          pVertexActiveTemp.+=(temp.dstAttr._1)
+          pVertexIDTemp(VertexIndex)=temp.dstId
+          pVertexActiveTemp(VertexIndex)=temp.dstAttr._1
           VertexNumList.add(temp.dstId)
 
           val settingArray = new Array[Double](preMap)
@@ -109,9 +135,9 @@ object SSSPinGPU{
             settingArray(part)=values
           }
           for(part <- 0 until (preMap - 1)){
-            pVertexAttrTemp.+=(settingArray(part))
+            pVertexAttrTemp(VertexIndex * (preMap - 1) + part) = settingArray(part)
           }
-
+          VertexIndex = VertexIndex + 1
         }
 
       }
@@ -173,27 +199,31 @@ object SSSPinGPU{
 
       modifiedSubGraph = g.triplets.mapPartitionsWithIndex((pid, iter) => {
 
+        val preParameter = partitionSplit.get(pid)
+        val preVertexLength = preParameter.get._1
+
         // collect the VertexSet
-        val pVertexIDTemp = new ArrayBuffer[Long](preVertexSize)
-        val pVertexActiveTemp = new ArrayBuffer[Boolean](preVertexSize)
-        val pVertexAttrTemp = new ArrayBuffer[Double](preVertexSize * preMap)
+        val pVertexIDTemp = new Array[Long](preVertexLength)
+        val pVertexActiveTemp = new Array[Boolean](preVertexLength)
+        val pVertexAttrTemp = new Array[Double](preVertexLength * preMap)
         val sourceList = allSource.value.toArray
 
         // used to remove the abundant vertices
         val VertexNumList = new util.HashSet[Long]
 
         var temp : EdgeTriplet[SPMapWithActive,Double] = null
-        var edgeSize = 0
+        var VertexIndex = 0
+        var EdgeIndex = 0
 
         while(iter.hasNext){
 
           temp = iter.next()
 
-          edgeSize = edgeSize + 1
+          EdgeIndex = EdgeIndex + 1
 
           if(! VertexNumList.contains(temp.srcId)){
-            pVertexIDTemp.+=(temp.srcId)
-            pVertexActiveTemp.+=(temp.srcAttr._1)
+            pVertexIDTemp(VertexIndex)=temp.srcId
+            pVertexActiveTemp(VertexIndex)=temp.srcAttr._1
             VertexNumList.add(temp.srcId)
 
             val settingArray = new Array[Double](preMap)
@@ -202,13 +232,13 @@ object SSSPinGPU{
               settingArray(part)=values
             }
             for(part <- 0 until (preMap - 1)){
-              pVertexAttrTemp.+=(settingArray(part))
+              pVertexAttrTemp(VertexIndex * (preMap - 1) + part) = settingArray(part)
             }
-
+            VertexIndex = VertexIndex + 1
           }
           if(! VertexNumList.contains(temp.dstId)){
-            pVertexIDTemp.+=(temp.dstId)
-            pVertexActiveTemp.+=(temp.dstAttr._1)
+            pVertexIDTemp(VertexIndex)=temp.dstId
+            pVertexActiveTemp(VertexIndex)=temp.dstAttr._1
             VertexNumList.add(temp.dstId)
 
             val settingArray = new Array[Double](preMap)
@@ -217,16 +247,16 @@ object SSSPinGPU{
               settingArray(part)=values
             }
             for(part <- 0 until (preMap - 1)){
-              pVertexAttrTemp.+=(settingArray(part))
+              pVertexAttrTemp(VertexIndex * (preMap - 1) + part) = settingArray(part)
             }
-
+            VertexIndex = VertexIndex + 1
           }
-
+          
         }
 
         val Process = new GPUNative
         val results : ArrayBuffer[(VertexId, SPMapWithActive)] = Process.GPUProcess(
-          pVertexIDTemp, pVertexActiveTemp, pVertexAttrTemp, vertexNumbers, edgeSize, sourceList.length, pid)
+          pVertexIDTemp, pVertexActiveTemp, pVertexAttrTemp, vertexNumbers, EdgeIndex, sourceList.length, pid)
         results.iterator
       }).cache()
 
