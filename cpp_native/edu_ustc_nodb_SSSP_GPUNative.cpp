@@ -45,7 +45,9 @@ jint throwIllegalArgument( JNIEnv *env, const char *message )
 // Init the edge and markID
 
 JNIEXPORT jboolean JNICALL Java_edu_ustc_nodb_SSSP_GPUNative_GPUServerInit
-        (JNIEnv * env, jobject superClass, jlong vertexNum, jobject edgeLL, jobject markId, jint pid){
+(JNIEnv * env, jobject superClass,
+        jlong vertexNum, jlongArray jEdgeSrc, jlongArray jEdgeDst, jdoubleArray jEdgeAttr,
+        jobject markId, jint pid){
 
     jclass c_Long = env->FindClass("java/lang/Long");
     jmethodID longValue = env->GetMethodID(c_Long, "longValue", "()J");
@@ -54,15 +56,10 @@ JNIEXPORT jboolean JNICALL Java_edu_ustc_nodb_SSSP_GPUNative_GPUServerInit
     jmethodID id_ArrayList_size = env->GetMethodID(c_ArrayList, "size", "()I");
     jmethodID id_ArrayList_get = env->GetMethodID(c_ArrayList, "get", "(I)Ljava/lang/Object;");
 
-    jclass n_EdgeSet = env->FindClass("edu/ustc/nodb/SSSP/EdgeSet");
-    jmethodID id_EdgeSet_SrcId = env->GetMethodID(n_EdgeSet, "SrcId", "()J");
-    jmethodID id_EdgeSet_DstId = env->GetMethodID(n_EdgeSet, "DstId", "()J");
-    jmethodID id_EdgeSet_Attr = env->GetMethodID(n_EdgeSet, "Attr", "()D");
-
     //---------Entity---------
 
     int lenMarkID = env->CallIntMethod(markId, id_ArrayList_size);
-    int lenEdge = env->CallIntMethod(edgeLL, id_ArrayList_size);
+    int lenEdge = env->GetArrayLength(jEdgeSrc);
 
     int vertexNumbers = static_cast<int>(vertexNum);
     int partitionID = static_cast<int>(pid);
@@ -97,20 +94,21 @@ JNIEXPORT jboolean JNICALL Java_edu_ustc_nodb_SSSP_GPUNative_GPUServerInit
 
     // Init the Graph with existed edges
 
-    for (jint i = 0; i < lenEdge; i++) {
+    long* EdgeSrcTemp = env->GetLongArrayElements(jEdgeSrc, nullptr);
+    long* EdgeDstTemp = env->GetLongArrayElements(jEdgeDst, nullptr);
+    double * EdgeAttrTemp = env->GetDoubleArrayElements(jEdgeAttr, nullptr);
 
-        jobject start = env->CallObjectMethod(edgeLL, id_ArrayList_get, i);
+    for (int i = 0; i < lenEdge; i++) {
 
-        int jSrcId_get = env->CallLongMethod(start, id_EdgeSet_SrcId);
+        int jSrcId_get = EdgeSrcTemp[i];
         //jlong SrcId_get = env->CallLongMethod(jSrcId, longValue);
-        int jDstId_get = env->CallLongMethod(start, id_EdgeSet_DstId);
+        int jDstId_get = EdgeDstTemp[i];
         //jlong DstId_get = env->CallLongMethod(jDstId, longValue);
-        double jAttr_get = env->CallDoubleMethod(start, id_EdgeSet_Attr);
+        double jAttr_get = EdgeAttrTemp[i];
         //jdouble Attr_get = env->CallDoubleMethod(jAttr, doubleValue);
 
         edges.emplace_back(Edge(jSrcId_get, jDstId_get, jAttr_get));
 
-        env->DeleteLocalRef(start);
     }
 
     UtilClient execute = UtilClient(vertexNumbers, lenEdge, lenMarkID, partitionID);
@@ -137,8 +135,9 @@ JNIEXPORT jboolean JNICALL Java_edu_ustc_nodb_SSSP_GPUNative_GPUServerInit
 
 
 JNIEXPORT jobject JNICALL Java_edu_ustc_nodb_SSSP_GPUNative_GPUClientSSSP
-  (JNIEnv * env, jobject superClass,
-          jlong vertexNum, jobject vertexLL, jint edgeLen, jint markIdLen, jint pid) {
+(JNIEnv * env, jobject superClass,
+        jlong vertexNum, jlongArray jVertexId, jbooleanArray jVertexActive, jdoubleArray jVertexAttr,
+        jint edgeLen, jint markIdLen, jint pid){
 
     jclass c_ArrayList = env->FindClass("java/util/ArrayList");
     jmethodID id_ArrayList_size = env->GetMethodID(c_ArrayList, "size", "()I");
@@ -198,7 +197,7 @@ JNIEXPORT jobject JNICALL Java_edu_ustc_nodb_SSSP_GPUNative_GPUClientSSSP
 
     // the quantity of vertices
 
-    int lenVertex = env->CallIntMethod(vertexLL, id_ArrayList_size);
+    int lenVertex = env->GetArrayLength(jVertexId);
 
     //Init the vertices
 
@@ -217,50 +216,26 @@ JNIEXPORT jobject JNICALL Java_edu_ustc_nodb_SSSP_GPUNative_GPUClientSSSP
     }
 
     // fill vertices attributes
+    long* VertexIDTemp = env->GetLongArrayElements(jVertexId, nullptr);
+    jboolean * VertexActiveTemp = env->GetBooleanArrayElements(jVertexActive, nullptr);
+    double* VertexAttrTemp = env->GetDoubleArrayElements(jVertexAttr, nullptr);
 
     for (int i = 0; i < lenVertex; i++) {
 
-        jobject start = env->CallObjectMethod(vertexLL, id_ArrayList_get, i);
         // jlong sig = env->CallStaticLongMethod(n_sztool, id_getSize, vertexLL);
 
-        jlong jVertexId_get = env->CallLongMethod(start, id_VertexSet_VertexId);
+        long jVertexId_get = VertexIDTemp[i];
 
-        jobject jVertexAttr = env->CallObjectMethod(start, id_VertexSet_Attr);
-
-        jobject obj_EntrySet = env->CallObjectMethod(jVertexAttr, id_attrArr_EntrySet);
-        jobject obj_Iterator = env->CallObjectMethod(obj_EntrySet, id_iterator);
-        bool HasNext = (bool) env->CallBooleanMethod(obj_Iterator, id_hasNext);
-
-        while (HasNext) {
-
-            jobject entry = env->CallObjectMethod(obj_Iterator, id_next);
-
-            jobject key = env->CallObjectMethod(entry, id_getKey);
-            jobject value = env->CallObjectMethod(entry, id_getValue);
-
-            int jVid = static_cast<int>(env->CallLongMethod(key, longValue)) ;
-            double jDis = env->CallDoubleMethod(value, doubleValue);
-
-            int index = vertices.at(jVid).initVIndex;
-
+        for(int j = 0; j < lenMarkID; j++){
+            double jDis = VertexAttrTemp[i * lenMarkID + j] ;
+            int index = vertices.at(execute.initVSet[j]).initVIndex;
             if(index != INVALID_INITV_INDEX)vValues[jVertexId_get * lenMarkID + index] = jDis;
-
-            HasNext = (bool) env->CallBooleanMethod(obj_Iterator, id_hasNext);
-
-            env->DeleteLocalRef(entry);
-            env->DeleteLocalRef(key);
-            env->DeleteLocalRef(value);
         }
 
-        env->DeleteLocalRef(obj_Iterator);
-        env->DeleteLocalRef(obj_EntrySet);
-
-        bool jVertexActive_get = env->CallBooleanMethod(start, id_VertexSet_ifActive);
+        bool jVertexActive_get = VertexActiveTemp[i];
 
         vertices.at(jVertexId_get).isActive = jVertexActive_get;
 
-        env->DeleteLocalRef(start);
-        env->DeleteLocalRef(jVertexAttr);
     }
 
 /*

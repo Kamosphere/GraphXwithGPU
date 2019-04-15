@@ -54,48 +54,64 @@ object SSSPinGPU{
 
     // run the first main SSSP process
     // algorithm should run at least once
-    var modifiedSubgraph : RDD[(VertexId, SPMapWithActive)] = g.triplets.mapPartitionsWithIndex((pid, iter) => {
+    var modifiedSubGraph : RDD[(VertexId, SPMapWithActive)] = g.triplets.mapPartitionsWithIndex((pid, iter) => {
 
       // collect the VertexSet and EdgeSet
-      val partitionVertexTemp = new util.ArrayList[VertexSet](preVertexSize)
-      val partitionEdgeTemp = new util.ArrayList[EdgeSet](preEdgeSize)
+      //val partitionVertexTemp = new util.ArrayList[VertexSet](preVertexSize)
+
+      val pVertexIDTemp = new ArrayBuffer[Long](preVertexSize)
+      val pVertexActiveTemp = new ArrayBuffer[Boolean](preVertexSize)
+      val pVertexAttrTemp = new ArrayBuffer[Double](preVertexSize * preMap)
+
+      val pEdgeSrcIDTemp = new ArrayBuffer[Long](preEdgeSize)
+      val pEdgeDstIDTemp = new ArrayBuffer[Long](preEdgeSize)
+      val pEdgeAttrTemp = new ArrayBuffer[Double](preEdgeSize)
+
+      //val partitionEdgeTemp = new util.ArrayList[EdgeSet](preEdgeSize)
       val sourceList = allSource.value.toArray
 
       // used to remove the abundant vertices
       val VertexNumList = new util.HashSet[Long]
 
       var temp : EdgeTriplet[SPMapWithActive,Double] = null
-      var tempSrcVertex : VertexSet = null
-      var tempDstVertex : VertexSet = null
-      var tempEdge : EdgeSet = null
 
       while(iter.hasNext){
 
         temp = iter.next()
 
-        tempEdge = new EdgeSet(temp.srcId, temp.dstId, temp.attr)
-        partitionEdgeTemp.add(tempEdge)
+        pEdgeSrcIDTemp.+=(temp.srcId)
+        pEdgeDstIDTemp.+=(temp.dstId)
+        pEdgeAttrTemp.+=(temp.attr)
 
         if(! VertexNumList.contains(temp.srcId)){
-          val intoJavaHashMap = new util.HashMap[Long, Double](preMap)
-          for(part <- temp.srcAttr._2){
-            intoJavaHashMap.put(part._1, part._2)
-          }
-
-          tempSrcVertex = new VertexSet(temp.srcId, temp.srcAttr._1, intoJavaHashMap)
+          pVertexIDTemp.+=(temp.srcId)
+          pVertexActiveTemp.+=(temp.srcAttr._1)
           VertexNumList.add(temp.srcId)
-          partitionVertexTemp.add(tempSrcVertex)
-        }
 
-        if(! VertexNumList.contains(temp.dstId)){
-          val intoJavaHashMap = new util.HashMap[Long, Double](preMap)
-          for(part <- temp.dstAttr._2){
-            intoJavaHashMap.put(part._1, part._2)
+          val settingArray = new Array[Double](preMap)
+          for(part <- 0 until (preMap - 1)){
+            val values = temp.srcAttr._2.getOrElse(sourceList(part), Double.PositiveInfinity)
+            settingArray(part)=values
+          }
+          for(part <- 0 until (preMap - 1)){
+            pVertexAttrTemp.+=(settingArray(part))
           }
 
-          tempDstVertex = new VertexSet(temp.dstId, temp.dstAttr._1, intoJavaHashMap)
+        }
+        if(! VertexNumList.contains(temp.dstId)){
+          pVertexIDTemp.+=(temp.dstId)
+          pVertexActiveTemp.+=(temp.dstAttr._1)
           VertexNumList.add(temp.dstId)
-          partitionVertexTemp.add(tempDstVertex)
+
+          val settingArray = new Array[Double](preMap)
+          for(part <- 0 until (preMap - 1)){
+            val values = temp.dstAttr._2.getOrElse(sourceList(part), Double.PositiveInfinity)
+            settingArray(part)=values
+          }
+          for(part <- 0 until (preMap - 1)){
+            pVertexAttrTemp.+=(settingArray(part))
+          }
+
         }
 
       }
@@ -106,11 +122,11 @@ object SSSPinGPU{
       // loop until server started
       while(! envInit){
         envInit = Process.GPUInit(vertexNumbers.toInt,
-          partitionEdgeTemp, sourceList, pid)
+          pEdgeSrcIDTemp, pEdgeDstIDTemp, pEdgeAttrTemp, sourceList, pid)
       }
 
       val results : ArrayBuffer[(VertexId, SPMapWithActive)] = Process.GPUProcess(
-        partitionVertexTemp, vertexNumbers, partitionEdgeTemp.size(), sourceList.length, pid)
+        pVertexIDTemp, pVertexActiveTemp, pVertexAttrTemp, vertexNumbers, pEdgeSrcIDTemp.length, sourceList.length, pid)
       results.iterator
 
     }).cache()
@@ -127,7 +143,7 @@ object SSSPinGPU{
     */
 
     // get the amount of active vertices
-    var activeMessages = modifiedSubgraph.filter(_._2._1==true).count()
+    var activeMessages = modifiedSubGraph.filter(_._2._1==true).count()
 
     //val endNew = System.nanoTime()
     //println("-------------------------")
@@ -144,7 +160,7 @@ object SSSPinGPU{
       //combine the messages with graph
       g = g.mapVertices((vid,attr) => {
         (false, attr._2)
-      }).joinVertices(modifiedSubgraph)((vid, v1, v2) => {
+      }).joinVertices(modifiedSubGraph)((vid, v1, v2) => {
         val b = v2._1
         val result = (v1._2/:v2._2){
           case (map,(k,r)) => map + (k->math.min(r,map.getOrElse(k, Double.PositiveInfinity)))
@@ -152,21 +168,21 @@ object SSSPinGPU{
         (b,result)
       }).cache()
 
-      val oldVertexModified = modifiedSubgraph
+      val oldVertexModified = modifiedSubGraph
       //run the main SSSP process
 
-      modifiedSubgraph = g.triplets.mapPartitionsWithIndex((pid, iter) => {
+      modifiedSubGraph = g.triplets.mapPartitionsWithIndex((pid, iter) => {
 
         // collect the VertexSet
-        val partitionVertexTemp = new util.ArrayList[VertexSet](preVertexSize)
+        val pVertexIDTemp = new ArrayBuffer[Long](preVertexSize)
+        val pVertexActiveTemp = new ArrayBuffer[Boolean](preVertexSize)
+        val pVertexAttrTemp = new ArrayBuffer[Double](preVertexSize * preMap)
         val sourceList = allSource.value.toArray
 
         // used to remove the abundant vertices
         val VertexNumList = new util.HashSet[Long]
 
         var temp : EdgeTriplet[SPMapWithActive,Double] = null
-        var tempSrcVertex : VertexSet = null
-        var tempDstVertex : VertexSet = null
         var edgeSize = 0
 
         while(iter.hasNext){
@@ -176,33 +192,41 @@ object SSSPinGPU{
           edgeSize = edgeSize + 1
 
           if(! VertexNumList.contains(temp.srcId)){
-            val intoJavaHashMap = new util.HashMap[Long, Double](preMap)
-            for(part <- temp.srcAttr._2){
-              intoJavaHashMap.put(part._1, part._2)
-            }
-
-            tempSrcVertex = new VertexSet(temp.srcId, temp.srcAttr._1, intoJavaHashMap)
+            pVertexIDTemp.+=(temp.srcId)
+            pVertexActiveTemp.+=(temp.srcAttr._1)
             VertexNumList.add(temp.srcId)
-            partitionVertexTemp.add(tempSrcVertex)
-          }
 
-          if(! VertexNumList.contains(temp.dstId)){
-            val intoJavaHashMap = new util.HashMap[Long, Double](preMap)
-            for(part <- temp.dstAttr._2){
-              intoJavaHashMap.put(part._1, part._2)
+            val settingArray = new Array[Double](preMap)
+            for(part <- 0 until (preMap - 1)){
+              val values = temp.srcAttr._2.getOrElse(sourceList(part), Double.PositiveInfinity)
+              settingArray(part)=values
+            }
+            for(part <- 0 until (preMap - 1)){
+              pVertexAttrTemp.+=(settingArray(part))
             }
 
-            tempDstVertex = new VertexSet(temp.dstId, temp.dstAttr._1, intoJavaHashMap)
+          }
+          if(! VertexNumList.contains(temp.dstId)){
+            pVertexIDTemp.+=(temp.dstId)
+            pVertexActiveTemp.+=(temp.dstAttr._1)
             VertexNumList.add(temp.dstId)
-            partitionVertexTemp.add(tempDstVertex)
+
+            val settingArray = new Array[Double](preMap)
+            for(part <- 0 until (preMap - 1)){
+              val values = temp.dstAttr._2.getOrElse(sourceList(part), Double.PositiveInfinity)
+              settingArray(part)=values
+            }
+            for(part <- 0 until (preMap - 1)){
+              pVertexAttrTemp.+=(settingArray(part))
+            }
+
           }
 
         }
 
         val Process = new GPUNative
         val results : ArrayBuffer[(VertexId, SPMapWithActive)] = Process.GPUProcess(
-          partitionVertexTemp, vertexNumbers, edgeSize, sourceList.length, pid)
-
+          pVertexIDTemp, pVertexActiveTemp, pVertexAttrTemp, vertexNumbers, edgeSize, sourceList.length, pid)
         results.iterator
       }).cache()
 
@@ -220,7 +244,7 @@ object SSSPinGPU{
       iterTimes = iterTimes + 1
 
       // get the amount of active vertices
-      activeMessages = modifiedSubgraph.filter(_._2._1==true).count()
+      activeMessages = modifiedSubGraph.filter(_._2._1==true).count()
 
       //val endNew = System.nanoTime()
       //println("-------------------------")
@@ -234,14 +258,14 @@ object SSSPinGPU{
     // the final combine
     g = g.mapVertices((vid,attr) => {
       (false, attr._2)
-    }).joinVertices(modifiedSubgraph)((vid, v1, v2) => {
+    }).joinVertices(modifiedSubGraph)((vid, v1, v2) => {
       val b = v2._1
       val result = (v1._2/:v2._2){
         case (map,(k,v)) => map + (k->math.min(v,map.getOrElse(k, Double.MaxValue)))
       }
       (b,result)
     })
-    modifiedSubgraph.unpersist(blocking = false)
+    modifiedSubGraph.unpersist(blocking = false)
     g
   }
 

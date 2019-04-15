@@ -21,7 +21,9 @@ class GPUNative extends Serializable {
 
   // native function to execute SSSP algorithm
   @native def GPUClientSSSP(vertexNumber: Long,
-                            VertexSets: util.ArrayList[VertexSet],
+                            VertexID: Array[Long],
+                            VertexActive: Array[Boolean],
+                            VertexAttr: Array[Double],
                             edgeSize: Int,
                             markIdSize: Int,
                             pid:Int)
@@ -33,13 +35,17 @@ class GPUNative extends Serializable {
 
   // native function to init the edge
   @native def GPUServerInit(vertexNumber: Long,
-                            EdgeSets: util.ArrayList[EdgeSet],
+                            EdgeSrc: Array[VertexId],
+                            EdgeDst: Array[VertexId],
+                            EdgeAttr: Array[Double],
                             sourceId: util.ArrayList[Long],
                             pid:Int)
   : Boolean
 
   // execute SSSP algorithm
-  def GPUProcess(partitionVertex: util.ArrayList[VertexSet],
+  def GPUProcess(VertexID: ArrayBuffer[Long],
+                 VertexActive: ArrayBuffer[Boolean],
+                 VertexAttr: ArrayBuffer[Double],
                  vertexNumbers: Long,
                  edgeSize: Int,
                  sourceAmount: Int,
@@ -49,22 +55,33 @@ class GPUNative extends Serializable {
     System.loadLibrary("GPUSSSP")
 
     //pass vertices through JNI and get arrayBuffer back
-    val result = GPUClientSSSP(vertexNumbers, partitionVertex, edgeSize, sourceAmount, pid)
+    val result = GPUClientSSSP(vertexNumbers,
+      VertexID.toArray, VertexActive.toArray, VertexAttr.toArray,
+      edgeSize, sourceAmount, pid)
 
     result
   }
 
   // before executing, run the server first
-  def GPUInit(vertexCount: Long, Edge: util.ArrayList[EdgeSet], sourceList: Array[VertexId], pid :Int):Boolean = {
+  def GPUInit(vertexCount: Long,
+              EdgeSrc: ArrayBuffer[VertexId],
+              EdgeDst: ArrayBuffer[VertexId],
+              EdgeAttr: ArrayBuffer[Double],
+              sourceList: Array[VertexId],
+              pid :Int):Boolean = {
 
     val runningScript =
       "./cpp_native/build/bin/srv_UtilServerTest_BellmanFordGPU " + vertexCount.toString +
-        " " + Edge.size().toString + " " + sourceList.length.toString + " " + pid.toString
+        " " + EdgeSrc.length.toString + " " + sourceList.length.toString + " " + pid.toString
 
     Process(runningScript).run()
 
     // too quickly for cuda init
-    Thread.sleep(2000)
+    Thread.sleep(1000)
+
+    val edgeSrcT = EdgeSrc.toArray
+    val edgeDstT = EdgeDst.toArray
+    val edgeAttrT = EdgeAttr.toArray
 
     System.loadLibrary("GPUSSSP")
 
@@ -76,7 +93,7 @@ class GPUNative extends Serializable {
     }
 
     // if not success, it will run again outside
-    val result = GPUServerInit(vertexCount, Edge, sourceId, pid)
+    val result = GPUServerInit(vertexCount, edgeSrcT, edgeDstT, edgeAttrT, sourceId, pid)
 
     result
 
