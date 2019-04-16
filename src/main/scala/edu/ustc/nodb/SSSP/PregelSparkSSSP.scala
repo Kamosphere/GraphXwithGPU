@@ -3,10 +3,10 @@ package edu.ustc.nodb.SSSP
 import org.apache.spark.broadcast.Broadcast
 import org.apache.spark.graphx.{EdgeTriplet, Graph, Pregel, VertexId}
 
-import scala.collection.mutable.ListBuffer
+import scala.collection.mutable.{ArrayBuffer, ListBuffer}
 
 class PregelSparkSSSP (graph: Graph[VertexId,Double],
-                       allSource: Broadcast[List[VertexId]]) extends Serializable {
+                       allSource: Broadcast[ArrayBuffer[VertexId]]) extends Serializable {
 
   // Define the vertex type in standard Pregel in Spark
   // map stored the pairs of nearest distance from landmark

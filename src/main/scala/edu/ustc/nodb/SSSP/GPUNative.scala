@@ -15,7 +15,7 @@ class GPUNative extends Serializable {
   // Define the vertex attribute in GPU-based SSSP project
   // Boolean stands for the activeness of Vertex
   // mutable.map stored the pairs of nearest distance from landmark
-  type SPMapWithActive = (Boolean, mutable.Map[VertexId, Double])
+  type SPMapWithActive = (Boolean, mutable.LinkedHashMap[VertexId, Double])
 
   /* the GPU-based method to implement the SSSP */
 
@@ -26,8 +26,10 @@ class GPUNative extends Serializable {
                             VertexAttr: Array[Double],
                             edgeSize: Int,
                             markIdSize: Int,
-                            pid:Int)
-  : ArrayBuffer[(VertexId, SPMapWithActive)]
+                            pid: Int,
+                            resultID: Array[Long],
+                            resultAttr: Array[Double])
+  : Int
 
   // native function to close server
   @native def GPUServerShutdown(pid: Int)
@@ -48,18 +50,42 @@ class GPUNative extends Serializable {
                  VertexAttr: Array[Double],
                  vertexNumbers: Long,
                  edgeSize: Int,
-                 sourceAmount: Int,
+                 sourceList: ArrayBuffer[VertexId],
                  pid: Int)
   : ArrayBuffer[(VertexId, SPMapWithActive)] = {
 
     System.loadLibrary("GPUSSSP")
 
-    //pass vertices through JNI and get arrayBuffer back
-    val result = GPUClientSSSP(vertexNumbers,
-      VertexID, VertexActive, VertexAttr,
-      edgeSize, sourceAmount, pid)
+    val sourceSize = sourceList.length
 
-    result
+    val resultID : Array[Long] = new Array[Long](vertexNumbers.toInt)
+    val resultAttr : Array[Double] = new Array[Double](vertexNumbers.toInt * sourceSize)
+
+    val results = new ArrayBuffer[(VertexId, SPMapWithActive)]
+
+    var tempVertexSet : VertexSet = null
+
+    //pass vertices through JNI and get arrayBuffer back
+    val underIndex = GPUClientSSSP(vertexNumbers,
+      VertexID, VertexActive, VertexAttr,
+      edgeSize, sourceSize, pid,
+      resultID, resultAttr)
+
+    val startNew = System.nanoTime()
+    for(i <- 0 until underIndex){
+
+      tempVertexSet = new VertexSet(resultID(i), true)
+
+      for(j <- sourceList.indices){
+        tempVertexSet.addAttr(sourceList(j), resultAttr(i * sourceSize + j))
+      }
+
+      results.+=(tempVertexSet.TupleReturn())
+    }
+    val endNew = System.nanoTime()
+
+    println(endNew - startNew)
+    results
   }
 
   // before executing, run the server first
@@ -67,7 +93,7 @@ class GPUNative extends Serializable {
               EdgeSrc: Array[VertexId],
               EdgeDst: Array[VertexId],
               EdgeAttr: Array[Double],
-              sourceList: Array[VertexId],
+              sourceList: ArrayBuffer[VertexId],
               pid :Int):Boolean = {
 
     val runningScript =
@@ -77,14 +103,13 @@ class GPUNative extends Serializable {
     Process(runningScript).run()
 
     // too quickly for cuda init
-    Thread.sleep(100)
+    Thread.sleep(500)
 
     System.loadLibrary("GPUSSSP")
 
     //initialize the source id array
-    val sourceDistinctOrdered = ArrayBuffer(sourceList:_*).distinct.sorted
     val sourceId = new util.ArrayList[Long](sourceList.length+(sourceList.length>>1))
-    for(unit <- sourceDistinctOrdered){
+    for(unit <- sourceList){
       sourceId.add(unit)
     }
 

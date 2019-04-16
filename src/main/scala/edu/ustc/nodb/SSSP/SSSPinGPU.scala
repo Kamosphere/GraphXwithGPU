@@ -10,17 +10,16 @@ import org.apache.spark.rdd.RDD
 import scala.collection.mutable.ArrayBuffer
 import scala.collection.mutable
 
-
 object SSSPinGPU{
 
   // Define the vertex attribute in GPU-based SSSP project
   // Boolean stands for the activeness of Vertex
   // mutable.map stored the pairs of nearest distance from landmark
-  type SPMapWithActive = (Boolean, mutable.Map[VertexId, Double])
+  type SPMapWithActive = (Boolean, mutable.LinkedHashMap[VertexId, Double])
 
   // run the SSSP based on Pregel structure
-  def run(graph: Graph[VertexId,Double],
-          allSource: Broadcast[List[VertexId]],
+  def run(graph: Graph[VertexId, Double],
+          allSource: Broadcast[ArrayBuffer[VertexId]],
           vertexNumbers: Long,
           edgeNumbers: Long,
           parts: Int,
@@ -29,24 +28,28 @@ object SSSPinGPU{
 
     // vertexNumbers stands for the quantity of vertices in the whole graph
     // Assuming the graph is in equal distribution, preSize and preMap is used to avoid allocation arraycopy
-    val preMap : Int = allSource.value.length+1
+    val preMap : Int = allSource.value.length
 
     // initiate the graph
     // use the EdgePartitionDReverse so that vertices only updated in single partition
     // if modified to another partition method, ReduceByKey is needed
-    val spGraph = graph.mapVertices ( (vid, attr) => {
-      var partitionInit: mutable.Map[VertexId, Double] = mutable.Map()
+    val spGraph = graph.partitionBy(EdgePartition1DReverse)
+    .mapVertices ( (vid, attr) => {
+      var partitionInit: mutable.LinkedHashMap[VertexId, Double] = mutable.LinkedHashMap()
       var ifSource = false
-      for (sid <- allSource.value) {
+      for (sid <- allSource.value.sorted) {
         if (vid == sid) {
           ifSource = true
           partitionInit += (sid -> 0)
         }
-        else partitionInit += (sid -> Double.PositiveInfinity)
+        else {
+          partitionInit += (sid -> Double.PositiveInfinity)
+        }
+
       }
       (ifSource, partitionInit)
     }
-    ).partitionBy(EdgePartition1DReverse).cache()
+    ).cache()
 
     var g = spGraph
 
@@ -90,7 +93,7 @@ object SSSPinGPU{
       val pEdgeAttrTemp = new Array[Double](preEdgeLength)
 
       //val partitionEdgeTemp = new util.ArrayList[EdgeSet](preEdgeSize)
-      val sourceList = allSource.value.toArray
+      val sourceList = allSource.value
 
       // used to remove the abundant vertices
       val VertexNumList = new util.HashSet[Long]
@@ -114,13 +117,11 @@ object SSSPinGPU{
           pVertexActiveTemp(VertexIndex)=temp.srcAttr._1
           VertexNumList.add(temp.srcId)
 
-          val settingArray = new Array[Double](preMap)
-          for(part <- 0 until (preMap - 1)){
-            val values = temp.srcAttr._2.getOrElse(sourceList(part), Double.PositiveInfinity)
-            settingArray(part)=values
-          }
-          for(part <- 0 until (preMap - 1)){
-            pVertexAttrTemp(VertexIndex * (preMap - 1) + part) = settingArray(part)
+          // guard the order of sourceList in array
+          var index = 0
+          for(part <- temp.srcAttr._2.values){
+            pVertexAttrTemp(VertexIndex * preMap + index) = part
+            index = index + 1
           }
           VertexIndex = VertexIndex + 1
         }
@@ -129,13 +130,11 @@ object SSSPinGPU{
           pVertexActiveTemp(VertexIndex)=temp.dstAttr._1
           VertexNumList.add(temp.dstId)
 
-          val settingArray = new Array[Double](preMap)
-          for(part <- 0 until (preMap - 1)){
-            val values = temp.dstAttr._2.getOrElse(sourceList(part), Double.PositiveInfinity)
-            settingArray(part)=values
-          }
-          for(part <- 0 until (preMap - 1)){
-            pVertexAttrTemp(VertexIndex * (preMap - 1) + part) = settingArray(part)
+          // guard the order of sourceList in array
+          var index = 0
+          for(part <- temp.dstAttr._2.values){
+            pVertexAttrTemp(VertexIndex * preMap + index) = part
+            index = index + 1
           }
           VertexIndex = VertexIndex + 1
         }
@@ -152,7 +151,7 @@ object SSSPinGPU{
       }
 
       val results : ArrayBuffer[(VertexId, SPMapWithActive)] = Process.GPUProcess(
-        pVertexIDTemp, pVertexActiveTemp, pVertexAttrTemp, vertexNumbers, pEdgeSrcIDTemp.length, sourceList.length, pid)
+        pVertexIDTemp, pVertexActiveTemp, pVertexAttrTemp, vertexNumbers, pEdgeSrcIDTemp.length, sourceList, pid)
       results.iterator
 
     }).cache()
@@ -169,7 +168,7 @@ object SSSPinGPU{
     */
 
     // get the amount of active vertices
-    var activeMessages = modifiedSubGraph.filter(_._2._1==true).count()
+    var activeMessages = modifiedSubGraph.count()
 
     //val endNew = System.nanoTime()
     //println("-------------------------")
@@ -181,6 +180,7 @@ object SSSPinGPU{
     //loop
     while(activeMessages > 0 && iterTimes < maxIterations){
 
+      val startTime = System.nanoTime()
       prevG = g
 
       //combine the messages with graph
@@ -188,8 +188,8 @@ object SSSPinGPU{
         (false, attr._2)
       }).joinVertices(modifiedSubGraph)((vid, v1, v2) => {
         val b = v2._1
-        val result = (v1._2/:v2._2){
-          case (map,(k,r)) => map + (k->math.min(r,map.getOrElse(k, Double.PositiveInfinity)))
+        val result : mutable.LinkedHashMap[Long, Double] = v1._2++v2._2.map{
+          case (k,r) => k->math.min(r,v1._2.getOrElse(k, Double.PositiveInfinity))
         }
         (b,result)
       }).cache()
@@ -199,6 +199,8 @@ object SSSPinGPU{
 
       modifiedSubGraph = g.triplets.mapPartitionsWithIndex((pid, iter) => {
 
+        val startTimeA = System.nanoTime()
+
         val preParameter = partitionSplit.get(pid)
         val preVertexLength = preParameter.get._1
 
@@ -206,7 +208,7 @@ object SSSPinGPU{
         val pVertexIDTemp = new Array[Long](preVertexLength)
         val pVertexActiveTemp = new Array[Boolean](preVertexLength)
         val pVertexAttrTemp = new Array[Double](preVertexLength * preMap)
-        val sourceList = allSource.value.toArray
+        val sourceList = allSource.value
 
         // used to remove the abundant vertices
         val VertexNumList = new util.HashSet[Long]
@@ -226,13 +228,11 @@ object SSSPinGPU{
             pVertexActiveTemp(VertexIndex)=temp.srcAttr._1
             VertexNumList.add(temp.srcId)
 
-            val settingArray = new Array[Double](preMap)
-            for(part <- 0 until (preMap - 1)){
-              val values = temp.srcAttr._2.getOrElse(sourceList(part), Double.PositiveInfinity)
-              settingArray(part)=values
-            }
-            for(part <- 0 until (preMap - 1)){
-              pVertexAttrTemp(VertexIndex * (preMap - 1) + part) = settingArray(part)
+            // guard the order of sourceList in array
+            var index = 0
+            for(part <- temp.srcAttr._2.values){
+              pVertexAttrTemp(VertexIndex * preMap + index) = part
+              index = index + 1
             }
             VertexIndex = VertexIndex + 1
           }
@@ -241,23 +241,32 @@ object SSSPinGPU{
             pVertexActiveTemp(VertexIndex)=temp.dstAttr._1
             VertexNumList.add(temp.dstId)
 
-            val settingArray = new Array[Double](preMap)
-            for(part <- 0 until (preMap - 1)){
-              val values = temp.dstAttr._2.getOrElse(sourceList(part), Double.PositiveInfinity)
-              settingArray(part)=values
-            }
-            for(part <- 0 until (preMap - 1)){
-              pVertexAttrTemp(VertexIndex * (preMap - 1) + part) = settingArray(part)
+            // guard the order of sourceList in array
+            var index = 0
+            for(part <- temp.dstAttr._2.values){
+              pVertexAttrTemp(VertexIndex * preMap + index) = part
+              index = index + 1
             }
             VertexIndex = VertexIndex + 1
           }
-          
+
         }
+
+        val endTimeA = System.nanoTime()
+
+        val startTimeB = System.nanoTime()
 
         val Process = new GPUNative
         val results : ArrayBuffer[(VertexId, SPMapWithActive)] = Process.GPUProcess(
-          pVertexIDTemp, pVertexActiveTemp, pVertexAttrTemp, vertexNumbers, EdgeIndex, sourceList.length, pid)
-        results.iterator
+          pVertexIDTemp, pVertexActiveTemp, pVertexAttrTemp, vertexNumbers, EdgeIndex, sourceList, pid)
+
+
+        val result = results.iterator
+        val endTimeB = System.nanoTime()
+
+        println((endTimeA - startTimeA) + " with time of " + (endTimeB - startTimeB))
+
+        result
       }).cache()
 
       /*
@@ -274,11 +283,12 @@ object SSSPinGPU{
       iterTimes = iterTimes + 1
 
       // get the amount of active vertices
-      activeMessages = modifiedSubGraph.filter(_._2._1==true).count()
+      activeMessages = modifiedSubGraph.count()
 
+      val endTime = System.nanoTime()
       //val endNew = System.nanoTime()
       //println("-------------------------")
-      //println("~~~~~time in running"+(endNew - startNew)+"~~~~~")
+      println("~~~~~time in running"+(endTime - startTime)+"~~~~~")
 
       oldVertexModified.unpersist(blocking = false)
       prevG.unpersistVertices(blocking = false)
@@ -290,8 +300,8 @@ object SSSPinGPU{
       (false, attr._2)
     }).joinVertices(modifiedSubGraph)((vid, v1, v2) => {
       val b = v2._1
-      val result = (v1._2/:v2._2){
-        case (map,(k,v)) => map + (k->math.min(v,map.getOrElse(k, Double.MaxValue)))
+      val result : mutable.LinkedHashMap[Long, Double] = v1._2++v2._2.map{
+        case (k,r) => k->math.min(r,v1._2.getOrElse(k, Double.PositiveInfinity))
       }
       (b,result)
     })

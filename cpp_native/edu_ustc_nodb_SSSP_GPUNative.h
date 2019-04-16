@@ -10,10 +10,10 @@ extern "C" {
 /*
  * Class:     edu_ustc_nodb_SSSP_GPUNative
  * Method:    GPUClientSSSP
- * Signature: (J[J[Z[DIII)Lscala/collection/mutable/ArrayBuffer;
+ * Signature: (J[J[Z[DIII[J[D)I
  */
-JNIEXPORT jobject JNICALL Java_edu_ustc_nodb_SSSP_GPUNative_GPUClientSSSP
-  (JNIEnv *, jobject, jlong, jlongArray, jbooleanArray, jdoubleArray, jint, jint, jint);
+JNIEXPORT jint JNICALL Java_edu_ustc_nodb_SSSP_GPUNative_GPUClientSSSP
+  (JNIEnv *, jobject, jlong, jlongArray, jbooleanArray, jdoubleArray, jint, jint, jint, jlongArray, jdoubleArray);
 
 /*
  * Class:     edu_ustc_nodb_SSSP_GPUNative

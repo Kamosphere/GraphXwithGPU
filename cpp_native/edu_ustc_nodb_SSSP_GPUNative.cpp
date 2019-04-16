@@ -134,52 +134,17 @@ JNIEXPORT jboolean JNICALL Java_edu_ustc_nodb_SSSP_GPUNative_GPUServerInit
 }
 
 
-JNIEXPORT jobject JNICALL Java_edu_ustc_nodb_SSSP_GPUNative_GPUClientSSSP
+JNIEXPORT jint JNICALL Java_edu_ustc_nodb_SSSP_GPUNative_GPUClientSSSP
 (JNIEnv * env, jobject superClass,
         jlong vertexNum, jlongArray jVertexId, jbooleanArray jVertexActive, jdoubleArray jVertexAttr,
-        jint edgeLen, jint markIdLen, jint pid){
-
-    jclass c_ArrayList = env->FindClass("java/util/ArrayList");
-    jmethodID id_ArrayList_size = env->GetMethodID(c_ArrayList, "size", "()I");
-    jmethodID id_ArrayList_get = env->GetMethodID(c_ArrayList, "get", "(I)Ljava/lang/Object;");
-
-    jclass n_VertexSet = env->FindClass("edu/ustc/nodb/SSSP/VertexSet");
-    jmethodID id_VertexSet_VertexId = env->GetMethodID(n_VertexSet, "VertexId", "()J");
-    jmethodID id_VertexSet_ifActive = env->GetMethodID(n_VertexSet, "ifActive", "()Z");
-    jmethodID id_VertexSet_Attr = env->GetMethodID(n_VertexSet, "Attr", "()Ljava/util/HashMap;");
-    jmethodID id_VertexSet_addAttr = env->GetMethodID(n_VertexSet, "addAttr", "(JD)V");
-    jmethodID id_VertexSet_TupleReturn = env->GetMethodID(n_VertexSet, "TupleReturn", "()Lscala/Tuple2;");
-    jmethodID VertexSetConstructor = env->GetMethodID(n_VertexSet, "<init>", "(JZ)V");
-
-    jclass c_ArrayBuffer = env->FindClass("scala/collection/mutable/ArrayBuffer");
-    jmethodID ArrayBufferConstructor = env->GetMethodID(c_ArrayBuffer, "<init>", "()V");
-    jmethodID id_ArrayBuffer_pluseq = env->GetMethodID(c_ArrayBuffer, "$plus$eq",
-                                                       "(Ljava/lang/Object;)Lscala/collection/mutable/ArrayBuffer;");
-
-    jclass c_EntrySet = env->FindClass("java/util/Set");
-    jmethodID id_iterator = env->GetMethodID(c_EntrySet, "iterator", "()Ljava/util/Iterator;");
-
-    jclass c_Iterator = env->FindClass("java/util/Iterator");
-    jmethodID id_hasNext = env->GetMethodID(c_Iterator, "hasNext", "()Z");
-    jmethodID id_next = env->GetMethodID(c_Iterator, "next", "()Ljava/lang/Object;");
-
-    jclass c_map = env->FindClass("java/util/Map");
-    jmethodID id_attrArr_EntrySet = env->GetMethodID(c_map, "entrySet", "()Ljava/util/Set;");
-
-    jclass c_Entry = env->FindClass("java/util/Map$Entry");
-    jmethodID id_getKey = env->GetMethodID(c_Entry, "getKey", "()Ljava/lang/Object;");
-    jmethodID id_getValue = env->GetMethodID(c_Entry, "getValue", "()Ljava/lang/Object;");
-
-    jclass c_Long = env->FindClass("java/lang/Long");
-    jmethodID longValue = env->GetMethodID(c_Long, "longValue", "()J");
-
-    jclass c_Double = env->FindClass("java/lang/Double");
-    jmethodID doubleValue = env->GetMethodID(c_Double, "doubleValue", "()D");
+        jint edgeLen, jint markIdLen, jint pid,jlongArray returnId, jdoubleArray returnAttr){
 
     // jclass n_sztool = env->FindClass("edu/ustc/nodb/matrix/SizesTool");
     // jmethodID id_getSize = env->GetStaticMethodID(n_sztool, "getObjectSize", "(Ljava/lang/Object;)J");
 
     //---------Entity---------
+
+    auto startTimeA = std::chrono::high_resolution_clock::now();
 
     int vertexNumbers = static_cast<int>(vertexNum);
     int partitionID = static_cast<int>(pid);
@@ -255,8 +220,8 @@ JNIEXPORT jobject JNICALL Java_edu_ustc_nodb_SSSP_GPUNative_GPUClientSSSP
     output.clear();
     // test end
 */
-
-    // auto startTime = std::chrono::high_resolution_clock::now();
+    std::chrono::nanoseconds durationA = std::chrono::high_resolution_clock::now() - startTimeA;
+    auto startTime = std::chrono::high_resolution_clock::now();
 
     // execute sssp using GPU in server-client mode
 
@@ -268,38 +233,35 @@ JNIEXPORT jobject JNICALL Java_edu_ustc_nodb_SSSP_GPUNative_GPUClientSSSP
 
     execute.request();
 
-    //std::chrono::nanoseconds duration = std::chrono::high_resolution_clock::now() - startTime;
+    std::chrono::nanoseconds duration = std::chrono::high_resolution_clock::now() - startTime;
 
-    jobject vertexSubModified = env->NewObject(c_ArrayBuffer, ArrayBufferConstructor);
+    auto startTimeB = std::chrono::high_resolution_clock::now();
+
+    vector<long> cPlusReturnId = vector<long>();
+    vector<double> cPlusReturnAttr = vector<double>();
 
     for(int i = 0; i < vertexNumbers; i++){
 
         if(false | execute.vSet[i].isActive){
-
-            jlong messageVid = i;
-            jboolean messageActive = true;
-            jobject messageUnit = env->NewObject(n_VertexSet, VertexSetConstructor, messageVid, messageActive);
-
+            cPlusReturnId.emplace_back(i);
             for (int j = 0; j < lenMarkID; j++) {
-
-                jlong messageDstId = execute.initVSet[j];
-                jdouble messageDist = execute.vValues[i * lenMarkID + j];
-                env->CallObjectMethod(messageUnit, id_VertexSet_addAttr, messageDstId, messageDist);
-
+                cPlusReturnAttr.emplace_back(execute.vValues[i * lenMarkID + j]);
             }
-
-            // run the method to get the returned pair, no need to arrange data in another loop
-            jobject TupleUnit = env->CallObjectMethod(messageUnit, id_VertexSet_TupleReturn);
-
-            env->CallObjectMethod(vertexSubModified, id_ArrayBuffer_pluseq, TupleUnit);
-
-            env->DeleteLocalRef(messageUnit);
-            env->DeleteLocalRef(TupleUnit);
         }
     }
 
+
+
+    env->SetLongArrayRegion(returnId, 0, cPlusReturnId.size(), &cPlusReturnId[0]);
+    env->SetDoubleArrayRegion(returnAttr, 0, cPlusReturnAttr.size(), &cPlusReturnAttr[0]);
+
     execute.disconnect();
-    return vertexSubModified;
+    std::chrono::nanoseconds durationB = std::chrono::high_resolution_clock::now() - startTime;
+
+
+    cout<<"time: "<<durationA.count()<<" "<<duration.count()<<" "<<durationB.count()<<" "<<cPlusReturnId.size()<<endl;
+
+    return static_cast<int>(cPlusReturnId.size());
 }
 
 // server shutdown

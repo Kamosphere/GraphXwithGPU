@@ -4,6 +4,7 @@ import org.apache.spark.{SparkConf, SparkContext}
 import org.apache.spark.graphx.{Edge, Graph, VertexId}
 import org.apache.spark.rdd.RDD
 
+import scala.collection.mutable.ArrayBuffer
 import scala.io.StdIn
 
 object MainSSSP{
@@ -62,7 +63,7 @@ object MainSSSP{
 
     println("-------------------------")
 
-    val sourceList = List(1L, 2L, 4L)
+    val sourceList = ArrayBuffer(1L, 2L, 4L).distinct.sorted
 
     val allSourceList = sc.broadcast(sourceList)
 
@@ -73,16 +74,16 @@ object MainSSSP{
     val startNormal = System.nanoTime()
     val ssspTest = new PregelSparkSSSP(graph, allSourceList)
     val ssspResult = ssspTest.run()
-    // val d = ssspResult.vertices.count()
-    println(ssspResult.vertices.collect.mkString("\n"))
+    val d = ssspResult.vertices.count()
+    //println(ssspResult.vertices.collect.mkString("\n"))
     val endNormal = System.nanoTime()
 
     println("-------------------------")
 
     val startNew = System.nanoTime()
     val ssspGPUResult = SSSPinGPU.run(graph, allSourceList, vertexNumbers, edgeNumbers, parts.get)
-    // val q = ssspGPUResult.vertices.count()
-    println(ssspGPUResult.vertices.collect.mkString("\n"))
+    val q = ssspGPUResult.vertices.count()
+    //println(ssspGPUResult.vertices.collect.mkString("\n"))
     val endNew = System.nanoTime()
 
     println("-------------------------")
