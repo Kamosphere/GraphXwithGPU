@@ -24,6 +24,7 @@ class GPUNative extends Serializable {
                             VertexID: Array[Long],
                             VertexActive: Array[Boolean],
                             VertexAttr: Array[Double],
+                            vertexSize:Int,
                             edgeSize: Int,
                             markIdSize: Int,
                             pid: Int,
@@ -49,6 +50,7 @@ class GPUNative extends Serializable {
                  VertexActive: Array[Boolean],
                  VertexAttr: Array[Double],
                  vertexNumbers: Long,
+                 vertexSize: Int,
                  edgeSize: Int,
                  sourceList: ArrayBuffer[VertexId],
                  pid: Int)
@@ -68,7 +70,7 @@ class GPUNative extends Serializable {
     //pass vertices through JNI and get arrayBuffer back
     val underIndex = GPUClientSSSP(vertexNumbers,
       VertexID, VertexActive, VertexAttr,
-      edgeSize, sourceSize, pid,
+      vertexSize, edgeSize, sourceSize, pid,
       resultID, resultAttr)
 
     val startNew = System.nanoTime()
@@ -84,7 +86,7 @@ class GPUNative extends Serializable {
     }
     val endNew = System.nanoTime()
 
-    println(endNew - startNew)
+    println("Constructing returned arrayBuffer time: " + (endNew - startNew))
     results
   }
 

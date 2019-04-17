@@ -78,6 +78,8 @@ object SSSPinGPU{
     // algorithm should run at least once
     var modifiedSubGraph : RDD[(VertexId, SPMapWithActive)] = g.triplets.mapPartitionsWithIndex((pid, iter) => {
 
+      val startTimeA = System.nanoTime()
+
       // collect the VertexSet and EdgeSet
       //val partitionVertexTemp = new util.ArrayList[VertexSet](preVertexSize)
       val preParameter = partitionSplit.get(pid)
@@ -141,6 +143,10 @@ object SSSPinGPU{
 
       }
 
+      val endTimeA = System.nanoTime()
+
+      val startTimeB = System.nanoTime()
+
       val Process = new GPUNative
       var envInit : Boolean = false
 
@@ -151,8 +157,14 @@ object SSSPinGPU{
       }
 
       val results : ArrayBuffer[(VertexId, SPMapWithActive)] = Process.GPUProcess(
-        pVertexIDTemp, pVertexActiveTemp, pVertexAttrTemp, vertexNumbers, pEdgeSrcIDTemp.length, sourceList, pid)
-      results.iterator
+        pVertexIDTemp, pVertexActiveTemp, pVertexAttrTemp, vertexNumbers, VertexIndex, pEdgeSrcIDTemp.length, sourceList, pid)
+
+      val result = results.iterator
+      val endTimeB = System.nanoTime()
+
+      println("In iter 0 of part" + pid + ", Collecting data time: " + (endTimeA - startTimeA) + " Processing time: " + (endTimeB - startTimeB))
+
+      result
 
     }).cache()
 
@@ -199,10 +211,10 @@ object SSSPinGPU{
 
       modifiedSubGraph = g.triplets.mapPartitionsWithIndex((pid, iter) => {
 
-        val startTimeA = System.nanoTime()
-
         val preParameter = partitionSplit.get(pid)
         val preVertexLength = preParameter.get._1
+        val preEdgeLength = preParameter.get._2
+        val startTimeA = System.nanoTime()
 
         // collect the VertexSet
         val pVertexIDTemp = new Array[Long](preVertexLength)
@@ -221,33 +233,36 @@ object SSSPinGPU{
 
           temp = iter.next()
 
-          EdgeIndex = EdgeIndex + 1
+          if(temp.srcAttr._1){
 
-          if(! VertexNumList.contains(temp.srcId)){
-            pVertexIDTemp(VertexIndex)=temp.srcId
-            pVertexActiveTemp(VertexIndex)=temp.srcAttr._1
-            VertexNumList.add(temp.srcId)
+            EdgeIndex = EdgeIndex + 1
 
-            // guard the order of sourceList in array
-            var index = 0
-            for(part <- temp.srcAttr._2.values){
-              pVertexAttrTemp(VertexIndex * preMap + index) = part
-              index = index + 1
+            if(! VertexNumList.contains(temp.srcId)){
+              pVertexIDTemp(VertexIndex)=temp.srcId
+              pVertexActiveTemp(VertexIndex)=temp.srcAttr._1
+              VertexNumList.add(temp.srcId)
+
+              // guard the order of sourceList in array
+              var index = 0
+              for(part <- temp.srcAttr._2.values){
+                pVertexAttrTemp(VertexIndex * preMap + index) = part
+                index = index + 1
+              }
+              VertexIndex = VertexIndex + 1
             }
-            VertexIndex = VertexIndex + 1
-          }
-          if(! VertexNumList.contains(temp.dstId)){
-            pVertexIDTemp(VertexIndex)=temp.dstId
-            pVertexActiveTemp(VertexIndex)=temp.dstAttr._1
-            VertexNumList.add(temp.dstId)
+            if(! VertexNumList.contains(temp.dstId)){
+              pVertexIDTemp(VertexIndex)=temp.dstId
+              pVertexActiveTemp(VertexIndex)=temp.dstAttr._1
+              VertexNumList.add(temp.dstId)
 
-            // guard the order of sourceList in array
-            var index = 0
-            for(part <- temp.dstAttr._2.values){
-              pVertexAttrTemp(VertexIndex * preMap + index) = part
-              index = index + 1
+              // guard the order of sourceList in array
+              var index = 0
+              for(part <- temp.dstAttr._2.values){
+                pVertexAttrTemp(VertexIndex * preMap + index) = part
+                index = index + 1
+              }
+              VertexIndex = VertexIndex + 1
             }
-            VertexIndex = VertexIndex + 1
           }
 
         }
@@ -258,13 +273,13 @@ object SSSPinGPU{
 
         val Process = new GPUNative
         val results : ArrayBuffer[(VertexId, SPMapWithActive)] = Process.GPUProcess(
-          pVertexIDTemp, pVertexActiveTemp, pVertexAttrTemp, vertexNumbers, EdgeIndex, sourceList, pid)
+          pVertexIDTemp, pVertexActiveTemp, pVertexAttrTemp, vertexNumbers, VertexIndex, preEdgeLength, sourceList, pid)
 
 
         val result = results.iterator
         val endTimeB = System.nanoTime()
 
-        println((endTimeA - startTimeA) + " with time of " + (endTimeB - startTimeB))
+        println("In iter "+ iterTimes + " of part" + pid + ", Collecting data time: " + (endTimeA - startTimeA) + " Processing time: " + (endTimeB - startTimeB))
 
         result
       }).cache()
@@ -288,7 +303,7 @@ object SSSPinGPU{
       val endTime = System.nanoTime()
       //val endNew = System.nanoTime()
       //println("-------------------------")
-      println("~~~~~time in running"+(endTime - startTime)+"~~~~~")
+      println("Whole iteration time: " + (endTime - startTime))
 
       oldVertexModified.unpersist(blocking = false)
       prevG.unpersistVertices(blocking = false)
