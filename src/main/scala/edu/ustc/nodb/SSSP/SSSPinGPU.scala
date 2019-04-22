@@ -33,8 +33,7 @@ object SSSPinGPU{
     // initiate the graph
     // use the EdgePartitionDReverse so that vertices only updated in single partition
     // if modified to another partition method, ReduceByKey is needed
-    val spGraph = graph.partitionBy(EdgePartition1DReverse)
-    .mapVertices ( (vid, attr) => {
+    val spGraph = graph.mapVertices ( (vid, attr) => {
       var partitionInit: mutable.LinkedHashMap[VertexId, Double] = mutable.LinkedHashMap()
       var ifSource = false
       for (sid <- allSource.value.sorted) {
@@ -49,7 +48,7 @@ object SSSPinGPU{
       }
       (ifSource, partitionInit)
     }
-    ).cache()
+    ).partitionBy(EdgePartition1DReverse).cache()
 
     var g = spGraph
 
@@ -196,15 +195,14 @@ object SSSPinGPU{
       prevG = g
 
       //combine the messages with graph
-      g = g.mapVertices((vid,attr) => {
-        (false, attr._2)
-      }).joinVertices(modifiedSubGraph)((vid, v1, v2) => {
+      g = GraphXModified.joinVerticesDefault(g, modifiedSubGraph)((vid, v1, v2) => {
         val b = v2._1
         val result : mutable.LinkedHashMap[Long, Double] = v1._2++v2._2.map{
           case (k,r) => k->math.min(r,v1._2.getOrElse(k, Double.PositiveInfinity))
         }
         (b,result)
-      }).cache()
+      })(vAttr => (false,vAttr._2))
+        .cache()
 
       val oldVertexModified = modifiedSubGraph
       //run the main SSSP process
@@ -311,15 +309,14 @@ object SSSPinGPU{
     }
 
     // the final combine
-    g = g.mapVertices((vid,attr) => {
-      (false, attr._2)
-    }).joinVertices(modifiedSubGraph)((vid, v1, v2) => {
+    g = GraphXModified.joinVerticesDefault(g, modifiedSubGraph)((vid, v1, v2) => {
       val b = v2._1
       val result : mutable.LinkedHashMap[Long, Double] = v1._2++v2._2.map{
         case (k,r) => k->math.min(r,v1._2.getOrElse(k, Double.PositiveInfinity))
       }
       (b,result)
-    })
+    })(vAttr => (false,vAttr._2))
+      .cache()
     modifiedSubGraph.unpersist(blocking = false)
     g
   }

@@ -74,16 +74,16 @@ object MainSSSP{
     val startNormal = System.nanoTime()
     val ssspTest = new PregelSparkSSSP(graph, allSourceList)
     val ssspResult = ssspTest.run()
-    val d = ssspResult.vertices.count()
-    //println(ssspResult.vertices.collect.mkString("\n"))
+    //val d = ssspResult.vertices.count()
+    println(ssspResult.vertices.collect.mkString("\n"))
     val endNormal = System.nanoTime()
 
     println("-------------------------")
 
     val startNew = System.nanoTime()
     val ssspGPUResult = SSSPinGPU.run(graph, allSourceList, vertexNumbers, edgeNumbers, parts.get)
-    val q = ssspGPUResult.vertices.count()
-    //println(ssspGPUResult.vertices.collect.mkString("\n"))
+    //val q = ssspGPUResult.vertices.count()
+    println(ssspGPUResult.vertices.collect.mkString("\n"))
     val endNew = System.nanoTime()
 
     println("-------------------------")
@@ -93,8 +93,8 @@ object MainSSSP{
     println(endNew - startNew)
 
     SSSPinGPU.close(ssspGPUResult)
-    //val k = StdIn.readInt()
-    //println(k)
+    val k = StdIn.readInt()
+    println(k)
 
   }
 }
