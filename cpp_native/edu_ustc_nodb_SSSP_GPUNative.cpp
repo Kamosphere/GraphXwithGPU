@@ -111,6 +111,10 @@ JNIEXPORT jboolean JNICALL Java_edu_ustc_nodb_SSSP_GPUNative_GPUServerInit
 
     }
 
+    env->ReleaseLongArrayElements(jEdgeSrc, EdgeSrcTemp, 0);
+    env->ReleaseLongArrayElements(jEdgeDst, EdgeDstTemp, 0);
+    env->ReleaseDoubleArrayElements(jEdgeAttr, EdgeAttrTemp, 0);
+
     UtilClient execute = UtilClient(vertexNumbers, lenEdge, lenMarkID, partitionID);
 
     int chk = 0;
@@ -202,6 +206,10 @@ JNIEXPORT jint JNICALL Java_edu_ustc_nodb_SSSP_GPUNative_GPUClientSSSP
         vertices.at(jVertexId_get).isActive = jVertexActive_get;
 
     }
+
+    env->ReleaseLongArrayElements(jVertexId, VertexIDTemp, 0);
+    env->ReleaseBooleanArrayElements(jVertexActive, VertexActiveTemp, 0);
+    env->ReleaseDoubleArrayElements(jVertexAttr, VertexAttrTemp, 0);
 
 /*
     // test for multithreading environment
