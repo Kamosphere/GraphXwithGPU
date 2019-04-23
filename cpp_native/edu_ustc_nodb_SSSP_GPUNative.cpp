@@ -93,10 +93,10 @@ JNIEXPORT jboolean JNICALL Java_edu_ustc_nodb_SSSP_GPUNative_GPUServerInit
     }
 
     // Init the Graph with existed edges
-
-    long* EdgeSrcTemp = env->GetLongArrayElements(jEdgeSrc, nullptr);
-    long* EdgeDstTemp = env->GetLongArrayElements(jEdgeDst, nullptr);
-    double * EdgeAttrTemp = env->GetDoubleArrayElements(jEdgeAttr, nullptr);
+    jboolean isCopy = false;
+    long* EdgeSrcTemp = env->GetLongArrayElements(jEdgeSrc, &isCopy);
+    long* EdgeDstTemp = env->GetLongArrayElements(jEdgeDst, &isCopy);
+    double * EdgeAttrTemp = env->GetDoubleArrayElements(jEdgeAttr, &isCopy);
 
     for (int i = 0; i < lenEdge; i++) {
 
@@ -179,10 +179,11 @@ JNIEXPORT jint JNICALL Java_edu_ustc_nodb_SSSP_GPUNative_GPUClientSSSP
         vertices.at(execute.initVSet[i]).initVIndex = i;
     }
 
+    jboolean isCopy = false;
     // fill vertices attributes
-    long* VertexIDTemp = env->GetLongArrayElements(jVertexId, nullptr);
-    jboolean * VertexActiveTemp = env->GetBooleanArrayElements(jVertexActive, nullptr);
-    double* VertexAttrTemp = env->GetDoubleArrayElements(jVertexAttr, nullptr);
+    long* VertexIDTemp = env->GetLongArrayElements(jVertexId, &isCopy);
+    jboolean * VertexActiveTemp = env->GetBooleanArrayElements(jVertexActive, &isCopy);
+    double* VertexAttrTemp = env->GetDoubleArrayElements(jVertexAttr, &isCopy);
 
     for (int i = 0; i < lenVertex; i++) {
 
