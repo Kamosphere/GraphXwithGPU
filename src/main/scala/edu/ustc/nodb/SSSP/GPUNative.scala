@@ -67,13 +67,15 @@ class GPUNative extends Serializable {
 
     var tempVertexSet : VertexSet = null
 
-    //pass vertices through JNI and get arrayBuffer back
+    // pass vertices through JNI and get result array back
     val underIndex = GPUClientSSSP(vertexNumbers,
       VertexID, VertexActive, VertexAttr,
       vertexSize, edgeSize, sourceSize, pid,
       resultID, resultAttr)
 
     val startNew = System.nanoTime()
+
+    // take results out through VertexSet
     for(i <- 0 until underIndex){
 
       tempVertexSet = new VertexSet(resultID(i), true)

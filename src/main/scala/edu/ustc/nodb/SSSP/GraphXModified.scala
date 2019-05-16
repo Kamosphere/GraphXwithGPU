@@ -6,6 +6,8 @@ import org.apache.spark.rdd.RDD
 import scala.reflect.ClassTag
 
 object GraphXModified {
+
+  // if find data then run mapFunc.if not, then run defaultFunc
   def joinVerticesDefault[U: ClassTag, VD:ClassTag, ED:ClassTag]
   (graph: Graph[VD, ED], table: RDD[(VertexId, U)])
   (mapFunc: (VertexId, VD, U) => VD)(defaultFunc: VD => VD)

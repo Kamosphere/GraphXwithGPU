@@ -14,7 +14,7 @@ object SSSPinGPU{
 
   // Define the vertex attribute in GPU-based SSSP project
   // Boolean stands for the activeness of Vertex
-  // mutable.map stored the pairs of nearest distance from landmark
+  // mutable.LinkedHashMap stored the pairs of nearest distance from landmark in order
   type SPMapWithActive = (Boolean, mutable.LinkedHashMap[VertexId, Double])
 
   // run the SSSP based on Pregel structure
@@ -27,12 +27,12 @@ object SSSPinGPU{
   : Graph[SPMapWithActive, Double] = {
 
     // vertexNumbers stands for the quantity of vertices in the whole graph
-    // Assuming the graph is in equal distribution, preSize and preMap is used to avoid allocation arraycopy
+    // Assuming the graph is partitioned equally, preMap is used to avoid allocation arraycopy
     val preMap : Int = allSource.value.length
 
     // initiate the graph
-    // use the EdgePartitionDReverse so that vertices only updated in single partition
-    // if modified to another partition method, ReduceByKey is needed
+    // use the EdgePartition1DReverse so that vertices only updated in single partition
+    // if change to other partition method, ***ReduceByKey is needed***
     val spGraph = graph.mapVertices ( (vid, attr) => {
       var partitionInit: mutable.LinkedHashMap[VertexId, Double] = mutable.LinkedHashMap()
       var ifSource = false
@@ -52,6 +52,7 @@ object SSSPinGPU{
 
     var g = spGraph
 
+    // get the vertex number and edge number in every partition in order to avoid allocation arraycopy
     val partitionSplit = g.triplets.mapPartitionsWithIndex((pid, iter) => {
       var EdgeNum = 0
       var VertexNum = 0
@@ -80,7 +81,7 @@ object SSSPinGPU{
       val startTimeA = System.nanoTime()
 
       // collect the VertexSet and EdgeSet
-      //val partitionVertexTemp = new util.ArrayList[VertexSet](preVertexSize)
+
       val preParameter = partitionSplit.get(pid)
       val preVertexLength = preParameter.get._1
       val preEdgeLength = preParameter.get._2
@@ -93,7 +94,6 @@ object SSSPinGPU{
       val pEdgeDstIDTemp = new Array[Long](preEdgeLength)
       val pEdgeAttrTemp = new Array[Double](preEdgeLength)
 
-      //val partitionEdgeTemp = new util.ArrayList[EdgeSet](preEdgeSize)
       val sourceList = allSource.value
 
       // used to remove the abundant vertices
@@ -118,7 +118,7 @@ object SSSPinGPU{
           pVertexActiveTemp(VertexIndex)=temp.srcAttr._1
           VertexNumList.add(temp.srcId)
 
-          // guard the order of sourceList in array
+          // need to guard the order of sourceList in array
           var index = 0
           for(part <- temp.srcAttr._2.values){
             pVertexAttrTemp(VertexIndex * preMap + index) = part
@@ -131,7 +131,7 @@ object SSSPinGPU{
           pVertexActiveTemp(VertexIndex)=temp.dstAttr._1
           VertexNumList.add(temp.dstId)
 
-          // guard the order of sourceList in array
+          // need to guard the order of sourceList in array
           var index = 0
           for(part <- temp.dstAttr._2.values){
             pVertexAttrTemp(VertexIndex * preMap + index) = part
@@ -194,7 +194,7 @@ object SSSPinGPU{
       val startTime = System.nanoTime()
       prevG = g
 
-      //combine the messages with graph
+      //combine the messages with graph in one step
       g = GraphXModified.joinVerticesDefault(g, modifiedSubGraph)((vid, v1, v2) => {
         val b = v2._1
         val result : mutable.LinkedHashMap[Long, Double] = v1._2++v2._2.map{
@@ -240,7 +240,7 @@ object SSSPinGPU{
               pVertexActiveTemp(VertexIndex)=temp.srcAttr._1
               VertexNumList.add(temp.srcId)
 
-              // guard the order of sourceList in array
+              // need to guard the order of sourceList in array
               var index = 0
               for(part <- temp.srcAttr._2.values){
                 pVertexAttrTemp(VertexIndex * preMap + index) = part
@@ -253,7 +253,7 @@ object SSSPinGPU{
               pVertexActiveTemp(VertexIndex)=temp.dstAttr._1
               VertexNumList.add(temp.dstId)
 
-              // guard the order of sourceList in array
+              // need to guard the order of sourceList in array
               var index = 0
               for(part <- temp.dstAttr._2.values){
                 pVertexAttrTemp(VertexIndex * preMap + index) = part
