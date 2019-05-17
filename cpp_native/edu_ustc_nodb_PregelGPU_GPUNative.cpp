@@ -1,4 +1,4 @@
-#include "edu_ustc_nodb_SSSP_GPUNative.h"
+#include "edu_ustc_nodb_PregelGPU_GPUNative.h"
 #include <vector>
 #include <map>
 #include <iostream>
@@ -44,8 +44,9 @@ jint throwIllegalArgument( JNIEnv *env, const char *message )
 
 // Init the edge and markID
 
-JNIEXPORT jboolean JNICALL Java_edu_ustc_nodb_SSSP_GPUNative_GPUServerInit
+JNIEXPORT jboolean JNICALL Java_edu_ustc_nodb_PregelGPU_GPUNative_GPUServerInit
 (JNIEnv * env, jobject superClass,
+        jlongArray jFilteredVertex,
         jlong vertexNum, jlongArray jEdgeSrc, jlongArray jEdgeDst, jdoubleArray jEdgeAttr,
         jobject markId, jint pid){
 
@@ -94,6 +95,7 @@ JNIEXPORT jboolean JNICALL Java_edu_ustc_nodb_SSSP_GPUNative_GPUServerInit
 
     // Init the Graph with existed edges
     jboolean isCopy = false;
+    int* EdgefilteredTemp = (int *)env->GetLongArrayElements(jFilteredVertex, &isCopy);
     long* EdgeSrcTemp = env->GetLongArrayElements(jEdgeSrc, &isCopy);
     long* EdgeDstTemp = env->GetLongArrayElements(jEdgeDst, &isCopy);
     double * EdgeAttrTemp = env->GetDoubleArrayElements(jEdgeAttr, &isCopy);
@@ -125,7 +127,7 @@ JNIEXPORT jboolean JNICALL Java_edu_ustc_nodb_SSSP_GPUNative_GPUServerInit
         return false;
     }
 
-    chk = execute.transfer(vValues, &vertices[0], &edges[0], initVSet);
+    chk = execute.transfer(vValues, &vertices[0], &edges[0], initVSet, EdgefilteredTemp);
 
     if(chk == -1){
         throwIllegalArgument(env, "Cannot establish the connection with server correctly");
@@ -138,7 +140,7 @@ JNIEXPORT jboolean JNICALL Java_edu_ustc_nodb_SSSP_GPUNative_GPUServerInit
 }
 
 
-JNIEXPORT jint JNICALL Java_edu_ustc_nodb_SSSP_GPUNative_GPUClientSSSP
+JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_GPUNative_GPUClientSSSP
 (JNIEnv * env, jobject superClass,
         jlong vertexNum, jlongArray jVertexId, jbooleanArray jVertexActive, jdoubleArray jVertexAttr,
         jint vertexLen, jint edgeLen, jint markIdLen, jint pid,jlongArray returnId, jdoubleArray returnAttr){
@@ -245,44 +247,76 @@ JNIEXPORT jint JNICALL Java_edu_ustc_nodb_SSSP_GPUNative_GPUClientSSSP
 
     auto startTimeB = std::chrono::high_resolution_clock::now();
 
-    vector<long> cPlusReturnId = vector<long>();
-    vector<double> cPlusReturnAttr = vector<double>();
-
+    bool allGained = true;
     for(int i = 0; i < vertexNumbers; i++){
-
-        if(false | execute.vSet[i].isActive){
-            cPlusReturnId.emplace_back(i);
-            for (int j = 0; j < lenMarkID; j++) {
-                cPlusReturnAttr.emplace_back(execute.vValues[i * lenMarkID + j]);
+        if(execute.vSet[i].isActive){
+            int j = 0;
+            bool completeGained = false;
+            while(execute.filteredV[j] != -1){
+                if(i == execute.filteredV[j]){
+                    completeGained = true;
+                    break;
+                }
+                j++;
+            }
+            if(!completeGained){
+                allGained = false;
+                break;
             }
         }
     }
+    if(allGained){
+        execute.disconnect();
+        std::chrono::nanoseconds durationB = std::chrono::high_resolution_clock::now() - startTime;
 
-    env->SetLongArrayRegion(returnId, 0, cPlusReturnId.size(), &cPlusReturnId[0]);
-    env->SetDoubleArrayRegion(returnAttr, 0, cPlusReturnAttr.size(), &cPlusReturnAttr[0]);
+        std::string output = std::string();
+        output += "Time of partition " + to_string(pid) + " in c++: " + to_string(durationA.count()) + " "
+                  + to_string(duration.count()) + " " + to_string(durationB.count());
 
-    execute.disconnect();
-    std::chrono::nanoseconds durationB = std::chrono::high_resolution_clock::now() - startTime;
+        cout<<output<<endl;
 
-    std::string output = std::string();
-    output += "Time of partition " + to_string(pid) + " in c++: " + to_string(durationA.count()) + " "
-            + to_string(duration.count()) + " " + to_string(durationB.count());
+        return static_cast<int>(-114);
+    }
+    else{
+        vector<long> cPlusReturnId = vector<long>();
+        vector<double> cPlusReturnAttr = vector<double>();
 
-    cout<<output<<endl;
+        for(int i = 0; i < vertexNumbers; i++){
 
-    return static_cast<int>(cPlusReturnId.size());
+            if(execute.vSet[i].isActive){
+                cPlusReturnId.emplace_back(i);
+                for (int j = 0; j < lenMarkID; j++) {
+                    cPlusReturnAttr.emplace_back(execute.vValues[i * lenMarkID + j]);
+                }
+            }
+        }
+
+        env->SetLongArrayRegion(returnId, 0, cPlusReturnId.size(), &cPlusReturnId[0]);
+        env->SetDoubleArrayRegion(returnAttr, 0, cPlusReturnAttr.size(), &cPlusReturnAttr[0]);
+
+        execute.disconnect();
+        std::chrono::nanoseconds durationB = std::chrono::high_resolution_clock::now() - startTime;
+
+        std::string output = std::string();
+        output += "Time of partition " + to_string(pid) + " in c++: " + to_string(durationA.count()) + " "
+                  + to_string(duration.count()) + " " + to_string(durationB.count());
+
+        cout<<output<<endl;
+
+        return static_cast<int>(cPlusReturnId.size());
+    }
+
 }
 
 // server shutdown
 
-JNIEXPORT jboolean JNICALL Java_edu_ustc_nodb_SSSP_GPUNative_GPUServerShutdown
+JNIEXPORT jboolean JNICALL Java_edu_ustc_nodb_PregelGPU_GPUNative_GPUServerShutdown
   (JNIEnv * env, jobject superClass, jint pid){
     UtilClient control = UtilClient(0, 0, 0, pid);
 
     int chk = control.connect();
     if (chk == -1)
     {
-        throwIllegalArgument(env, "Cannot establish the connection with server correctly");
         return false;
     }
 

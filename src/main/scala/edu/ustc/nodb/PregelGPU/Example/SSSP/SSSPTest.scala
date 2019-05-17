@@ -1,13 +1,14 @@
-package edu.ustc.nodb.SSSP
+package edu.ustc.nodb.PregelGPU.Example.SSSP
 
-import org.apache.spark.{SparkConf, SparkContext}
+import edu.ustc.nodb.PregelGPU.PregelInGPU
 import org.apache.spark.graphx.{Edge, Graph, VertexId}
 import org.apache.spark.rdd.RDD
+import org.apache.spark.{SparkConf, SparkContext}
 
 import scala.collection.mutable.ArrayBuffer
 import scala.io.StdIn
 
-object MainSSSP{
+object SSSPTest{
 
   def main(args: Array[String]) {
 
@@ -67,6 +68,8 @@ object MainSSSP{
 
     val allSourceList = sc.broadcast(sourceList)
 
+    val accumu = sc.longAccumulator("filterCounter")
+
     // the quantity of vertices in the whole graph
     val vertexNumbers = graph.vertices.count()
     val edgeNumbers = graph.edges.count()
@@ -81,7 +84,7 @@ object MainSSSP{
     println("-------------------------")
 
     val startNew = System.nanoTime()
-    val ssspGPUResult = SSSPinGPU.run(graph, allSourceList, vertexNumbers, edgeNumbers, parts.get)
+    val ssspGPUResult = PregelInGPU.run(graph, allSourceList, vertexNumbers, edgeNumbers, parts.get, accumu)
     //val q = ssspGPUResult.vertices.count()
     println(ssspGPUResult.vertices.collect.mkString("\n"))
     val endNew = System.nanoTime()
@@ -92,7 +95,7 @@ object MainSSSP{
 
     println(endNew - startNew)
 
-    SSSPinGPU.close(ssspGPUResult)
+    PregelInGPU.close(ssspGPUResult)
     val k = StdIn.readInt()
     println(k)
 

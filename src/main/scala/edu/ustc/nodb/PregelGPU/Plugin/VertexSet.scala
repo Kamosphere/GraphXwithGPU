@@ -1,8 +1,6 @@
-package edu.ustc.nodb.SSSP
+package edu.ustc.nodb.PregelGPU.Plugin
 
-
-
-import edu.ustc.nodb.SSSP.SSSPinGPU.SPMapWithActive
+import edu.ustc.nodb.PregelGPU.PregelInGPU.SPMapWithActive
 
 import scala.collection.mutable
 
@@ -12,12 +10,14 @@ class VertexSet (vid: Long, activeness: Boolean, attr: mutable.LinkedHashMap[Lon
   def this(vid: Long, activeness: Boolean) = this(vid, activeness, new mutable.LinkedHashMap[Long, Double]())
 
   // that's it
-  def addAttr(id: Long, distance : Double): Unit ={
+  def addAttr(id: Long, distance : Double):
+  Unit ={
     attr.put(id, distance)
   }
 
   // pair of data structure, used in JNI
-  def TupleReturn(): (Long, SPMapWithActive) = {
+  def TupleReturn():
+  (Long, SPMapWithActive) = {
     (vid,(activeness, attr))
   }
 

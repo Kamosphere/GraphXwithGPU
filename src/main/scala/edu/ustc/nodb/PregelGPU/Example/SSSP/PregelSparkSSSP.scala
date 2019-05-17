@@ -1,4 +1,4 @@
-package edu.ustc.nodb.SSSP
+package edu.ustc.nodb.PregelGPU.Example.SSSP
 
 import org.apache.spark.broadcast.Broadcast
 import org.apache.spark.graphx.{EdgeTriplet, Graph, Pregel, VertexId}
@@ -12,13 +12,12 @@ class PregelSparkSSSP (graph: Graph[VertexId,Double],
   // map stored the pairs of nearest distance from landmark
   type SPMap = Map[VertexId, Double]
 
-
   /* the standard Pregel in spark to implement the SSSP */
 
   private def makeMap(x: (VertexId, Double)*) = Map(x: _*)
 
-  private def addMaps(spmap1: SPMap, spmap2: SPMap)
-  : SPMap =
+  private def addMaps(spmap1: SPMap, spmap2: SPMap):
+  SPMap =
     (spmap1.keySet ++ spmap2.keySet).map {
 
       k => k -> math.min(spmap1.getOrElse(k, Double.MaxValue), spmap2.getOrElse(k, Double.MaxValue))
@@ -27,8 +26,8 @@ class PregelSparkSSSP (graph: Graph[VertexId,Double],
 
   val initialMessage = makeMap()
 
-  def vertexProgram(id: VertexId, attr: SPMap, msg: SPMap)
-  : SPMap = {
+  def vertexProgram(id: VertexId, attr: SPMap, msg: SPMap):
+  SPMap = {
 
     addMaps(attr, msg)
 
@@ -38,8 +37,8 @@ class PregelSparkSSSP (graph: Graph[VertexId,Double],
   // allSource stands for the list
   // broadcast the source list to every partition,
   // which contains the sources of shortest path
-  def sendMessage(edge: EdgeTriplet[SPMap, Double])
-  : Iterator[(VertexId, SPMap)] = {
+  def sendMessage(edge: EdgeTriplet[SPMap, Double]):
+  Iterator[(VertexId, SPMap)] = {
 
     var result = new ListBuffer[(VertexId,SPMap)]()
     for (element <- allSource.value){

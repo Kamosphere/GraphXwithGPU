@@ -3,7 +3,7 @@
 #**************************************************************************************************
 cmake_minimum_required(VERSION 3.9)
 
-project(GPUSSSP)
+project(PregelGPU)
 
 set(CMAKE_CXX_STANDARD 14)
 set(GCC_COVERAGE_COMPILE_FLAGS  "-fPIC")
@@ -36,12 +36,12 @@ ELSE()
     INCLUDE_DIRECTORIES($ENV{JAVA_HOME}/include/linux)
 endif()
 
-add_library(GPUSSSP SHARED
-        edu_ustc_nodb_SSSP_GPUNative.h
-        edu_ustc_nodb_SSSP_GPUNative.cpp)
+add_library(PregelGPU SHARED
+        edu_ustc_nodb_PregelGPU_GPUNative.h
+        edu_ustc_nodb_PregelGPU_GPUNative.cpp)
 
 
-target_link_libraries(GPUSSSP
+target_link_libraries(PregelGPU
         algo_BellmanFord
         algo_BellmanFordGPU
         srv_UtilServer
