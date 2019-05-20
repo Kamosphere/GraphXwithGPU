@@ -20,7 +20,7 @@ JNIEXPORT jboolean JNICALL Java_edu_ustc_nodb_PregelGPU_GPUNative_GPUServerInit
  * Method:    GPUClientAllSSSP
  * Signature: (JIIII[J[D)I
  */
-JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_GPUNative_GPUClientAllSSSP
+JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_GPUNative_GPUClientAllStep
         (JNIEnv *, jobject, jlong, jint, jint, jint, jint, jlongArray, jdoubleArray);
 
 /*
@@ -28,7 +28,7 @@ JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_GPUNative_GPUClientAllSSSP
  * Method:    GPUClientSkippedSSSP
  * Signature: (JIIII[J[D)I
  */
-JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_GPUNative_GPUClientSkippedSSSP
+JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_GPUNative_GPUClientSkippedStep
         (JNIEnv *, jobject, jlong, jint, jint, jint, jint, jlongArray, jdoubleArray);
 
 /*
@@ -36,7 +36,7 @@ JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_GPUNative_GPUClientSkippedSS
  * Method:    GPUClientSSSP
  * Signature: (J[J[Z[DIIII[J[D)I
  */
-JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_GPUNative_GPUClientSSSP
+JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_GPUNative_GPUClientStep
         (JNIEnv *, jobject, jlong, jlongArray, jbooleanArray, jdoubleArray, jint, jint, jint, jint, jlongArray, jdoubleArray);
 
 /*

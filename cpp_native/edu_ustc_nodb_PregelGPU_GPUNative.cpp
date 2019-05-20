@@ -140,10 +140,10 @@ JNIEXPORT jboolean JNICALL Java_edu_ustc_nodb_PregelGPU_GPUNative_GPUServerInit
 }
 
 
-JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_GPUNative_GPUClientSSSP
+JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_GPUNative_GPUClientStep
 (JNIEnv * env, jobject superClass,
         jlong vertexNum, jlongArray jVertexId, jbooleanArray jVertexActive, jdoubleArray jVertexAttr,
-        jint vertexLen, jint edgeLen, jint markIdLen, jint pid,jlongArray returnId, jdoubleArray returnAttr){
+        jint vertexLen, jint edgeLen, jint markIdLen, jint pid, jlongArray returnId, jdoubleArray returnAttr){
 
     // jclass n_sztool = env->FindClass("edu/ustc/nodb/matrix/SizesTool");
     // jmethodID id_getSize = env->GetStaticMethodID(n_sztool, "getObjectSize", "(Ljava/lang/Object;)J");
@@ -307,6 +307,112 @@ JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_GPUNative_GPUClientSSSP
     }
 
 }
+
+JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_GPUNative_GPUClientSkippedStep
+        (JNIEnv * env, jobject superClass,
+                jlong vertexNum, jint vertexLen, jint edgeLen, jint markIdLen, jint pid, jlongArray returnId, jdoubleArray returnAttr){
+
+    int vertexNumbers = static_cast<int>(vertexNum);
+    int partitionID = static_cast<int>(pid);
+    int lenMarkID = static_cast<int>(markIdLen);
+    int lenEdge = static_cast<int>(edgeLen);
+
+    UtilClient execute = UtilClient(vertexNumbers, lenEdge, lenMarkID, partitionID);
+
+    int chk = 0;
+
+    chk = execute.connect();
+    if (chk == -1){
+        throwIllegalArgument(env, "Cannot establish the connection with server correctly");
+    }
+
+    execute.request();
+
+    bool allGained = true;
+    for(int i = 0; i < vertexNumbers; i++){
+        if(execute.vSet[i].isActive){
+            int j = 0;
+            bool completeGained = false;
+            while(execute.filteredV[j] != -1){
+                if(i == execute.filteredV[j]){
+                    completeGained = true;
+                    break;
+                }
+                j++;
+            }
+            if(!completeGained){
+                allGained = false;
+                break;
+            }
+        }
+    }
+    if(allGained){
+        execute.disconnect();
+
+        return static_cast<int>(-114);
+    }
+    else{
+        vector<long> cPlusReturnId = vector<long>();
+        vector<double> cPlusReturnAttr = vector<double>();
+
+        for(int i = 0; i < vertexNumbers; i++){
+
+            if(execute.vSet[i].isActive){
+                cPlusReturnId.emplace_back(i);
+                for (int j = 0; j < lenMarkID; j++) {
+                    cPlusReturnAttr.emplace_back(execute.vValues[i * lenMarkID + j]);
+                }
+            }
+        }
+
+        env->SetLongArrayRegion(returnId, 0, cPlusReturnId.size(), &cPlusReturnId[0]);
+        env->SetDoubleArrayRegion(returnAttr, 0, cPlusReturnAttr.size(), &cPlusReturnAttr[0]);
+
+        execute.disconnect();
+
+        return static_cast<int>(cPlusReturnId.size());
+}
+
+JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_GPUNative_GPUClientAllStep
+        (JNIEnv * env, jobject superClass, jlong vertexNum, jint vertexLen, jint edgeLen, jint markIdLen, jint pid, jlongArray returnId, jdoubleArray returnAttr) {
+
+    int vertexNumbers = static_cast<int>(vertexNum);
+    int partitionID = static_cast<int>(pid);
+    int lenMarkID = static_cast<int>(markIdLen);
+    int lenEdge = static_cast<int>(edgeLen);
+
+    UtilClient execute = UtilClient(vertexNumbers, lenEdge, lenMarkID, partitionID);
+
+    int chk = 0;
+
+    chk = execute.connect();
+    if (chk == -1){
+        throwIllegalArgument(env, "Cannot establish the connection with server correctly");
+    }
+
+    vector<long> cPlusReturnId = vector<long>();
+    vector<double> cPlusReturnAttr = vector<double>();
+
+    int scopeFiltered = 0;
+    while(int idFiltered = execute.filteredV[scopeFiltered]!= -1){
+
+        if(execute.vSet[idFiltered].isActive){
+            cPlusReturnId.emplace_back(idFiltered);
+            for (int j = 0; j < lenMarkID; j++) {
+                cPlusReturnAttr.emplace_back(execute.vValues[idFiltered * lenMarkID + j]);
+            }
+        }
+    }
+
+    env->SetLongArrayRegion(returnId, 0, cPlusReturnId.size(), &cPlusReturnId[0]);
+    env->SetDoubleArrayRegion(returnAttr, 0, cPlusReturnAttr.size(), &cPlusReturnAttr[0]);
+
+    execute.disconnect();
+
+    return static_cast<int>(cPlusReturnId.size());
+
+}
+
 
 // server shutdown
 
