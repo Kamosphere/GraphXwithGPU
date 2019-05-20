@@ -28,8 +28,8 @@ class GPUNative extends Serializable {
                             pid:Int):
   Boolean
 
-  // native function to execute SSSP algorithm in final step
-  @native def GPUClientAllSSSP(vertexNumber: Long,
+  // native function to execute algorithm in final step
+  @native def GPUClientAllStep(vertexNumber: Long,
                             vertexSize:Int,
                             edgeSize: Int,
                             markIdSize: Int,
@@ -38,8 +38,8 @@ class GPUNative extends Serializable {
                             resultAttr: Array[Double]):
   Int
 
-  // native function to execute SSSP algorithm while last iter skipped
-  @native def GPUClientSkippedSSSP(vertexNumber: Long,
+  // native function to execute algorithm while prev iter skipped
+  @native def GPUClientSkippedStep(vertexNumber: Long,
                             vertexSize:Int,
                             edgeSize: Int,
                             markIdSize: Int,
@@ -48,8 +48,8 @@ class GPUNative extends Serializable {
                             resultAttr: Array[Double]):
   Int
 
-  // native function to execute SSSP algorithm
-  @native def GPUClientSSSP(vertexNumber: Long,
+  // native function to execute algorithm
+  @native def GPUClientStep(vertexNumber: Long,
                             VertexID: Array[Long],
                             VertexActive: Array[Boolean],
                             VertexAttr: Array[Double],
@@ -65,7 +65,7 @@ class GPUNative extends Serializable {
   @native def GPUServerShutdown(pid: Int):
   Boolean
 
-  // execute SSSP algorithm
+  // execute algorithm in final step
   def GPUAllProcess(vertexNumbers: Long,
                     vertexSize: Int,
                     edgeSize: Int,
@@ -85,7 +85,7 @@ class GPUNative extends Serializable {
     var tempVertexSet : VertexSet = null
 
     //pass vertices through JNI and get arrayBuffer back
-    val underIndex = GPUClientAllSSSP(vertexNumbers,
+    val underIndex = GPUClientAllStep(vertexNumbers,
       vertexSize, edgeSize, sourceSize, pid,
       resultID, resultAttr)
 
@@ -109,7 +109,7 @@ class GPUNative extends Serializable {
       results
   }
 
-  // execute SSSP algorithm
+  // execute algorithm while prev iter skipped
   def GPUSkippedProcess(
                  vertexNumbers: Long,
                  vertexSize: Int,
@@ -130,7 +130,7 @@ class GPUNative extends Serializable {
     var tempVertexSet : VertexSet = null
 
     //pass vertices through JNI and get arrayBuffer back
-    val underIndex = GPUClientSkippedSSSP(vertexNumbers,
+    val underIndex = GPUClientSkippedStep(vertexNumbers,
       vertexSize, edgeSize, sourceSize, pid,
       resultID, resultAttr)
 
@@ -191,7 +191,7 @@ class GPUNative extends Serializable {
     var tempVertexSet : VertexSet = null
 
     // pass vertices through JNI and get result array back
-    val underIndex = GPUClientSSSP(vertexNumbers,
+    val underIndex = GPUClientStep(vertexNumbers,
       VertexID, VertexActive, VertexAttr,
       vertexSize, edgeSize, sourceSize, pid,
       resultID, resultAttr)

@@ -151,6 +151,11 @@ object PregelInGPU{
       afterCounter = counter.sum
     }
 
+    g = GraphXModified.joinVerticesDefault(g, vertexModified)((vid, v1, v2) =>
+      lambdaJoinVerticesDefault(vid, v1, v2))(vAttr =>
+      (false,vAttr._2))
+      .cache()
+
     // extract the remained data
     modifiedSubGraph = vertexModified.mapPartitionsWithIndex((pid, iter) =>{
 
