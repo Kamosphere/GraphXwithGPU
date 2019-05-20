@@ -12,7 +12,7 @@ Also, you still need a cmake with version newer than 3.9 to compile it easily, b
 
 CUDA is needed for GPU version
 
-Spark 2.4.0 and Scala 2.11.12 is recommanded for compability. 
+Spark 2.4.3 and Scala 2.11.12 is recommanded for compability. 
 
 ## Config
 
@@ -23,9 +23,11 @@ before running the scala application
 
 ## Usage
 
+Take ShortestPath algorithm for example:
+
 After compiling cpp code, deploy the jar file and cpp code and run like this:
 
- spark-submit --class edu.ustc.nodb.Main \
+ spark-submit --class edu.ustc.nodb.PregelGPU.Example.SSSP.SSSPTest \
  --master "(master-url)" \
  --conf "(other config)" \
  --driver-library-path="(cpp code path)" \
@@ -37,5 +39,6 @@ see more information at https://github.com/thoh-testarossa/Graph_Algo
 
 ## Todo List
 
-optimization of memory controling
-transfering to GPU version
+Executing cost reduce
+
+Skipping useless steps

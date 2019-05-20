@@ -351,13 +351,13 @@ JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_GPUNative_GPUClientSkippedSt
 
         return static_cast<int>(-114);
     }
-    else{
+    else {
         vector<long> cPlusReturnId = vector<long>();
         vector<double> cPlusReturnAttr = vector<double>();
 
-        for(int i = 0; i < vertexNumbers; i++){
+        for (int i = 0; i < vertexNumbers; i++) {
 
-            if(execute.vSet[i].isActive){
+            if (execute.vSet[i].isActive) {
                 cPlusReturnId.emplace_back(i);
                 for (int j = 0; j < lenMarkID; j++) {
                     cPlusReturnAttr.emplace_back(execute.vValues[i * lenMarkID + j]);
@@ -371,10 +371,12 @@ JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_GPUNative_GPUClientSkippedSt
         execute.disconnect();
 
         return static_cast<int>(cPlusReturnId.size());
+    }
 }
 
 JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_GPUNative_GPUClientAllStep
-        (JNIEnv * env, jobject superClass, jlong vertexNum, jint vertexLen, jint edgeLen, jint markIdLen, jint pid, jlongArray returnId, jdoubleArray returnAttr) {
+        (JNIEnv * env, jobject superClass,
+                jlong vertexNum, jint vertexLen, jint edgeLen, jint markIdLen, jint pid, jlongArray returnId, jdoubleArray returnAttr) {
 
     int vertexNumbers = static_cast<int>(vertexNum);
     int partitionID = static_cast<int>(pid);
