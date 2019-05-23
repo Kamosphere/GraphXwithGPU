@@ -73,7 +73,7 @@ class GPUNative extends Serializable {
                     pid: Int):
   ArrayBuffer[(VertexId, SPMapWithActive)] = {
 
-    System.loadLibrary("GPUSSSP")
+    System.loadLibrary("PregelGPU")
 
     val sourceSize = sourceList.length
 
@@ -91,21 +91,18 @@ class GPUNative extends Serializable {
 
     val startNew = System.nanoTime()
 
-    var i = 0
+    for(i <- 0 until underIndex){
 
-    for(unit <- resultID){
-
-      tempVertexSet = new VertexSet(unit, true)
+      tempVertexSet = new VertexSet(resultID(i), false)
       for(j <- sourceList.indices){
         tempVertexSet.addAttr(sourceList(j), resultAttr(i * sourceSize + j))
       }
 
       results.+=(tempVertexSet.TupleReturn())
-      i = i + 1
 
     }
       val endNew = System.nanoTime()
-      println("Constructing returned arrayBuffer time: " + (endNew - startNew))
+      println("Constructing remained arrayBuffer time: " + (endNew - startNew))
       results
   }
 
@@ -118,7 +115,7 @@ class GPUNative extends Serializable {
                  pid: Int):
   (ArrayBuffer[(VertexId, SPMapWithActive)], Boolean) = {
 
-    System.loadLibrary("GPUSSSP")
+    System.loadLibrary("PregelGPU")
 
     val sourceSize = sourceList.length
 
@@ -130,42 +127,32 @@ class GPUNative extends Serializable {
     var tempVertexSet : VertexSet = null
 
     //pass vertices through JNI and get arrayBuffer back
-    val underIndex = GPUClientSkippedStep(vertexNumbers,
+    var underIndex = GPUClientSkippedStep(vertexNumbers,
       vertexSize, edgeSize, sourceSize, pid,
       resultID, resultAttr)
 
+    val needCombine = if(underIndex < 0) false else true
+
+    underIndex = math.abs(underIndex)
+
     val startNew = System.nanoTime()
 
-    var i = 0
+    for(i <- 0 until underIndex){
 
-    for(unit <- resultID){
-
-      tempVertexSet = new VertexSet(unit, true)
+      tempVertexSet = new VertexSet(resultID(i), true)
       for(j <- sourceList.indices){
         tempVertexSet.addAttr(sourceList(j), resultAttr(i * sourceSize + j))
       }
 
       results.+=(tempVertexSet.TupleReturn())
-      i = i + 1
 
     }
 
-    if(underIndex < 0){
+    val endNew = System.nanoTime()
 
-      val endNew = System.nanoTime()
+    println("Constructing returned skipped arrayBuffer time: " + (endNew - startNew))
 
-      println("Constructing returned null arrayBuffer time: " + (endNew - startNew))
-
-      (results, false)
-    }
-    else{
-
-      val endNew = System.nanoTime()
-
-      println("Constructing returned arrayBuffer time: " + (endNew - startNew))
-
-      (results, true)
-    }
+    (results, needCombine)
 
   }
   // execute SSSP algorithm
@@ -179,7 +166,7 @@ class GPUNative extends Serializable {
                  pid: Int):
   (ArrayBuffer[(VertexId, SPMapWithActive)], Boolean) = {
 
-    System.loadLibrary("GPUSSSP")
+    System.loadLibrary("PregelGPU")
 
     val sourceSize = sourceList.length
 
@@ -191,44 +178,33 @@ class GPUNative extends Serializable {
     var tempVertexSet : VertexSet = null
 
     // pass vertices through JNI and get result array back
-    val underIndex = GPUClientStep(vertexNumbers,
+    var underIndex = GPUClientStep(vertexNumbers,
       VertexID, VertexActive, VertexAttr,
       vertexSize, edgeSize, sourceSize, pid,
       resultID, resultAttr)
 
+    val needCombine = if(underIndex < 0) false else true
+
+    underIndex = math.abs(underIndex)
+
     val startNew = System.nanoTime()
 
-    // take results out through VertexSet
-    var i = 0
+    for(i <- 0 until underIndex){
 
-    for(unit <- resultID){
-
-      tempVertexSet = new VertexSet(unit, true)
+      tempVertexSet = new VertexSet(resultID(i), true)
       for(j <- sourceList.indices){
         tempVertexSet.addAttr(sourceList(j), resultAttr(i * sourceSize + j))
       }
 
       results.+=(tempVertexSet.TupleReturn())
-      i = i + 1
 
     }
 
-    if(underIndex < 0){
+    val endNew = System.nanoTime()
 
-      val endNew = System.nanoTime()
+    println("Constructing returned arrayBuffer time: " + (endNew - startNew))
 
-      println("Constructing returned null arrayBuffer time: " + (endNew - startNew))
-
-      (results, false)
-    }
-    else{
-
-      val endNew = System.nanoTime()
-
-      println("Constructing returned arrayBuffer time: " + (endNew - startNew))
-
-      (results, true)
-    }
+    (results, needCombine)
 
   }
 
@@ -253,7 +229,7 @@ class GPUNative extends Serializable {
     // too quickly for cuda init
     Thread.sleep(500)
 
-    System.loadLibrary("GPUSSSP")
+    System.loadLibrary("PregelGPU")
 
     //initialize the source id array
     val sourceId = new util.ArrayList[Long](sourceList.length+(sourceList.length>>1))
@@ -271,7 +247,7 @@ class GPUNative extends Serializable {
   // after executing, close the server and release the shared memory
   def GPUShutdown(pid: Int):Boolean = {
 
-    System.loadLibrary("GPUSSSP")
+    System.loadLibrary("PregelGPU")
     val ifSuccess = GPUServerShutdown(pid)
     ifSuccess
 

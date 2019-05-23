@@ -20,20 +20,18 @@ object PregelInGPU{
   // mutable.LinkedHashMap stored the pairs of nearest distance from landmark in order
   type SPMapWithActive = (Boolean, mutable.LinkedHashMap[VertexId, Double])
 
-  // run the SSSP based on Pregel structure
   // vertexNumbers stands for the quantity of vertices in the whole graph
   def run(graph: Graph[VertexId, Double],
           allSource: Broadcast[ArrayBuffer[VertexId]],
           vertexNumbers: Long,
           edgeNumbers: Long,
           parts: Int,
-          counter: LongAccumulator,
           maxIterations: Int = Int.MaxValue)
   : Graph[SPMapWithActive, Double] = {
 
     // initiate the graph
     // use the EdgePartition1DReverse so that vertices only updated in single partition
-    // if change to other partition method, ***ReduceByKey is needed***
+    // if changed to other partition method, ***ReduceByKey is needed***
     val spGraph = graph.mapVertices ((vid, attr) => {
       var partitionInit: mutable.LinkedHashMap[VertexId, Double] = mutable.LinkedHashMap()
       var ifSource = false
@@ -53,15 +51,20 @@ object PregelInGPU{
 
     val countOutDegree = g.outDegrees.collectAsMap()
 
-    var beforeCounter = counter.value
+    val sc = org.apache.spark.SparkContext.getOrCreate()
+
+    val ifFilteredCounter = sc.longAccumulator("ifFilteredCounter")
+
+    var beforeCounter = ifFilteredCounter.value
 
     var partitionSplit : collection.Map[Int,(Int, Int)] = null
     var modifiedSubGraph: RDD[(VertexId, SPMapWithActive)] = null
-    var tuples = (partitionSplit, modifiedSubGraph)
-    tuples = partitionSplitAndPreIter(g, allSource, vertexNumbers, countOutDegree, counter)
+    //var tuples = (partitionSplit, modifiedSubGraph)
+    val (partitionSplitTemp, modifiedSubGraphTemp) = partitionSplitAndPreIter(g, allSource, vertexNumbers, countOutDegree, ifFilteredCounter)
     // get the vertex number and edge number in every partition in order to avoid allocation arraycopy
 
-    var afterCounter = counter.value
+    partitionSplit = partitionSplitTemp
+    modifiedSubGraph = modifiedSubGraphTemp
 
     // combine the vertex messages through partitions
     var vertexModified = modifiedSubGraph.reduceByKey((v1, v2) =>
@@ -69,6 +72,8 @@ object PregelInGPU{
 
     // get the amount of active vertices
     var activeMessages = vertexModified.count()
+
+    var afterCounter = ifFilteredCounter.value
 
     var iterTimes = 1
     var prevG : Graph[SPMapWithActive, Double] = null
@@ -81,8 +86,8 @@ object PregelInGPU{
       val startTime = System.nanoTime()
       prevG = g
       val oldVertexModified = vertexModified
-      counter.reset()
-      val tempBeforeCounter = counter.sum
+      ifFilteredCounter.reset()
+      val tempBeforeCounter = ifFilteredCounter.sum
 
       if(ifRepartition){
         g = GraphXModified.joinVerticesDefault(g, vertexModified)((vid, v1, v2) =>
@@ -90,7 +95,10 @@ object PregelInGPU{
           (false,vAttr._2))
           .cache()
 
-        tuples = partitionSplitAndPreIter(g, allSource, vertexNumbers, countOutDegree, counter)
+        val (partitionSplitTemp, modifiedSubGraphTemp) = partitionSplitAndPreIter(g, allSource, vertexNumbers, countOutDegree, ifFilteredCounter)
+
+        partitionSplit = partitionSplitTemp
+        modifiedSubGraph = modifiedSubGraphTemp
       }
       else{
         if(afterCounter != beforeCounter){
@@ -101,7 +109,7 @@ object PregelInGPU{
             .cache()
 
           //run the main SSSP process
-          modifiedSubGraph = IterationWhileCombine(g, iterTimes, allSource, vertexNumbers, partitionSplit, counter)
+          modifiedSubGraph = IterationWhileCombine(g, iterTimes, allSource, vertexNumbers, partitionSplit, ifFilteredCounter)
 
         }
         // skip merging to graph
@@ -116,7 +124,7 @@ object PregelInGPU{
             val (results, needCombine) : (ArrayBuffer[(VertexId, SPMapWithActive)],Boolean) = Process.GPUSkippedProcess(
               vertexNumbers, preVertexLength, preEdgeLength, sourceList, pid)
             if(needCombine){
-              counter.add(1)
+              ifFilteredCounter.add(1)
             }
             val result = results.iterator
             result
@@ -148,7 +156,7 @@ object PregelInGPU{
         prevG.edges.unpersist(blocking = false)
       }
       beforeCounter = tempBeforeCounter
-      afterCounter = counter.sum
+      afterCounter = ifFilteredCounter.sum
     }
 
     g = GraphXModified.joinVerticesDefault(g, vertexModified)((vid, v1, v2) =>

@@ -68,8 +68,6 @@ object SSSPTest{
 
     val allSourceList = sc.broadcast(sourceList)
 
-    val accumu = sc.longAccumulator("filterCounter")
-
     // the quantity of vertices in the whole graph
     val vertexNumbers = graph.vertices.count()
     val edgeNumbers = graph.edges.count()
@@ -84,7 +82,7 @@ object SSSPTest{
     println("-------------------------")
 
     val startNew = System.nanoTime()
-    val ssspGPUResult = PregelInGPU.run(graph, allSourceList, vertexNumbers, edgeNumbers, parts.get, accumu)
+    val ssspGPUResult = PregelInGPU.run(graph, allSourceList, vertexNumbers, edgeNumbers, parts.get)
     //val q = ssspGPUResult.vertices.count()
     println(ssspGPUResult.vertices.collect.mkString("\n"))
     val endNew = System.nanoTime()

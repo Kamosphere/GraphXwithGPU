@@ -61,6 +61,7 @@ JNIEXPORT jboolean JNICALL Java_edu_ustc_nodb_PregelGPU_GPUNative_GPUServerInit
 
     int lenMarkID = env->CallIntMethod(markId, id_ArrayList_size);
     int lenEdge = env->GetArrayLength(jEdgeSrc);
+    int lenFiltered = env->GetArrayLength(jFilteredVertex);
 
     int vertexNumbers = static_cast<int>(vertexNum);
     int partitionID = static_cast<int>(pid);
@@ -95,7 +96,7 @@ JNIEXPORT jboolean JNICALL Java_edu_ustc_nodb_PregelGPU_GPUNative_GPUServerInit
 
     // Init the Graph with existed edges
     jboolean isCopy = false;
-    int* EdgefilteredTemp = (int *)env->GetLongArrayElements(jFilteredVertex, &isCopy);
+    long* EdgeFilteredTemp = env->GetLongArrayElements(jFilteredVertex, &isCopy);
     long* EdgeSrcTemp = env->GetLongArrayElements(jEdgeSrc, &isCopy);
     long* EdgeDstTemp = env->GetLongArrayElements(jEdgeDst, &isCopy);
     double * EdgeAttrTemp = env->GetDoubleArrayElements(jEdgeAttr, &isCopy);
@@ -127,7 +128,7 @@ JNIEXPORT jboolean JNICALL Java_edu_ustc_nodb_PregelGPU_GPUNative_GPUServerInit
         return false;
     }
 
-    chk = execute.transfer(vValues, &vertices[0], &edges[0], initVSet, EdgefilteredTemp);
+    chk = execute.transfer(vValues, &vertices[0], &edges[0], initVSet, EdgeFilteredTemp, lenFiltered);
 
     if(chk == -1){
         throwIllegalArgument(env, "Cannot establish the connection with server correctly");
@@ -247,17 +248,31 @@ JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_GPUNative_GPUClientStep
 
     auto startTimeB = std::chrono::high_resolution_clock::now();
 
+    vector<long> cPlusReturnId = vector<long>();
+    vector<double> cPlusReturnAttr = vector<double>();
+
+    for(int i = 0; i < vertexNumbers; i++){
+
+        if(execute.vSet[i].isActive){
+            cPlusReturnId.emplace_back(i);
+            for (int j = 0; j < lenMarkID; j++) {
+                cPlusReturnAttr.emplace_back(execute.vValues[i * lenMarkID + j]);
+            }
+        }
+    }
+
+    env->SetLongArrayRegion(returnId, 0, cPlusReturnId.size(), &cPlusReturnId[0]);
+    env->SetDoubleArrayRegion(returnAttr, 0, cPlusReturnAttr.size(), &cPlusReturnAttr[0]);
+
     bool allGained = true;
     for(int i = 0; i < vertexNumbers; i++){
         if(execute.vSet[i].isActive){
-            int j = 0;
             bool completeGained = false;
-            while(execute.filteredV[j] != -1){
-                if(i == execute.filteredV[j]){
+            for(int j = 0; j < execute.filteredVCount[0]; j++){
+                if(execute.filteredV[j] == i){
                     completeGained = true;
                     break;
                 }
-                j++;
             }
             if(!completeGained){
                 allGained = false;
@@ -265,44 +280,19 @@ JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_GPUNative_GPUClientStep
             }
         }
     }
+    execute.disconnect();
+    std::chrono::nanoseconds durationB = std::chrono::high_resolution_clock::now() - startTime;
+
+    std::string output = std::string();
+    output += "Time of partition " + to_string(pid) + " in c++: " + to_string(durationA.count()) + " "
+              + to_string(duration.count()) + " " + to_string(durationB.count());
+
+    cout<<output<<endl;
+
     if(allGained){
-        execute.disconnect();
-        std::chrono::nanoseconds durationB = std::chrono::high_resolution_clock::now() - startTime;
-
-        std::string output = std::string();
-        output += "Time of partition " + to_string(pid) + " in c++: " + to_string(durationA.count()) + " "
-                  + to_string(duration.count()) + " " + to_string(durationB.count());
-
-        cout<<output<<endl;
-
-        return static_cast<int>(-114);
+        return static_cast<int>(0-cPlusReturnId.size());
     }
     else{
-        vector<long> cPlusReturnId = vector<long>();
-        vector<double> cPlusReturnAttr = vector<double>();
-
-        for(int i = 0; i < vertexNumbers; i++){
-
-            if(execute.vSet[i].isActive){
-                cPlusReturnId.emplace_back(i);
-                for (int j = 0; j < lenMarkID; j++) {
-                    cPlusReturnAttr.emplace_back(execute.vValues[i * lenMarkID + j]);
-                }
-            }
-        }
-
-        env->SetLongArrayRegion(returnId, 0, cPlusReturnId.size(), &cPlusReturnId[0]);
-        env->SetDoubleArrayRegion(returnAttr, 0, cPlusReturnAttr.size(), &cPlusReturnAttr[0]);
-
-        execute.disconnect();
-        std::chrono::nanoseconds durationB = std::chrono::high_resolution_clock::now() - startTime;
-
-        std::string output = std::string();
-        output += "Time of partition " + to_string(pid) + " in c++: " + to_string(durationA.count()) + " "
-                  + to_string(duration.count()) + " " + to_string(durationB.count());
-
-        cout<<output<<endl;
-
         return static_cast<int>(cPlusReturnId.size());
     }
 
@@ -328,17 +318,31 @@ JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_GPUNative_GPUClientSkippedSt
 
     execute.request();
 
+    vector<long> cPlusReturnId = vector<long>();
+    vector<double> cPlusReturnAttr = vector<double>();
+
+    for (int i = 0; i < vertexNumbers; i++) {
+        if (execute.vSet[i].isActive) {
+            // copy data
+            cPlusReturnId.emplace_back(i);
+            for (int j = 0; j < lenMarkID; j++) {
+                cPlusReturnAttr.emplace_back(execute.vValues[i * lenMarkID + j]);
+            }
+        }
+    }
+
+    env->SetLongArrayRegion(returnId, 0, cPlusReturnId.size(), &cPlusReturnId[0]);
+    env->SetDoubleArrayRegion(returnAttr, 0, cPlusReturnAttr.size(), &cPlusReturnAttr[0]);
+
     bool allGained = true;
     for(int i = 0; i < vertexNumbers; i++){
         if(execute.vSet[i].isActive){
-            int j = 0;
             bool completeGained = false;
-            while(execute.filteredV[j] != -1){
-                if(i == execute.filteredV[j]){
+            for(int j = 0; j < execute.filteredVCount[0]; j++){
+                if(execute.filteredV[j] == i){
                     completeGained = true;
                     break;
                 }
-                j++;
             }
             if(!completeGained){
                 allGained = false;
@@ -346,30 +350,12 @@ JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_GPUNative_GPUClientSkippedSt
             }
         }
     }
+    execute.disconnect();
+
     if(allGained){
-        execute.disconnect();
-
-        return static_cast<int>(-114);
+        return static_cast<int>(0-cPlusReturnId.size());
     }
-    else {
-        vector<long> cPlusReturnId = vector<long>();
-        vector<double> cPlusReturnAttr = vector<double>();
-
-        for (int i = 0; i < vertexNumbers; i++) {
-
-            if (execute.vSet[i].isActive) {
-                cPlusReturnId.emplace_back(i);
-                for (int j = 0; j < lenMarkID; j++) {
-                    cPlusReturnAttr.emplace_back(execute.vValues[i * lenMarkID + j]);
-                }
-            }
-        }
-
-        env->SetLongArrayRegion(returnId, 0, cPlusReturnId.size(), &cPlusReturnId[0]);
-        env->SetDoubleArrayRegion(returnAttr, 0, cPlusReturnAttr.size(), &cPlusReturnAttr[0]);
-
-        execute.disconnect();
-
+    else{
         return static_cast<int>(cPlusReturnId.size());
     }
 }
@@ -395,20 +381,16 @@ JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_GPUNative_GPUClientAllStep
     vector<long> cPlusReturnId = vector<long>();
     vector<double> cPlusReturnAttr = vector<double>();
 
-    int scopeFiltered = 0;
-    while(int idFiltered = execute.filteredV[scopeFiltered]!= -1){
-
-        if(execute.vSet[idFiltered].isActive){
-            cPlusReturnId.emplace_back(idFiltered);
-            for (int j = 0; j < lenMarkID; j++) {
-                cPlusReturnAttr.emplace_back(execute.vValues[idFiltered * lenMarkID + j]);
-            }
+    for(int scopeFiltered = 0; scopeFiltered < execute.filteredVCount[0]; scopeFiltered++){
+        int idFiltered = execute.filteredV[scopeFiltered];
+        cPlusReturnId.emplace_back(idFiltered);
+        for (int j = 0; j < lenMarkID; j++) {
+            cPlusReturnAttr.emplace_back(execute.vValues[idFiltered * lenMarkID + j]);
         }
     }
-
+    
     env->SetLongArrayRegion(returnId, 0, cPlusReturnId.size(), &cPlusReturnId[0]);
     env->SetDoubleArrayRegion(returnAttr, 0, cPlusReturnAttr.size(), &cPlusReturnAttr[0]);
-
     execute.disconnect();
 
     return static_cast<int>(cPlusReturnId.size());
