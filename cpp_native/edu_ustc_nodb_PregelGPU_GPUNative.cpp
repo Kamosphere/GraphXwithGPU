@@ -251,22 +251,16 @@ JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_GPUNative_GPUClientStep
     vector<long> cPlusReturnId = vector<long>();
     vector<double> cPlusReturnAttr = vector<double>();
 
-    for(int i = 0; i < vertexNumbers; i++){
-
-        if(execute.vSet[i].isActive){
+    bool allGained = true;
+    for (int i = 0; i < vertexNumbers; i++) {
+        if (execute.vSet[i].isActive) {
+            // copy data
             cPlusReturnId.emplace_back(i);
             for (int j = 0; j < lenMarkID; j++) {
                 cPlusReturnAttr.emplace_back(execute.vValues[i * lenMarkID + j]);
             }
-        }
-    }
 
-    env->SetLongArrayRegion(returnId, 0, cPlusReturnId.size(), &cPlusReturnId[0]);
-    env->SetDoubleArrayRegion(returnAttr, 0, cPlusReturnAttr.size(), &cPlusReturnAttr[0]);
-
-    bool allGained = true;
-    for(int i = 0; i < vertexNumbers; i++){
-        if(execute.vSet[i].isActive){
+            // detect if the vertex is filtered
             bool completeGained = false;
             for(int j = 0; j < execute.filteredVCount[0]; j++){
                 if(execute.filteredV[j] == i){
@@ -276,10 +270,14 @@ JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_GPUNative_GPUClientStep
             }
             if(!completeGained){
                 allGained = false;
-                break;
             }
+
         }
     }
+
+    env->SetLongArrayRegion(returnId, 0, cPlusReturnId.size(), &cPlusReturnId[0]);
+    env->SetDoubleArrayRegion(returnAttr, 0, cPlusReturnAttr.size(), &cPlusReturnAttr[0]);
+
     execute.disconnect();
     std::chrono::nanoseconds durationB = std::chrono::high_resolution_clock::now() - startTime;
 
@@ -321,6 +319,7 @@ JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_GPUNative_GPUClientSkippedSt
     vector<long> cPlusReturnId = vector<long>();
     vector<double> cPlusReturnAttr = vector<double>();
 
+    bool allGained = true;
     for (int i = 0; i < vertexNumbers; i++) {
         if (execute.vSet[i].isActive) {
             // copy data
@@ -328,15 +327,8 @@ JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_GPUNative_GPUClientSkippedSt
             for (int j = 0; j < lenMarkID; j++) {
                 cPlusReturnAttr.emplace_back(execute.vValues[i * lenMarkID + j]);
             }
-        }
-    }
 
-    env->SetLongArrayRegion(returnId, 0, cPlusReturnId.size(), &cPlusReturnId[0]);
-    env->SetDoubleArrayRegion(returnAttr, 0, cPlusReturnAttr.size(), &cPlusReturnAttr[0]);
-
-    bool allGained = true;
-    for(int i = 0; i < vertexNumbers; i++){
-        if(execute.vSet[i].isActive){
+            // detect if the vertex is filtered
             bool completeGained = false;
             for(int j = 0; j < execute.filteredVCount[0]; j++){
                 if(execute.filteredV[j] == i){
@@ -346,10 +338,15 @@ JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_GPUNative_GPUClientSkippedSt
             }
             if(!completeGained){
                 allGained = false;
-                break;
             }
+
         }
     }
+
+    env->SetLongArrayRegion(returnId, 0, cPlusReturnId.size(), &cPlusReturnId[0]);
+    env->SetDoubleArrayRegion(returnAttr, 0, cPlusReturnAttr.size(), &cPlusReturnAttr[0]);
+
+
     execute.disconnect();
 
     if(allGained){
