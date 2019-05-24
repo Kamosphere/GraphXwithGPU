@@ -47,7 +47,7 @@ jint throwIllegalArgument( JNIEnv *env, const char *message )
 JNIEXPORT jboolean JNICALL Java_edu_ustc_nodb_PregelGPU_GPUNative_GPUServerInit
 (JNIEnv * env, jobject superClass,
         jlongArray jFilteredVertex,
-        jlong vertexNum, jlongArray jEdgeSrc, jlongArray jEdgeDst, jdoubleArray jEdgeAttr,
+        jlong vertexSum, jlongArray jEdgeSrc, jlongArray jEdgeDst, jdoubleArray jEdgeAttr,
         jobject markId, jint pid){
 
     jclass c_Long = env->FindClass("java/lang/Long");
@@ -63,17 +63,19 @@ JNIEXPORT jboolean JNICALL Java_edu_ustc_nodb_PregelGPU_GPUNative_GPUServerInit
     int lenEdge = env->GetArrayLength(jEdgeSrc);
     int lenFiltered = env->GetArrayLength(jFilteredVertex);
 
-    int vertexNumbers = static_cast<int>(vertexNum);
+    int vertexAllSum = static_cast<int>(vertexSum);
     int partitionID = static_cast<int>(pid);
 
     //Init the Graph with blank vertices
 
     vector<Vertex> vertices = vector<Vertex>();
-    double *vValues = new double [vertexNumbers * lenMarkID];
+    double *vValues = new double [vertexAllSum * lenMarkID];
+    bool* filteredV = new bool [vertexAllSum];
 
     vector<Edge> edges = vector<Edge>();
 
-    for(int i = 0; i < vertexNumbers; i++){
+    for(int i = 0; i < vertexAllSum; i++){
+        filteredV[i] = false;
         vertices.emplace_back(Vertex(i, false, INVALID_INITV_INDEX));
         for(int j = 0; j < lenMarkID; j++){
             vValues[i * lenMarkID + j] = (INT32_MAX >> 1);
@@ -96,10 +98,15 @@ JNIEXPORT jboolean JNICALL Java_edu_ustc_nodb_PregelGPU_GPUNative_GPUServerInit
 
     // Init the Graph with existed edges
     jboolean isCopy = false;
-    long* EdgeFilteredTemp = env->GetLongArrayElements(jFilteredVertex, &isCopy);
+    long* FilteredVertexTemp = env->GetLongArrayElements(jFilteredVertex, &isCopy);
+
     long* EdgeSrcTemp = env->GetLongArrayElements(jEdgeSrc, &isCopy);
     long* EdgeDstTemp = env->GetLongArrayElements(jEdgeDst, &isCopy);
     double * EdgeAttrTemp = env->GetDoubleArrayElements(jEdgeAttr, &isCopy);
+
+    for(int i = 0; i < lenFiltered; i++){
+        filteredV[FilteredVertexTemp[i]] = true;
+    }
 
     for (int i = 0; i < lenEdge; i++) {
 
@@ -118,7 +125,7 @@ JNIEXPORT jboolean JNICALL Java_edu_ustc_nodb_PregelGPU_GPUNative_GPUServerInit
     env->ReleaseLongArrayElements(jEdgeDst, EdgeDstTemp, 0);
     env->ReleaseDoubleArrayElements(jEdgeAttr, EdgeAttrTemp, 0);
 
-    UtilClient execute = UtilClient(vertexNumbers, lenEdge, lenMarkID, partitionID);
+    UtilClient execute = UtilClient(vertexAllSum, lenEdge, lenMarkID, partitionID);
 
     int chk = 0;
 
@@ -128,7 +135,7 @@ JNIEXPORT jboolean JNICALL Java_edu_ustc_nodb_PregelGPU_GPUNative_GPUServerInit
         return false;
     }
 
-    chk = execute.transfer(vValues, &vertices[0], &edges[0], initVSet, EdgeFilteredTemp, lenFiltered);
+    chk = execute.transfer(vValues, &vertices[0], &edges[0], initVSet, filteredV, lenFiltered);
 
     if(chk == -1){
         throwIllegalArgument(env, "Cannot establish the connection with server correctly");
@@ -143,23 +150,25 @@ JNIEXPORT jboolean JNICALL Java_edu_ustc_nodb_PregelGPU_GPUNative_GPUServerInit
 
 JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_GPUNative_GPUClientStep
 (JNIEnv * env, jobject superClass,
-        jlong vertexNum, jlongArray jVertexId, jbooleanArray jVertexActive, jdoubleArray jVertexAttr,
-        jint vertexLen, jint edgeLen, jint markIdLen, jint pid, jlongArray returnId, jdoubleArray returnAttr){
+        jlong vertexSum, jlongArray jVertexId, jbooleanArray jVertexActive, jdoubleArray jVertexAttr,
+        jint vertexCount, jint edgeCount, jint markIdLen, jint pid, jlongArray returnId, jdoubleArray returnAttr){
+
+    //---------Debug tools---------
 
     // jclass n_sztool = env->FindClass("edu/ustc/nodb/matrix/SizesTool");
     // jmethodID id_getSize = env->GetStaticMethodID(n_sztool, "getObjectSize", "(Ljava/lang/Object;)J");
 
-    //---------Entity---------
+    //-----------------------------
 
     auto startTimeA = std::chrono::high_resolution_clock::now();
 
-    int vertexNumbers = static_cast<int>(vertexNum);
+    int vertexAllSum = static_cast<int>(vertexSum);
     int partitionID = static_cast<int>(pid);
     int lenMarkID = static_cast<int>(markIdLen);
-    int lenEdge = static_cast<int>(edgeLen);
-    int lenVertex = static_cast<int>(vertexLen);
+    int lenEdge = static_cast<int>(edgeCount);
+    int lenVertex = static_cast<int>(vertexCount);
 
-    UtilClient execute = UtilClient(vertexNumbers, lenEdge, lenMarkID, partitionID);
+    UtilClient execute = UtilClient(vertexAllSum, lenEdge, lenMarkID, partitionID);
 
     int chk = 0;
 
@@ -168,14 +177,12 @@ JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_GPUNative_GPUClientStep
         throwIllegalArgument(env, "Cannot establish the connection with server correctly");
     }
 
-    // the quantity of vertices
-
-    //Init the vertices
+    // Init the vertices
 
     vector<Vertex> vertices = vector<Vertex>();
-    double *vValues = new double [vertexNumbers * lenMarkID];
+    double *vValues = new double [vertexAllSum * lenMarkID];
 
-    for(int i = 0; i < vertexNumbers; i++){
+    for(int i = 0; i < vertexAllSum; i++){
         vertices.emplace_back(Vertex(i, false, INVALID_INITV_INDEX));
         for(int j = 0; j < lenMarkID; j++){
             vValues[i * lenMarkID + j] = (INT32_MAX >> 1);
@@ -218,7 +225,7 @@ JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_GPUNative_GPUClientStep
     // test for multithreading environment
     std::string output = std::string();
 
-    for(int i = 0;i< vertexNumbers;i++){
+    for(int i = 0;i< vertexAllSum;i++){
         output += to_string(i) + ": {";
         for(int j = 0;j<MarkIDCount;j++){
             output += " [" + to_string(initVSet[j])+": "+to_string(vValues[i * MarkIDCount + j]) + "] ";
@@ -252,7 +259,7 @@ JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_GPUNative_GPUClientStep
     vector<double> cPlusReturnAttr = vector<double>();
 
     bool allGained = true;
-    for (int i = 0; i < vertexNumbers; i++) {
+    for (int i = 0; i < vertexAllSum; i++) {
         if (execute.vSet[i].isActive) {
             // copy data
             cPlusReturnId.emplace_back(i);
@@ -261,17 +268,9 @@ JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_GPUNative_GPUClientStep
             }
 
             // detect if the vertex is filtered
-            bool completeGained = false;
-            for(int j = 0; j < execute.filteredVCount[0]; j++){
-                if(execute.filteredV[j] == i){
-                    completeGained = true;
-                    break;
-                }
-            }
-            if(!completeGained){
+            if(! execute.filteredV[i]){
                 allGained = false;
             }
-
         }
     }
 
@@ -298,14 +297,16 @@ JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_GPUNative_GPUClientStep
 
 JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_GPUNative_GPUClientSkippedStep
         (JNIEnv * env, jobject superClass,
-                jlong vertexNum, jint vertexLen, jint edgeLen, jint markIdLen, jint pid, jlongArray returnId, jdoubleArray returnAttr){
+                jlong vertexSum, jint vertexLen, jint edgeLen, jint markIdLen, jint pid, jlongArray returnId, jdoubleArray returnAttr){
 
-    int vertexNumbers = static_cast<int>(vertexNum);
+    auto startTimeB = std::chrono::high_resolution_clock::now();
+
+    int vertexAllSum = static_cast<int>(vertexSum);
     int partitionID = static_cast<int>(pid);
     int lenMarkID = static_cast<int>(markIdLen);
     int lenEdge = static_cast<int>(edgeLen);
 
-    UtilClient execute = UtilClient(vertexNumbers, lenEdge, lenMarkID, partitionID);
+    UtilClient execute = UtilClient(vertexAllSum, lenEdge, lenMarkID, partitionID);
 
     int chk = 0;
 
@@ -320,7 +321,7 @@ JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_GPUNative_GPUClientSkippedSt
     vector<double> cPlusReturnAttr = vector<double>();
 
     bool allGained = true;
-    for (int i = 0; i < vertexNumbers; i++) {
+    for (int i = 0; i < vertexAllSum; i++) {
         if (execute.vSet[i].isActive) {
             // copy data
             cPlusReturnId.emplace_back(i);
@@ -329,25 +330,23 @@ JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_GPUNative_GPUClientSkippedSt
             }
 
             // detect if the vertex is filtered
-            bool completeGained = false;
-            for(int j = 0; j < execute.filteredVCount[0]; j++){
-                if(execute.filteredV[j] == i){
-                    completeGained = true;
-                    break;
-                }
-            }
-            if(!completeGained){
+            if(! execute.filteredV[i]){
                 allGained = false;
             }
-
         }
     }
 
     env->SetLongArrayRegion(returnId, 0, cPlusReturnId.size(), &cPlusReturnId[0]);
     env->SetDoubleArrayRegion(returnAttr, 0, cPlusReturnAttr.size(), &cPlusReturnAttr[0]);
 
-
     execute.disconnect();
+
+    std::chrono::nanoseconds durationB = std::chrono::high_resolution_clock::now() - startTimeB;
+
+    std::string output = std::string();
+    output += "Time of partition " + to_string(pid) + " in c++ for skipping: " + to_string(durationB.count());
+
+    cout<<output<<endl;
 
     if(allGained){
         return static_cast<int>(0-cPlusReturnId.size());
@@ -359,14 +358,16 @@ JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_GPUNative_GPUClientSkippedSt
 
 JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_GPUNative_GPUClientAllStep
         (JNIEnv * env, jobject superClass,
-                jlong vertexNum, jint vertexLen, jint edgeLen, jint markIdLen, jint pid, jlongArray returnId, jdoubleArray returnAttr) {
+                jlong vertexSum, jint vertexLen, jint edgeLen, jint markIdLen, jint pid, jlongArray returnId, jdoubleArray returnAttr) {
 
-    int vertexNumbers = static_cast<int>(vertexNum);
+    auto startTimeB = std::chrono::high_resolution_clock::now();
+
+    int vertexAllSum = static_cast<int>(vertexSum);
     int partitionID = static_cast<int>(pid);
     int lenMarkID = static_cast<int>(markIdLen);
     int lenEdge = static_cast<int>(edgeLen);
 
-    UtilClient execute = UtilClient(vertexNumbers, lenEdge, lenMarkID, partitionID);
+    UtilClient execute = UtilClient(vertexAllSum, lenEdge, lenMarkID, partitionID);
 
     int chk = 0;
 
@@ -389,6 +390,13 @@ JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_GPUNative_GPUClientAllStep
     env->SetLongArrayRegion(returnId, 0, cPlusReturnId.size(), &cPlusReturnId[0]);
     env->SetDoubleArrayRegion(returnAttr, 0, cPlusReturnAttr.size(), &cPlusReturnAttr[0]);
     execute.disconnect();
+
+    std::chrono::nanoseconds durationB = std::chrono::high_resolution_clock::now() - startTimeB;
+
+    std::string output = std::string();
+    output += "Time of partition " + to_string(pid) + " in c++ for all merging: " + to_string(durationB.count());
+
+    cout<<output<<endl;
 
     return static_cast<int>(cPlusReturnId.size());
 

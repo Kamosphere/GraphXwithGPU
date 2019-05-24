@@ -23,8 +23,8 @@ object PregelInGPU{
   // vertexNumbers stands for the quantity of vertices in the whole graph
   def run(graph: Graph[VertexId, Double],
           allSource: Broadcast[ArrayBuffer[VertexId]],
-          vertexNumbers: Long,
-          edgeNumbers: Long,
+          vertexSum: Long,
+          edgeSum: Long,
           parts: Int,
           maxIterations: Int = Int.MaxValue)
   : Graph[SPMapWithActive, Double] = {
@@ -60,7 +60,7 @@ object PregelInGPU{
     var partitionSplit : collection.Map[Int,(Int, Int)] = null
     var modifiedSubGraph: RDD[(VertexId, SPMapWithActive)] = null
     //var tuples = (partitionSplit, modifiedSubGraph)
-    val (partitionSplitTemp, modifiedSubGraphTemp) = partitionSplitAndPreIter(g, allSource, vertexNumbers, countOutDegree, ifFilteredCounter)
+    val (partitionSplitTemp, modifiedSubGraphTemp) = partitionSplitAndPreIter(g, allSource, vertexSum, countOutDegree, ifFilteredCounter)
     // get the vertex number and edge number in every partition in order to avoid allocation arraycopy
 
     partitionSplit = partitionSplitTemp
@@ -95,7 +95,7 @@ object PregelInGPU{
           (false,vAttr._2))
           .cache()
 
-        val (partitionSplitTemp, modifiedSubGraphTemp) = partitionSplitAndPreIter(g, allSource, vertexNumbers, countOutDegree, ifFilteredCounter)
+        val (partitionSplitTemp, modifiedSubGraphTemp) = partitionSplitAndPreIter(g, allSource, vertexSum, countOutDegree, ifFilteredCounter)
 
         partitionSplit = partitionSplitTemp
         modifiedSubGraph = modifiedSubGraphTemp
@@ -109,7 +109,7 @@ object PregelInGPU{
             .cache()
 
           //run the main SSSP process
-          modifiedSubGraph = IterationWhileCombine(g, iterTimes, allSource, vertexNumbers, partitionSplit, ifFilteredCounter)
+          modifiedSubGraph = IterationWhileCombine(g, iterTimes, allSource, vertexSum, partitionSplit, ifFilteredCounter)
 
         }
         // skip merging to graph
@@ -122,7 +122,7 @@ object PregelInGPU{
 
             val Process = new GPUNative
             val (results, needCombine) : (ArrayBuffer[(VertexId, SPMapWithActive)],Boolean) = Process.GPUSkippedProcess(
-              vertexNumbers, preVertexLength, preEdgeLength, sourceList, pid)
+              vertexSum, preVertexLength, preEdgeLength, sourceList, pid)
             if(needCombine){
               ifFilteredCounter.add(1)
             }
@@ -174,7 +174,7 @@ object PregelInGPU{
 
       val Process = new GPUNative
       val results : ArrayBuffer[(VertexId, SPMapWithActive)] = Process.GPUAllProcess(
-        vertexNumbers, preVertexLength, preEdgeLength, sourceList, pid)
+        vertexSum, preVertexLength, preEdgeLength, sourceList, pid)
       val result = results.iterator
       result
     })
@@ -218,7 +218,7 @@ object PregelInGPU{
 
   def partitionSplitAndPreIter(g: Graph[SPMapWithActive, Double],
                                allSource: Broadcast[ArrayBuffer[VertexId]],
-                               vertexNumbers: Long,
+                               vertexSum: Long,
                                countOutDegree: collection.Map[VertexId, Int],
                                counter: LongAccumulator):
   (collection.Map[Int,(Int, Int)], RDD[(VertexId, SPMapWithActive)]) = {
@@ -270,27 +270,27 @@ object PregelInGPU{
       val VertexNumList = new mutable.HashMap[Long, Int]
 
       var temp : EdgeTriplet[SPMapWithActive,Double] = null
-      var VertexIndex = 0
-      var EdgeIndex = 0
+      var VertexCount = 0
+      var EdgeCount = 0
 
       while(iter.hasNext){
         temp = iter.next()
-        pEdgeSrcIDTemp(EdgeIndex)=temp.srcId
-        pEdgeDstIDTemp(EdgeIndex)=temp.dstId
-        pEdgeAttrTemp(EdgeIndex)=temp.attr
-        EdgeIndex = EdgeIndex + 1
+        pEdgeSrcIDTemp(EdgeCount)=temp.srcId
+        pEdgeDstIDTemp(EdgeCount)=temp.dstId
+        pEdgeAttrTemp(EdgeCount)=temp.attr
+        EdgeCount = EdgeCount + 1
 
         if(! VertexNumList.contains(temp.srcId)){
-          pVertexIDTemp(VertexIndex)=temp.srcId
-          pVertexActiveTemp(VertexIndex)=temp.srcAttr._1
+          pVertexIDTemp(VertexCount)=temp.srcId
+          pVertexActiveTemp(VertexCount)=temp.srcAttr._1
           VertexNumList.put(temp.srcId, 1)
           // need to guard the order of sourceList in array
           var index = 0
           for(part <- temp.srcAttr._2.values){
-            pVertexAttrTemp(VertexIndex * preMap + index) = part
+            pVertexAttrTemp(VertexCount * preMap + index) = part
             index = index + 1
           }
-          VertexIndex = VertexIndex + 1
+          VertexCount = VertexCount + 1
         }
         else {
           val countTracker = VertexNumList.getOrElse(temp.srcId, 0)
@@ -298,16 +298,16 @@ object PregelInGPU{
         }
 
         if(! VertexNumList.contains(temp.dstId)){
-          pVertexIDTemp(VertexIndex)=temp.dstId
-          pVertexActiveTemp(VertexIndex)=temp.dstAttr._1
+          pVertexIDTemp(VertexCount)=temp.dstId
+          pVertexActiveTemp(VertexCount)=temp.dstAttr._1
           VertexNumList.put(temp.dstId, 0)
           // need to guard the order of sourceList in array
           var index = 0
           for(part <- temp.dstAttr._2.values){
-            pVertexAttrTemp(VertexIndex * preMap + index) = part
+            pVertexAttrTemp(VertexCount * preMap + index) = part
             index = index + 1
           }
-          VertexIndex = VertexIndex + 1
+          VertexCount = VertexCount + 1
         }
       }
 
@@ -326,11 +326,11 @@ object PregelInGPU{
       var envInit : Boolean = false
       // loop until server started
       while(! envInit){
-        envInit = Process.GPUInit(vertexNumbers.toInt,filteredVertex.toArray,
+        envInit = Process.GPUInit(vertexSum.toInt, filteredVertex.toArray,
           pEdgeSrcIDTemp, pEdgeDstIDTemp, pEdgeAttrTemp, sourceList, pid)
       }
       val (results, needCombine) : (ArrayBuffer[(VertexId, SPMapWithActive)], Boolean) = Process.GPUProcess(
-        pVertexIDTemp, pVertexActiveTemp, pVertexAttrTemp, vertexNumbers, VertexIndex, pEdgeSrcIDTemp.length, sourceList, pid)
+        pVertexIDTemp, pVertexActiveTemp, pVertexAttrTemp, vertexSum, VertexCount, pEdgeSrcIDTemp.length, sourceList, pid)
       val result = results.iterator
       if(needCombine){
         counter.add(1)
@@ -353,7 +353,7 @@ object PregelInGPU{
   def IterationWhileCombine(g: Graph[SPMapWithActive, Double],
                             iterTimes:Int,
                             allSource: Broadcast[ArrayBuffer[VertexId]],
-                            vertexNumbers: Long,
+                            vertexSum: Long,
                             partitionSplit: collection.Map[Int,(Int, Int)],
                             counter: LongAccumulator):
   RDD[(VertexId, SPMapWithActive)] ={
@@ -418,7 +418,7 @@ object PregelInGPU{
 
       val Process = new GPUNative
       val (results, needCombine) : (ArrayBuffer[(VertexId, SPMapWithActive)], Boolean) = Process.GPUProcess(
-        pVertexIDTemp, pVertexActiveTemp, pVertexAttrTemp, vertexNumbers, VertexIndex, preEdgeLength, sourceList, pid)
+        pVertexIDTemp, pVertexActiveTemp, pVertexAttrTemp, vertexSum, VertexIndex, preEdgeLength, sourceList, pid)
       if(needCombine){
         counter.add(1)
       }

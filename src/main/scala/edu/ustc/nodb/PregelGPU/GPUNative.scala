@@ -19,8 +19,8 @@ class GPUNative extends Serializable {
   /* the GPU-based method to implement the SSSP */
 
   // native function to init the edge
-  @native def GPUServerInit(filtedVertex: Array[Long],
-                            vertexNumber: Long,
+  @native def GPUServerInit(filteredVertex: Array[Long],
+                            vertexSum: Long,
                             EdgeSrc: Array[VertexId],
                             EdgeDst: Array[VertexId],
                             EdgeAttr: Array[Double],
@@ -29,8 +29,8 @@ class GPUNative extends Serializable {
   Boolean
 
   // native function to execute algorithm in final step
-  @native def GPUClientAllStep(vertexNumber: Long,
-                            vertexSize:Int,
+  @native def GPUClientAllStep(vertexSum: Long,
+                            vertexCount:Int,
                             edgeSize: Int,
                             markIdSize: Int,
                             pid: Int,
@@ -39,8 +39,8 @@ class GPUNative extends Serializable {
   Int
 
   // native function to execute algorithm while prev iter skipped
-  @native def GPUClientSkippedStep(vertexNumber: Long,
-                            vertexSize:Int,
+  @native def GPUClientSkippedStep(vertexSum: Long,
+                            vertexCount:Int,
                             edgeSize: Int,
                             markIdSize: Int,
                             pid: Int,
@@ -49,12 +49,12 @@ class GPUNative extends Serializable {
   Int
 
   // native function to execute algorithm
-  @native def GPUClientStep(vertexNumber: Long,
+  @native def GPUClientStep(vertexSum: Long,
                             VertexID: Array[Long],
                             VertexActive: Array[Boolean],
                             VertexAttr: Array[Double],
-                            vertexSize:Int,
-                            edgeSize: Int,
+                            vertexCount:Int,
+                            edgeCount: Int,
                             markIdSize: Int,
                             pid: Int,
                             resultID: Array[Long],
@@ -66,8 +66,8 @@ class GPUNative extends Serializable {
   Boolean
 
   // execute algorithm in final step
-  def GPUAllProcess(vertexNumbers: Long,
-                    vertexSize: Int,
+  def GPUAllProcess(vertexSum: Long,
+                    vertexCount: Int,
                     edgeSize: Int,
                     sourceList: ArrayBuffer[VertexId],
                     pid: Int):
@@ -77,16 +77,16 @@ class GPUNative extends Serializable {
 
     val sourceSize = sourceList.length
 
-    val resultID : Array[Long] = new Array[Long](vertexNumbers.toInt)
-    val resultAttr : Array[Double] = new Array[Double](vertexNumbers.toInt * sourceSize)
+    val resultID : Array[Long] = new Array[Long](vertexSum.toInt)
+    val resultAttr : Array[Double] = new Array[Double](vertexSum.toInt * sourceSize)
 
     val results = new ArrayBuffer[(VertexId, SPMapWithActive)]
 
     var tempVertexSet : VertexSet = null
 
     //pass vertices through JNI and get arrayBuffer back
-    val underIndex = GPUClientAllStep(vertexNumbers,
-      vertexSize, edgeSize, sourceSize, pid,
+    val underIndex = GPUClientAllStep(vertexSum,
+      vertexCount, edgeSize, sourceSize, pid,
       resultID, resultAttr)
 
     val startNew = System.nanoTime()
@@ -107,28 +107,27 @@ class GPUNative extends Serializable {
   }
 
   // execute algorithm while prev iter skipped
-  def GPUSkippedProcess(
-                 vertexNumbers: Long,
-                 vertexSize: Int,
-                 edgeSize: Int,
-                 sourceList: ArrayBuffer[VertexId],
-                 pid: Int):
+  def GPUSkippedProcess(vertexSum: Long,
+                        vertexCount: Int,
+                        edgeSize: Int,
+                        sourceList: ArrayBuffer[VertexId],
+                        pid: Int):
   (ArrayBuffer[(VertexId, SPMapWithActive)], Boolean) = {
 
     System.loadLibrary("PregelGPU")
 
     val sourceSize = sourceList.length
 
-    val resultID : Array[Long] = new Array[Long](vertexNumbers.toInt)
-    val resultAttr : Array[Double] = new Array[Double](vertexNumbers.toInt * sourceSize)
+    val resultID : Array[Long] = new Array[Long](vertexSum.toInt)
+    val resultAttr : Array[Double] = new Array[Double](vertexSum.toInt * sourceSize)
 
     val results = new ArrayBuffer[(VertexId, SPMapWithActive)]
 
     var tempVertexSet : VertexSet = null
 
     //pass vertices through JNI and get arrayBuffer back
-    var underIndex = GPUClientSkippedStep(vertexNumbers,
-      vertexSize, edgeSize, sourceSize, pid,
+    var underIndex = GPUClientSkippedStep(vertexSum,
+      vertexCount, edgeSize, sourceSize, pid,
       resultID, resultAttr)
 
     val needCombine = if(underIndex < 0) false else true
@@ -159,8 +158,8 @@ class GPUNative extends Serializable {
   def GPUProcess(VertexID: Array[Long],
                  VertexActive: Array[Boolean],
                  VertexAttr: Array[Double],
-                 vertexNumbers: Long,
-                 vertexSize: Int,
+                 vertexSum: Long,
+                 vertexCount: Int,
                  edgeSize: Int,
                  sourceList: ArrayBuffer[VertexId],
                  pid: Int):
@@ -170,17 +169,17 @@ class GPUNative extends Serializable {
 
     val sourceSize = sourceList.length
 
-    val resultID : Array[Long] = new Array[Long](vertexNumbers.toInt)
-    val resultAttr : Array[Double] = new Array[Double](vertexNumbers.toInt * sourceSize)
+    val resultID : Array[Long] = new Array[Long](vertexSum.toInt)
+    val resultAttr : Array[Double] = new Array[Double](vertexSum.toInt * sourceSize)
 
     val results = new ArrayBuffer[(VertexId, SPMapWithActive)]
 
     var tempVertexSet : VertexSet = null
 
     // pass vertices through JNI and get result array back
-    var underIndex = GPUClientStep(vertexNumbers,
+    var underIndex = GPUClientStep(vertexSum,
       VertexID, VertexActive, VertexAttr,
-      vertexSize, edgeSize, sourceSize, pid,
+      vertexCount, edgeSize, sourceSize, pid,
       resultID, resultAttr)
 
     val needCombine = if(underIndex < 0) false else true
@@ -209,7 +208,7 @@ class GPUNative extends Serializable {
   }
 
   // before executing, run the server first
-  def GPUInit(vertexCount: Long,
+  def GPUInit(vertexSum: Long,
               filteredVertex: Array[Long],
               EdgeSrc: Array[VertexId],
               EdgeDst: Array[VertexId],
@@ -221,7 +220,7 @@ class GPUNative extends Serializable {
     GPUShutdown(pid)
 
     val runningScript =
-      "./cpp_native/build/bin/srv_UtilServerTest_BellmanFordGPU " + vertexCount.toString +
+      "./cpp_native/build/bin/srv_UtilServerTest_BellmanFordGPU " + vertexSum.toString +
         " " + EdgeSrc.length.toString + " " + sourceList.length.toString + " " + pid.toString
 
     Process(runningScript).run()
@@ -238,7 +237,7 @@ class GPUNative extends Serializable {
     }
 
     // if not success, it will run again outside
-    val result = GPUServerInit(filteredVertex, vertexCount, EdgeSrc, EdgeDst, EdgeAttr, sourceId, pid)
+    val result = GPUServerInit(filteredVertex, vertexSum, EdgeSrc, EdgeDst, EdgeAttr, sourceId, pid)
 
     result
 
