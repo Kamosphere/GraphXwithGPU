@@ -160,6 +160,7 @@ JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_GPUNative_GPUClientStep
 
     //-----------------------------
 
+    auto startTimeAll = std::chrono::high_resolution_clock::now();
     auto startTimeA = std::chrono::high_resolution_clock::now();
 
     int vertexAllSum = static_cast<int>(vertexSum);
@@ -280,9 +281,11 @@ JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_GPUNative_GPUClientStep
     execute.disconnect();
     std::chrono::nanoseconds durationB = std::chrono::high_resolution_clock::now() - startTime;
 
+    std::chrono::nanoseconds durationAll = std::chrono::high_resolution_clock::now() - startTimeAll;
     std::string output = std::string();
     output += "Time of partition " + to_string(pid) + " in c++: " + to_string(durationA.count()) + " "
-              + to_string(duration.count()) + " " + to_string(durationB.count());
+              + to_string(duration.count()) + " " + to_string(durationB.count()) + " sum time: "
+              + to_string(durationAll.count());
 
     cout<<output<<endl;
 
@@ -379,14 +382,16 @@ JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_GPUNative_GPUClientAllStep
     vector<long> cPlusReturnId = vector<long>();
     vector<double> cPlusReturnAttr = vector<double>();
 
-    for(int scopeFiltered = 0; scopeFiltered < execute.filteredVCount[0]; scopeFiltered++){
-        int idFiltered = execute.filteredV[scopeFiltered];
-        cPlusReturnId.emplace_back(idFiltered);
-        for (int j = 0; j < lenMarkID; j++) {
-            cPlusReturnAttr.emplace_back(execute.vValues[idFiltered * lenMarkID + j]);
+    for(int i = 0; i < vertexAllSum; i++){
+        bool idFiltered = execute.filteredV[i];
+        if(idFiltered){
+            cPlusReturnId.emplace_back(i);
+            for (int j = 0; j < lenMarkID; j++) {
+                cPlusReturnAttr.emplace_back(execute.vValues[i * lenMarkID + j]);
+            }
         }
     }
-    
+
     env->SetLongArrayRegion(returnId, 0, cPlusReturnId.size(), &cPlusReturnId[0]);
     env->SetDoubleArrayRegion(returnAttr, 0, cPlusReturnAttr.size(), &cPlusReturnAttr[0]);
     execute.disconnect();
