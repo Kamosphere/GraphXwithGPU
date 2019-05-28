@@ -1,5 +1,6 @@
 package edu.ustc.nodb.PregelGPU.Example.SSSP
 
+import edu.ustc.nodb.PregelGPU.Algorithm.SSSP.pregelSSSP
 import edu.ustc.nodb.PregelGPU.PregelInGPU
 import org.apache.spark.graphx.{Edge, Graph, VertexId}
 import org.apache.spark.rdd.RDD
@@ -40,7 +41,7 @@ object SSSPTest{
 
     // load graph from file
 
-    val sourceFile = "testGraph.txt"
+    val sourceFile = "testGraph10000.txt"
     //val sourceFile = "/usr/local/ssspexample/testGraph.txt"
 
     val vertex: RDD[(VertexId, VertexId)] = sc.textFile(sourceFile).map{
@@ -72,6 +73,7 @@ object SSSPTest{
     val vertexSum = graph.vertices.count()
     val edgeSum = graph.edges.count()
 
+
     val startNormal = System.nanoTime()
     val ssspTest = new PregelSparkSSSP(graph, allSourceList)
     val ssspResult = ssspTest.run()
@@ -82,8 +84,9 @@ object SSSPTest{
     println("-------------------------")
 
     val startNew = System.nanoTime()
-    val ssspGPUResult = PregelInGPU.run(graph, allSourceList, vertexSum, edgeSum, parts.get)
-    //val q = ssspGPUResult.vertices.count()
+    val ssspAlgo = new pregelSSSP(allSourceList, vertexSum, edgeSum, parts.get)
+    val ssspGPUResult = PregelInGPU.run(graph)(ssspAlgo)
+    // val q = ssspGPUResult.vertices.count()
     println(ssspGPUResult.vertices.collect.mkString("\n"))
     val endNew = System.nanoTime()
 

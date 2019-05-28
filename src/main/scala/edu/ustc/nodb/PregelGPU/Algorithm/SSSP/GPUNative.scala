@@ -1,22 +1,17 @@
-package edu.ustc.nodb.PregelGPU
+package edu.ustc.nodb.PregelGPU.Algorithm.SSSP
 
 import java.util
 
-import edu.ustc.nodb.PregelGPU.Plugin.VertexSet
+import edu.ustc.nodb.PregelGPU.Algorithm.SPMapWithActive
 import org.apache.spark.graphx.VertexId
 
-import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 import scala.sys.process.Process
 
 class GPUNative extends Serializable {
 
-  // Define the vertex attribute in GPU-based SSSP project
-  // Boolean stands for the activeness of Vertex
-  // mutable.map stored the pairs of nearest distance from landmark
-  type SPMapWithActive = (Boolean, mutable.LinkedHashMap[VertexId, Double])
-
-  /* the GPU-based method to implement the SSSP */
+  /* the GPU-based method to execute the SSSP algorithm
+  possibly modified for template */
 
   // native function to init the edge
   @native def GPUServerInit(filteredVertex: Array[Long],
@@ -28,7 +23,7 @@ class GPUNative extends Serializable {
                             pid:Int):
   Boolean
 
-  // native function to execute algorithm in final step
+  // native function to execute algorithm for final step
   @native def GPUClientAllStep(vertexSum: Long,
                             vertexCount:Int,
                             edgeSize: Int,
@@ -154,6 +149,7 @@ class GPUNative extends Serializable {
     (results, needCombine)
 
   }
+
   // execute SSSP algorithm
   def GPUProcess(VertexID: Array[Long],
                  VertexActive: Array[Boolean],

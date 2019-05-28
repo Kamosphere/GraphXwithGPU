@@ -1,4 +1,4 @@
-#include "edu_ustc_nodb_PregelGPU_GPUNative.h"
+#include "edu_ustc_nodb_PregelGPU_Algorithm_SSSP_GPUNative.h"
 #include <vector>
 #include <map>
 #include <iostream>
@@ -44,7 +44,7 @@ jint throwIllegalArgument( JNIEnv *env, const char *message )
 
 // Init the edge and markID
 
-JNIEXPORT jboolean JNICALL Java_edu_ustc_nodb_PregelGPU_GPUNative_GPUServerInit
+JNIEXPORT jboolean JNICALL Java_edu_ustc_nodb_PregelGPU_Algorithm_SSSP_GPUNative_GPUServerInit
 (JNIEnv * env, jobject superClass,
         jlongArray jFilteredVertex,
         jlong vertexSum, jlongArray jEdgeSrc, jlongArray jEdgeDst, jdoubleArray jEdgeAttr,
@@ -125,7 +125,7 @@ JNIEXPORT jboolean JNICALL Java_edu_ustc_nodb_PregelGPU_GPUNative_GPUServerInit
     env->ReleaseLongArrayElements(jEdgeDst, EdgeDstTemp, 0);
     env->ReleaseDoubleArrayElements(jEdgeAttr, EdgeAttrTemp, 0);
 
-    UtilClient execute = UtilClient(vertexAllSum, lenEdge, lenMarkID, partitionID);
+    UtilClient<double> execute = UtilClient<double>(vertexAllSum, lenEdge, lenMarkID, partitionID);
 
     int chk = 0;
 
@@ -148,7 +148,7 @@ JNIEXPORT jboolean JNICALL Java_edu_ustc_nodb_PregelGPU_GPUNative_GPUServerInit
 }
 
 
-JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_GPUNative_GPUClientStep
+JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_Algorithm_SSSP_GPUNative_GPUClientStep
 (JNIEnv * env, jobject superClass,
         jlong vertexSum, jlongArray jVertexId, jbooleanArray jVertexActive, jdoubleArray jVertexAttr,
         jint vertexCount, jint edgeCount, jint markIdLen, jint pid, jlongArray returnId, jdoubleArray returnAttr){
@@ -169,7 +169,7 @@ JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_GPUNative_GPUClientStep
     int lenEdge = static_cast<int>(edgeCount);
     int lenVertex = static_cast<int>(vertexCount);
 
-    UtilClient execute = UtilClient(vertexAllSum, lenEdge, lenMarkID, partitionID);
+    UtilClient<double> execute = UtilClient<double>(vertexAllSum, lenEdge, lenMarkID, partitionID);
 
     int chk = 0;
 
@@ -298,7 +298,7 @@ JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_GPUNative_GPUClientStep
 
 }
 
-JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_GPUNative_GPUClientSkippedStep
+JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_Algorithm_SSSP_GPUNative_GPUClientSkippedStep
         (JNIEnv * env, jobject superClass,
                 jlong vertexSum, jint vertexLen, jint edgeLen, jint markIdLen, jint pid, jlongArray returnId, jdoubleArray returnAttr){
 
@@ -309,7 +309,7 @@ JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_GPUNative_GPUClientSkippedSt
     int lenMarkID = static_cast<int>(markIdLen);
     int lenEdge = static_cast<int>(edgeLen);
 
-    UtilClient execute = UtilClient(vertexAllSum, lenEdge, lenMarkID, partitionID);
+    UtilClient<double> execute = UtilClient<double>(vertexAllSum, lenEdge, lenMarkID, partitionID);
 
     int chk = 0;
 
@@ -359,7 +359,7 @@ JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_GPUNative_GPUClientSkippedSt
     }
 }
 
-JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_GPUNative_GPUClientAllStep
+JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_Algorithm_SSSP_GPUNative_GPUClientAllStep
         (JNIEnv * env, jobject superClass,
                 jlong vertexSum, jint vertexLen, jint edgeLen, jint markIdLen, jint pid, jlongArray returnId, jdoubleArray returnAttr) {
 
@@ -370,7 +370,7 @@ JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_GPUNative_GPUClientAllStep
     int lenMarkID = static_cast<int>(markIdLen);
     int lenEdge = static_cast<int>(edgeLen);
 
-    UtilClient execute = UtilClient(vertexAllSum, lenEdge, lenMarkID, partitionID);
+    UtilClient<double> execute = UtilClient<double>(vertexAllSum, lenEdge, lenMarkID, partitionID);
 
     int chk = 0;
 
@@ -410,9 +410,9 @@ JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_GPUNative_GPUClientAllStep
 
 // server shutdown
 
-JNIEXPORT jboolean JNICALL Java_edu_ustc_nodb_PregelGPU_GPUNative_GPUServerShutdown
+JNIEXPORT jboolean JNICALL Java_edu_ustc_nodb_PregelGPU_Algorithm_SSSP_GPUNative_GPUServerShutdown
   (JNIEnv * env, jobject superClass, jint pid){
-    UtilClient control = UtilClient(0, 0, 0, pid);
+    UtilClient<double> control = UtilClient<double>(0, 0, 0, pid);
 
     int chk = control.connect();
     if (chk == -1)

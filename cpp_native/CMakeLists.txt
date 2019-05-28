@@ -37,13 +37,10 @@ ELSE()
 endif()
 
 add_library(PregelGPU SHARED
-        edu_ustc_nodb_PregelGPU_GPUNative.h
-        edu_ustc_nodb_PregelGPU_GPUNative.cpp)
+        edu_ustc_nodb_PregelGPU_Algorithm_SSSP_GPUNative.h
+        edu_ustc_nodb_PregelGPU_Algorithm_SSSP_GPUNative.cpp)
 
 
 target_link_libraries(PregelGPU
-        algo_BellmanFord
-        algo_BellmanFordGPU
-        srv_UtilServer
         srv_UtilClient)
 

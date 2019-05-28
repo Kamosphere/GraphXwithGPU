@@ -7,11 +7,10 @@ import scala.reflect.ClassTag
 
 object GraphXModified {
 
-  def joinVerticesDefault[U: ClassTag, VD:ClassTag, ED:ClassTag]
-  (graph: Graph[VD, ED],
-   table: RDD[(VertexId, U)])
-  (mapFunc: (VertexId, VD, U) => VD)
-  (defaultFunc: VD => VD):
+  def joinVerticesDefault[U: ClassTag, VD:ClassTag, ED:ClassTag](graph: Graph[VD, ED],
+                                                                 table: RDD[(VertexId, U)])
+                                                                (mapFunc: (VertexId, VD, U) => VD)
+                                                                (defaultFunc: VD => VD):
   Graph[VD, ED] = {
     val uf = (id: VertexId, data: VD, o: Option[U]) => {
       o match {
