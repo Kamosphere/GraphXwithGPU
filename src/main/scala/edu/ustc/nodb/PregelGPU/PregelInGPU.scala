@@ -3,8 +3,8 @@ package edu.ustc.nodb.PregelGPU
 import edu.ustc.nodb.PregelGPU.Algorithm.SSSP.GPUNative
 import edu.ustc.nodb.PregelGPU.Algorithm.lambdaTemplete
 import edu.ustc.nodb.PregelGPU.Plugin.GraphXModified
+import edu.ustc.nodb.PregelGPU.Plugin.partitionStrategy.EdgePartition1DReverse
 import org.apache.spark.{SparkConf, TaskContext}
-import org.apache.spark.graphx.PartitionStrategy.EdgePartition1D
 import org.apache.spark.graphx._
 import org.apache.spark.rdd.RDD
 
@@ -18,9 +18,15 @@ object PregelInGPU{
   : Graph[VD, ED] = {
 
     // initiate the graph
-    val spGraph = graph.mapVertices ((vid, attr) => algorithm.lambda_initGraph(vid, attr)).partitionBy(EdgePartition1D).cache()
+    val spGraph = graph.mapVertices ((vid, attr) => algorithm.lambda_initGraph(vid, attr)).partitionBy(EdgePartition1DReverse).cache()
 
-    var g = spGraph
+    val startTimeB = System.nanoTime()
+
+    var g = algorithm.repartition(spGraph)
+
+    val endTimeB = System.nanoTime()
+
+    println("Pre partition time: " + (endTimeB - startTimeB))
 
     val countOutDegree = g.outDegrees.collectAsMap()
 

@@ -3,8 +3,9 @@ package edu.ustc.nodb.PregelGPU.Algorithm.SSSP
 import java.util
 
 import edu.ustc.nodb.PregelGPU.Algorithm.{SPMapWithActive, lambdaTemplete}
+import edu.ustc.nodb.PregelGPU.Plugin.partitionStrategy.EdgePartitionPreSearch
 import org.apache.spark.broadcast.Broadcast
-import org.apache.spark.graphx.{EdgeTriplet, VertexId}
+import org.apache.spark.graphx.{EdgeTriplet, Graph, VertexId}
 import org.apache.spark.util.LongAccumulator
 
 import scala.collection.mutable
@@ -14,6 +15,13 @@ class pregelSSSP (allSource: Broadcast[ArrayBuffer[VertexId]],
                   vertexSum: Long,
                   edgeSum: Long,
                   parts: Int) extends lambdaTemplete[SPMapWithActive, Double]{
+
+  override def repartition(g: Graph[SPMapWithActive, Double]): Graph[SPMapWithActive, Double] = {
+
+    val partitionMethod = new EdgePartitionPreSearch(g, allSource.value)
+    partitionMethod.generateMappedGraph()
+
+  }
 
   override def lambda_initGraph(vid: VertexId, attr: VertexId): SPMapWithActive = {
 

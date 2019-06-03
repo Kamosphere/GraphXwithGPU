@@ -1,4 +1,4 @@
-package edu.ustc.nodb.PregelGPU.Plugin
+package edu.ustc.nodb.PregelGPU.Plugin.partitionStrategy
 
 import org.apache.spark.graphx.{PartitionID, PartitionStrategy, VertexId}
 

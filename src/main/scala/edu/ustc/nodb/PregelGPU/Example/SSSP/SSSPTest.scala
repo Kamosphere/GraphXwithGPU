@@ -1,6 +1,7 @@
 package edu.ustc.nodb.PregelGPU.Example.SSSP
 
 import edu.ustc.nodb.PregelGPU.Algorithm.SSSP.pregelSSSP
+import edu.ustc.nodb.PregelGPU.Plugin.partitionStrategy.EdgePartitionPreSearch
 import edu.ustc.nodb.PregelGPU.PregelInGPU
 import org.apache.spark.graphx.{Edge, Graph, VertexId}
 import org.apache.spark.rdd.RDD
@@ -69,10 +70,10 @@ object SSSPTest{
 
     val allSourceList = sc.broadcast(sourceList)
 
+
     // the quantity of vertices in the whole graph
     val vertexSum = graph.vertices.count()
     val edgeSum = graph.edges.count()
-
 
     val startNormal = System.nanoTime()
     val ssspTest = new PregelSparkSSSP(graph, allSourceList)

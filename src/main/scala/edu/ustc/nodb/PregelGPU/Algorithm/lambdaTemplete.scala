@@ -1,9 +1,11 @@
 package edu.ustc.nodb.PregelGPU.Algorithm
 
-import org.apache.spark.graphx.{EdgeTriplet, VertexId}
+import org.apache.spark.graphx.{EdgeTriplet, Graph, VertexId}
 import org.apache.spark.util.LongAccumulator
 
 trait lambdaTemplete[VD, ED] extends Serializable {
+
+  def repartition(g: Graph[VD, ED]) : Graph[VD, ED]
 
   def lambda_initGraph(v1: VertexId, v2: VertexId) : VD
 
