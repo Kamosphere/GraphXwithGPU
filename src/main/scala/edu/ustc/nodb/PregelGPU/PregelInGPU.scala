@@ -22,7 +22,7 @@ object PregelInGPU{
 
     val startTimeB = System.nanoTime()
 
-    var g = algorithm.repartition(spGraph)
+    var g = algorithm.repartition(spGraph).cache()
 
     val endTimeB = System.nanoTime()
 

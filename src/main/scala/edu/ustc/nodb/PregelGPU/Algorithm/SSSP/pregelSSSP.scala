@@ -4,7 +4,9 @@ import java.util
 
 import edu.ustc.nodb.PregelGPU.Algorithm.{SPMapWithActive, lambdaTemplete}
 import edu.ustc.nodb.PregelGPU.Plugin.partitionStrategy.EdgePartitionPreSearch
+import org.apache.spark.TaskContext
 import org.apache.spark.broadcast.Broadcast
+import org.apache.spark.graphx.PartitionStrategy.EdgePartition1D
 import org.apache.spark.graphx.{EdgeTriplet, Graph, VertexId}
 import org.apache.spark.util.LongAccumulator
 
@@ -18,9 +20,44 @@ class pregelSSSP (allSource: Broadcast[ArrayBuffer[VertexId]],
 
   override def repartition(g: Graph[SPMapWithActive, Double]): Graph[SPMapWithActive, Double] = {
 
-    val partitionMethod = new EdgePartitionPreSearch(g, allSource.value)
-    partitionMethod.generateMappedGraph()
 
+    val ag = g.partitionBy(EdgePartition1D)
+    ag.vertices.foreachPartition(v => {
+      val pid = TaskContext.getPartitionId()
+      while(v.hasNext){
+        println(v.next()._1 + " which in " + pid.toString)
+      }
+    })
+    ag.triplets.foreachPartition(v => {
+      val pid = TaskContext.getPartitionId()
+      var count = 0
+      while(v.hasNext){
+        val temp = v.next()
+        count = count + 1
+        println(temp.srcId + " to " + temp.dstId + " is in " + pid.toString)
+      }
+      println(count + " for the prev graph")
+    })
+    val partitionMethod = new EdgePartitionPreSearch(ag, allSource.value)
+    val afterG = partitionMethod.generateMappedGraph()
+    println(partitionMethod.landMarkVertexIndexed)
+    afterG.vertices.foreachPartition(v => {
+      val pid = TaskContext.getPartitionId()
+      while(v.hasNext){
+        println(v.next()._1 + " which in " + pid.toString)
+      }
+    })
+    afterG.triplets.foreachPartition(v => {
+      val pid = TaskContext.getPartitionId()
+      var count = 0
+      while(v.hasNext){
+        val temp = v.next()
+        count = count + 1
+        println(temp.srcId + " to " + temp.dstId + " is in " + pid.toString)
+      }
+      println(count + " for after graph")
+    })
+    afterG
   }
 
   override def lambda_initGraph(vid: VertexId, attr: VertexId): SPMapWithActive = {
