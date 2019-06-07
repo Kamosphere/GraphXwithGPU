@@ -125,7 +125,7 @@ class GPUNative extends Serializable {
       vertexCount, edgeSize, sourceSize, pid,
       resultID, resultAttr)
 
-    val needCombine = if(underIndex < 0) false else true
+    val needCombine = if(underIndex <= 0) false else true
 
     underIndex = math.abs(underIndex)
 
@@ -178,7 +178,7 @@ class GPUNative extends Serializable {
       vertexCount, edgeSize, sourceSize, pid,
       resultID, resultAttr)
 
-    val needCombine = if(underIndex < 0) false else true
+    val needCombine = if(underIndex <= 0) false else true
 
     underIndex = math.abs(underIndex)
 
