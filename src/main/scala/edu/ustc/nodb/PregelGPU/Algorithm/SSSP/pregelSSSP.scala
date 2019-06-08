@@ -22,9 +22,7 @@ class pregelSSSP (allSource: Broadcast[ArrayBuffer[VertexId]],
 
     val partitionMethod = new EdgePartitionPreSearch(g, allSource.value)
     val afterG = partitionMethod.generateMappedGraph()
-    println(partitionMethod.landMarkVertexIndexed)
-    println(partitionMethod.landMarkPartitionID)
-    afterG.triplets.foreachPartition(v => {
+    /*afterG.triplets.foreachPartition(v => {
       val pid = TaskContext.getPartitionId()
       var count = 0
       while(v.hasNext){
@@ -33,7 +31,7 @@ class pregelSSSP (allSource: Broadcast[ArrayBuffer[VertexId]],
         println(temp.srcId + " to " + temp.dstId + " is in " + pid.toString)
       }
       println(count + " for after graph")
-    })
+    })*/
     afterG
   }
 
@@ -182,8 +180,6 @@ class pregelSSSP (allSource: Broadcast[ArrayBuffer[VertexId]],
       }
     }
 
-    println(filteredVertex)
-
     val endTimeA = System.nanoTime()
 
     val startTimeB = System.nanoTime()
@@ -204,8 +200,7 @@ class pregelSSSP (allSource: Broadcast[ArrayBuffer[VertexId]],
 
     val endTimeB = System.nanoTime()
 
-    println("In iter 0 of part" + pid + ", Collecting data time: " + (endTimeA - startTimeA) + " Processing time: " + (endTimeB - startTimeB)
-      + needCombine + " " + results)
+    println("In iter 0 of part" + pid + ", Collecting data time: " + (endTimeA - startTimeA) + " Processing time: " + (endTimeB - startTimeB))
     result
   }
 
@@ -281,8 +276,7 @@ class pregelSSSP (allSource: Broadcast[ArrayBuffer[VertexId]],
 
     val endTimeB = System.nanoTime()
 
-    println("In iter "+ iterTimes + " of part" + pid + ", Collecting data time: " + (endTimeA - startTimeA) + " Processing time: " + (endTimeB - startTimeB)
-     + needCombine + " " + results)
+    println("In iter "+ iterTimes + " of part" + pid + ", Collecting data time: " + (endTimeA - startTimeA) + " Processing time: " + (endTimeB - startTimeB))
     result
   }
 

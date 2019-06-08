@@ -21,6 +21,7 @@ class EdgePartitionPreSearch[VD: ClassTag, ED: ClassTag](g: Graph[VD, ED], landM
 
   val mixingPrime: VertexId = 1125899906842597L
 
+  // To generate map centered on landmarks
   def init_landMap(): mutable.HashMap[VertexId, ArrayBuffer[VertexId]] ={
     val landMarkMap = new mutable.HashMap[VertexId, ArrayBuffer[VertexId]]
 
@@ -59,12 +60,13 @@ class EdgePartitionPreSearch[VD: ClassTag, ED: ClassTag](g: Graph[VD, ED], landM
     landMarkDist
   }
 */
+
+  // To generate the partition distribution
   def init_landDist(): mutable.HashMap[VertexId, PartitionID] = {
 
     val landMarkDist = new mutable.HashMap[VertexId, PartitionID]
 
     val multipleVertices = new ArrayBuffer[ArrayBuffer[VertexId]]
-
     val uniqueVertices = new ArrayBuffer[ArrayBuffer[VertexId]]
 
     for(unit <- landMarkVertexIndexed){
@@ -73,8 +75,9 @@ class EdgePartitionPreSearch[VD: ClassTag, ED: ClassTag](g: Graph[VD, ED], landM
         multipleVertices.+=(insert)
       }
     }
-    breakable{
 
+    // merge landmarks exist in multipleVertices
+    breakable{
       while(multipleVertices.nonEmpty){
         var firstElems = multipleVertices(0)
 
@@ -87,10 +90,20 @@ class EdgePartitionPreSearch[VD: ClassTag, ED: ClassTag](g: Graph[VD, ED], landM
         }
 
         uniqueVertices.+=(firstElems)
+
+        // stop while all landmarks are contained
         if(firstElems.length == landMarks.length) break()
       }
     }
 
+    // if no vertices belong to multiple landmarks
+    if(uniqueVertices.isEmpty){
+      for(unit <- landMarks){
+        uniqueVertices.+=(ArrayBuffer(unit))
+      }
+    }
+
+    // apart into map
     var i = 0
     for(unit <- uniqueVertices){
       for(elem <- unit){
@@ -104,62 +117,45 @@ class EdgePartitionPreSearch[VD: ClassTag, ED: ClassTag](g: Graph[VD, ED], landM
 
   private def VertexIdPartition(e : EdgeTriplet[VD, ED]): PartitionID = {
 
-    val checkNum = 169
+    // val checkNum = 169
 
     if(landMarks.contains(e.srcId)){
+      /* test
       val identifier = 1
       if(e.srcId == checkNum || e.dstId == checkNum){
         println("checking " + e.srcId + " to " + e.dstId + " in " + identifier + " " + landMarkPartitionID(e.srcId))
-      }
+      }*/
       landMarkPartitionID(e.srcId)
     }
 
     else if(landMarks.contains(e.dstId)){
-      val identifier = 2
-      if(e.srcId == checkNum || e.dstId == checkNum){
-        println("checking " + e.srcId + " to " + e.dstId + " in " + identifier  + " " + landMarkPartitionID(e.dstId))
-      }
       landMarkPartitionID(e.dstId)
     }
 
     else{
+      val random = new Random(System.currentTimeMillis())
 
       val edgeSrcMap = landMarkVertexIndexed.getOrElse(e.srcId, Map())
       val edgeDstMap = landMarkVertexIndexed.getOrElse(e.dstId, Map())
 
       if(edgeSrcMap.nonEmpty && edgeDstMap.isEmpty){
-        val random = new Random(System.currentTimeMillis())
+
         val randomIndex = random.nextInt(edgeSrcMap.keySet.size)
         val resultArr = edgeSrcMap.keySet.toArray
         val result = resultArr(randomIndex)
-
-        val identifier = 3
-        if(e.srcId == checkNum || e.dstId == checkNum){
-          println("checking " + e.srcId + " to " + e.dstId + " in " + identifier  + " " + landMarkPartitionID(result))
-        }
 
         landMarkPartitionID(result)
       }
 
       else if(edgeSrcMap.isEmpty && edgeDstMap.nonEmpty){
-        val random = new Random(System.currentTimeMillis())
         val randomIndex = random.nextInt(edgeDstMap.keySet.size)
         val resultArr = edgeDstMap.keySet.toArray
         val result = resultArr(randomIndex)
-
-        val identifier = 4
-        if(e.srcId == checkNum || e.dstId == checkNum){
-          println("checking " + e.srcId + " to " + e.dstId + " in " + identifier+ " " + landMarkPartitionID(result))
-        }
 
         landMarkPartitionID(result)
       }
 
       else if(edgeSrcMap.isEmpty && edgeDstMap.isEmpty){
-        val identifier = 5
-        if(e.srcId == checkNum || e.dstId == checkNum){
-          println("checking " + e.srcId + " to " + e.dstId + " in " + identifier)
-        }
 
         (math.abs(e.dstId * mixingPrime) % numParts).toInt
       }
@@ -170,36 +166,19 @@ class EdgePartitionPreSearch[VD: ClassTag, ED: ClassTag](g: Graph[VD, ED], landM
 
         if(sameCenter.isEmpty){
           val combineCenter = edgeSrcMap.keySet.union(edgeDstMap.keySet).toArray.distinct
-          val random = new Random(System.currentTimeMillis())
           val randomIndex = random.nextInt(combineCenter.length)
           val result = combineCenter(randomIndex)
-
-          val identifier = 8
-          if(e.srcId == checkNum || e.dstId == checkNum){
-            println("checking " + e.srcId + " to " + e.dstId + " in " + identifier+ " " + landMarkPartitionID(result))
-          }
 
           landMarkPartitionID(result)
 
         }
         else{
           if(sameCenter.length == 1){
-
-            val identifier = 6
-            if(e.srcId == checkNum || e.dstId == checkNum){
-              println("checking " + e.srcId + " to " + e.dstId + " in " + identifier + " " + landMarkPartitionID(sameCenter(0)))
-            }
             landMarkPartitionID(sameCenter(0))
           }
           else{
-            val random = new Random(System.currentTimeMillis())
             val randomIndex = random.nextInt(sameCenter.length)
             val result = sameCenter(randomIndex)
-
-            val identifier = 7
-            if(e.srcId == checkNum || e.dstId == checkNum){
-              println("checking " + e.srcId + " to " + e.dstId + " in " + identifier + " " + landMarkPartitionID(result))
-            }
 
             landMarkPartitionID(result)
           }

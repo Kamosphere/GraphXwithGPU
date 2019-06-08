@@ -31,10 +31,9 @@ object NeighborCollect {
       if(landMark.contains(vid)) Map[VertexId, Int](vid -> jumps)
       else Map[VertexId, Int]()
     })
-      .pregel(Map[VertexId, Int](), jumps, EdgeDirection.Out)(vProg, sendMsg, addMaps)
+      .pregel(Map[VertexId, Int](), jumps, EdgeDirection.Either)(vProg, sendMsg, addMaps)
 
-    val JumpFriends = newG.vertices
-      .mapValues(_.filter(_._2 == 0)).filter( x => x._2 != Map()).collectAsMap()
+    val JumpFriends = newG.vertices.filter( x => x._2 != Map()).collectAsMap()
 
     JumpFriends
   }

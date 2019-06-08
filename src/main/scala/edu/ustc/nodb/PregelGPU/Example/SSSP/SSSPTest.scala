@@ -42,7 +42,7 @@ object SSSPTest{
 
     // load graph from file
 
-    val sourceFile = "testGraph10000.txt"
+    val sourceFile = "testGraph.txt"
     //val sourceFile = "/usr/local/ssspexample/testGraph.txt"
 
     val vertex: RDD[(VertexId, VertexId)] = sc.textFile(sourceFile).map{
@@ -74,7 +74,7 @@ object SSSPTest{
     // the quantity of vertices in the whole graph
     val vertexSum = graph.vertices.count()
     val edgeSum = graph.edges.count()
-/*
+
     val startNormal = System.nanoTime()
     val ssspTest = new PregelSparkSSSP(graph, allSourceList)
     val ssspResult = ssspTest.run()
@@ -83,17 +83,17 @@ object SSSPTest{
     val endNormal = System.nanoTime()
 
     println("-------------------------")
-*/
+
     val startNew = System.nanoTime()
     val ssspAlgo = new pregelSSSP(allSourceList, vertexSum, edgeSum, parts.get)
     val ssspGPUResult = PregelInGPU.run(graph)(ssspAlgo)
-    val q = ssspGPUResult.vertices.count()
-    //println(ssspGPUResult.vertices.collect.mkString("\n"))
+    //val q = ssspGPUResult.vertices.count()
+    println(ssspGPUResult.vertices.collect.mkString("\n"))
     val endNew = System.nanoTime()
 
     println("-------------------------")
 
-    //println(endNormal - startNormal)
+    println(endNormal - startNormal)
 
     println(endNew - startNew)
 
