@@ -24,7 +24,7 @@ class PregelSparkSSSP (graph: Graph[VertexId,Double],
 
     }.toMap
 
-  val initialMessage = makeMap()
+  val initialMessage : Map[VertexId, Double] = makeMap()
 
   def vertexProgram(id: VertexId, attr: SPMap, msg: SPMap):
   SPMap = {

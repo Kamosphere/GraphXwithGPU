@@ -56,9 +56,18 @@ class pregelSSSP (allSource: Broadcast[ArrayBuffer[VertexId]],
                                  v2: SPMapWithActive):
   SPMapWithActive = {
 
-    val b = v2._1
+    var b = false
     val result : mutable.LinkedHashMap[Long, Double] = v1._2++v2._2.map{
-      case (k,r) => k->math.min(r,v1._2.getOrElse(k, Double.PositiveInfinity))
+      case (k,r) => {
+        val temp = v1._2.getOrElse(k, Double.PositiveInfinity)
+        if(temp <= r){
+          k->temp
+        }
+        else{
+          b = true
+          k->r
+        }
+      }
     }
     (b,result)
 
@@ -137,6 +146,7 @@ class pregelSSSP (allSource: Broadcast[ArrayBuffer[VertexId]],
 
     while(iter.hasNext){
       temp = iter.next()
+
       pEdgeSrcIDTemp(EdgeCount)=temp.srcId
       pEdgeDstIDTemp(EdgeCount)=temp.dstId
       pEdgeAttrTemp(EdgeCount)=temp.attr
@@ -146,7 +156,7 @@ class pregelSSSP (allSource: Broadcast[ArrayBuffer[VertexId]],
         pVertexIDTemp(VertexCount)=temp.srcId
         pVertexActiveTemp(VertexCount)=temp.srcAttr._1
         VertexNumList.put(temp.srcId, 1)
-        // need to guard the order of sourceList in array
+        // the order of sourceList in array is guarded by linkedHashMap
         var index = 0
         for(part <- temp.srcAttr._2.values){
           pVertexAttrTemp(VertexCount * preMap + index) = part
@@ -163,7 +173,7 @@ class pregelSSSP (allSource: Broadcast[ArrayBuffer[VertexId]],
         pVertexIDTemp(VertexCount)=temp.dstId
         pVertexActiveTemp(VertexCount)=temp.dstAttr._1
         VertexNumList.put(temp.dstId, 0)
-        // need to guard the order of sourceList in array
+        // the order of sourceList in array is guarded by linkedHashMap
         var index = 0
         for(part <- temp.dstAttr._2.values){
           pVertexAttrTemp(VertexCount * preMap + index) = part
@@ -224,7 +234,7 @@ class pregelSSSP (allSource: Broadcast[ArrayBuffer[VertexId]],
     val pVertexActiveTemp = new Array[Boolean](preVertexLength)
     val pVertexAttrTemp = new Array[Double](preVertexLength * preMap)
     // used to remove the abundant vertices
-    val VertexNumList = new util.HashSet[Long]
+    val VertexNumList = new util.HashSet[Long](preVertexLength)
 
     var temp : EdgeTriplet[SPMapWithActive,Double] = null
     var VertexIndex = 0
@@ -232,6 +242,7 @@ class pregelSSSP (allSource: Broadcast[ArrayBuffer[VertexId]],
 
     while(iter.hasNext){
       temp = iter.next()
+
       if(temp.srcAttr._1){
         EdgeIndex = EdgeIndex + 1
 
@@ -239,7 +250,7 @@ class pregelSSSP (allSource: Broadcast[ArrayBuffer[VertexId]],
           pVertexIDTemp(VertexIndex)=temp.srcId
           pVertexActiveTemp(VertexIndex)=temp.srcAttr._1
           VertexNumList.add(temp.srcId)
-          // need to guard the order of sourceList in array
+          // the order of sourceList in array is guarded by linkedHashMap
           var index = 0
           for(part <- temp.srcAttr._2.values){
             pVertexAttrTemp(VertexIndex * preMap + index) = part
@@ -251,7 +262,7 @@ class pregelSSSP (allSource: Broadcast[ArrayBuffer[VertexId]],
           pVertexIDTemp(VertexIndex)=temp.dstId
           pVertexActiveTemp(VertexIndex)=temp.dstAttr._1
           VertexNumList.add(temp.dstId)
-          // need to guard the order of sourceList in array
+          // the order of sourceList in array is guarded by linkedHashMap
           var index = 0
           for(part <- temp.dstAttr._2.values){
             pVertexAttrTemp(VertexIndex * preMap + index) = part

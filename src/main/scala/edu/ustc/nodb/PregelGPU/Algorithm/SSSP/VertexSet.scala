@@ -6,7 +6,6 @@ import scala.collection.mutable
 
 class VertexSet (vid: Long, activeness: Boolean, attr: mutable.LinkedHashMap[Long, Double])extends Serializable {
 
-
   // another construction for VertexSet to make it convenience to add vertices attribute
   def this(vid: Long, activeness: Boolean) = this(vid, activeness, new mutable.LinkedHashMap[Long, Double]())
 

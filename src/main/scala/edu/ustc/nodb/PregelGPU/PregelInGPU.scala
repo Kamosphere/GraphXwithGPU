@@ -22,7 +22,7 @@ object PregelInGPU{
 
     val startTimeB = System.nanoTime()
 
-    var g = algorithm.repartition(spGraph).cache()
+    var g = spGraph
 
     val endTimeB = System.nanoTime()
 
@@ -66,16 +66,24 @@ object PregelInGPU{
     while(activeMessages > 0 && iterTimes < maxIterations){
 
       val startTime = System.nanoTime()
+
       prevG = g
       val oldVertexModified = vertexModified
       ifFilteredCounter.reset()
       val tempBeforeCounter = ifFilteredCounter.sum
 
+      //combine the messages with graph
+      g = GraphXModified.joinVerticesDefault(g, vertexModified)((vid, v1, v2) =>
+        algorithm.lambda_JoinVerticesDefaultFirst(vid, v1, v2))(vAttr =>
+        algorithm.lambda_JoinVerticesDefaultSecond(vAttr))
+        .cache()
+/*
+      val agg = g.vertices.count()
+      val endNew1 = System.nanoTime()
+      println("joining " + agg + " time: " + (endNew1 - startTime))
+      val startNew1 = System.nanoTime()
+*/
       if(ifRepartition){
-        g = GraphXModified.joinVerticesDefault(g, vertexModified)((vid, v1, v2) =>
-          algorithm.lambda_JoinVerticesDefaultFirst(vid, v1, v2))(vAttr =>
-          algorithm.lambda_JoinVerticesDefaultSecond(vAttr))
-          .cache()
 
         partitionSplit = g.triplets.mapPartitionsWithIndex((pid, Iter)=>{
           algorithm.lambda_partitionSplit(pid, Iter)
@@ -86,28 +94,37 @@ object PregelInGPU{
       }
       else{
         if(afterCounter != beforeCounter){
-          //combine the messages with graph
-          g = GraphXModified.joinVerticesDefault(g, vertexModified)((vid, v1, v2) =>
-            algorithm.lambda_JoinVerticesDefaultFirst(vid, v1, v2))(vAttr =>
-            algorithm.lambda_JoinVerticesDefaultSecond(vAttr))
-            .cache()
 
           //run the main process
           modifiedSubGraph = g.triplets.mapPartitionsWithIndex((pid, iter) =>
             algorithm.lambda_ModifiedSubGraph_MPBI_IterWithoutPartition(pid, iter)(iterTimes, partitionSplit, ifFilteredCounter))
 
         }
-        // skip merging to graph
+        // skip getting vertex information through graph
         else{
+
           modifiedSubGraph = g.triplets.mapPartitionsWithIndex((pid, iter) =>
             algorithm.lambda_ModifiedSubGraph_MPBI_skipStep(pid, iter)(iterTimes, partitionSplit, ifFilteredCounter))
         }
       }
 
-      // combine the vertex messages through partitions
+
+      // distribute the vertex messages into partitions
+      vertexModified = g.vertices.aggregateUsingIndex(modifiedSubGraph, algorithm.lambda_ReduceByKey).cache()
+      /*
+      val a = vertexModified.count()
+      val endNew = System.nanoTime()
+      println("aggregating " + a + " time: " + (endNew - startNew1))*/
+      //val startNew = System.nanoTime()
+      /*
       vertexModified = modifiedSubGraph.reduceByKey((v1, v2)=>
         algorithm.lambda_ReduceByKey(v1, v2)).cache()
 
+      val d = vertexModified.collect()
+      for(el <- d){
+        println(el._1 + " : " + el._2)
+      }
+      */
       iterTimes = iterTimes + 1
 
       // get the amount of active vertices
@@ -119,8 +136,9 @@ object PregelInGPU{
 
       val endTime = System.nanoTime()
       //val endNew = System.nanoTime()
-      //println("-------------------------")
+      //
       println("Whole iteration time: " + (endTime - startTime))
+      println("-------------------------")
 
       oldVertexModified.unpersist(blocking = false)
       if(afterCounter != beforeCounter){
@@ -129,6 +147,8 @@ object PregelInGPU{
       }
       beforeCounter = tempBeforeCounter
       afterCounter = ifFilteredCounter.sum
+
+
     }
 
     g = GraphXModified.joinVerticesDefault(g, vertexModified)((vid, v1, v2) =>
@@ -166,3 +186,7 @@ object PregelInGPU{
   }
 }
 
+object envControl{
+  // 0 for server, other for local
+  val controller : Int = 0
+}

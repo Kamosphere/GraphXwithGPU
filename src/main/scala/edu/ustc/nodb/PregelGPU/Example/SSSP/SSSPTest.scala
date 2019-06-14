@@ -2,7 +2,7 @@ package edu.ustc.nodb.PregelGPU.Example.SSSP
 
 import edu.ustc.nodb.PregelGPU.Algorithm.SSSP.pregelSSSP
 import edu.ustc.nodb.PregelGPU.Plugin.partitionStrategy.EdgePartitionPreSearch
-import edu.ustc.nodb.PregelGPU.PregelInGPU
+import edu.ustc.nodb.PregelGPU.{PregelInGPU, envControl}
 import org.apache.spark.graphx.{Edge, Graph, VertexId}
 import org.apache.spark.rdd.RDD
 import org.apache.spark.{SparkConf, SparkContext}
@@ -42,8 +42,11 @@ object SSSPTest{
 
     // load graph from file
 
-    val sourceFile = "testGraph.txt"
-    //val sourceFile = "/usr/local/ssspexample/testGraph.txt"
+    var sourceFile = ""
+    if(envControl.controller == 0){
+      sourceFile = "/usr/local/ssspexample/testGraph.txt"
+    }
+    else sourceFile = "testGraph.txt"
 
     val vertex: RDD[(VertexId, VertexId)] = sc.textFile(sourceFile).map{
       lines =>{
@@ -70,7 +73,6 @@ object SSSPTest{
 
     val allSourceList = sc.broadcast(sourceList)
 
-
     // the quantity of vertices in the whole graph
     val vertexSum = graph.vertices.count()
     val edgeSum = graph.edges.count()
@@ -78,8 +80,8 @@ object SSSPTest{
     val startNormal = System.nanoTime()
     val ssspTest = new PregelSparkSSSP(graph, allSourceList)
     val ssspResult = ssspTest.run()
-    //val d = ssspResult.vertices.count()
-    println(ssspResult.vertices.collect.mkString("\n"))
+    val d = ssspResult.vertices.count()
+    //println(ssspResult.vertices.collect.mkString("\n"))
     val endNormal = System.nanoTime()
 
     println("-------------------------")
@@ -87,8 +89,8 @@ object SSSPTest{
     val startNew = System.nanoTime()
     val ssspAlgo = new pregelSSSP(allSourceList, vertexSum, edgeSum, parts.get)
     val ssspGPUResult = PregelInGPU.run(graph)(ssspAlgo)
-    //val q = ssspGPUResult.vertices.count()
-    println(ssspGPUResult.vertices.collect.mkString("\n"))
+    val q = ssspGPUResult.vertices.count()
+    //println(ssspGPUResult.vertices.collect.mkString("\n"))
     val endNew = System.nanoTime()
 
     println("-------------------------")

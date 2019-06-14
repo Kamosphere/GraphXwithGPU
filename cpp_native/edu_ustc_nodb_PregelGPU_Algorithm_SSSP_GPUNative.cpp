@@ -224,19 +224,20 @@ JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_Algorithm_SSSP_GPUNative_GPU
 
 /*
     // test for multithreading environment
-    std::string output = std::string();
 
-    for(int i = 0;i< vertexAllSum;i++){
-        output += to_string(i) + ": {";
-        for(int j = 0;j<MarkIDCount;j++){
-            output += " [" + to_string(initVSet[j])+": "+to_string(vValues[i * MarkIDCount + j]) + "] ";
+    std::string outputT = std::string();
+
+    for(int i = 0;i < vertexAllSum; i++){
+        outputT += to_string(i) + ": {";
+        for(int j = 0;j < lenMarkID; j++){
+            outputT += " [" + to_string(execute.initVSet[j])+": "+to_string(execute.mValues[i * lenMarkID + j]) + "] ";
         }
-        output += "}";
+        outputT += "}";
     }
 
-    std::cout<<output<<std::endl;
+    cout<<outputT<<endl;
 
-    output.clear();
+    outputT.clear();
     // test end
 */
     std::chrono::nanoseconds durationA = std::chrono::high_resolution_clock::now() - startTimeA;
@@ -261,18 +262,31 @@ JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_Algorithm_SSSP_GPUNative_GPU
 
     bool allGained = true;
     for (int i = 0; i < vertexAllSum; i++) {
-        if (execute.vSet[i].isActive) {
-            // copy data
-            cPlusReturnId.emplace_back(i);
-            for (int j = 0; j < lenMarkID; j++) {
-                cPlusReturnAttr.emplace_back(execute.vValues[i * lenMarkID + j]);
+        vector<double> detector = vector<double>();
+        int count = 0;
+        for (int j = 0; j < lenMarkID; j++) {
+            double item = execute.mValues[i * lenMarkID + j];
+            detector.emplace_back(item);
+            if(item != INVALID_MASSAGE){
+                count++;
             }
+        }
+        if(count == 0){
+            continue;
+        }
+        else{
+            cPlusReturnId.emplace_back(i);
+            cPlusReturnAttr.insert(cPlusReturnAttr.end(), detector.begin(), detector.end());
 
             // detect if the vertex is filtered
+            // expanded limitation
             if(! execute.filteredV[i]){
                 allGained = false;
             }
         }
+        //if (execute.vSet[i].isActive) {
+        // copy data
+        //}
     }
 
     env->SetLongArrayRegion(returnId, 0, cPlusReturnId.size(), &cPlusReturnId[0]);
@@ -325,18 +339,31 @@ JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_Algorithm_SSSP_GPUNative_GPU
 
     bool allGained = true;
     for (int i = 0; i < vertexAllSum; i++) {
-        if (execute.vSet[i].isActive) {
-            // copy data
-            cPlusReturnId.emplace_back(i);
-            for (int j = 0; j < lenMarkID; j++) {
-                cPlusReturnAttr.emplace_back(execute.vValues[i * lenMarkID + j]);
+        vector<double> detector = vector<double>();
+        int count = 0;
+        for (int j = 0; j < lenMarkID; j++) {
+            double item = execute.mValues[i * lenMarkID + j];
+            detector.emplace_back(item);
+            if(item != INVALID_MASSAGE){
+                count++;
             }
+        }
+        if(count == 0){
+            continue;
+        }
+        else{
+            cPlusReturnId.emplace_back(i);
+            cPlusReturnAttr.insert(cPlusReturnAttr.end(), detector.begin(), detector.end());
 
             // detect if the vertex is filtered
+            // expanded limitation
             if(! execute.filteredV[i]){
                 allGained = false;
             }
         }
+        //if (execute.vSet[i].isActive) {
+        // copy data
+        //}
     }
 
     env->SetLongArrayRegion(returnId, 0, cPlusReturnId.size(), &cPlusReturnId[0]);

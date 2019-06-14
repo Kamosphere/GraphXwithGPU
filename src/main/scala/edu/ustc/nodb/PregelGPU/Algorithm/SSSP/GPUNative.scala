@@ -3,6 +3,7 @@ package edu.ustc.nodb.PregelGPU.Algorithm.SSSP
 import java.util
 
 import edu.ustc.nodb.PregelGPU.Algorithm.SPMapWithActive
+import edu.ustc.nodb.PregelGPU.envControl
 import org.apache.spark.graphx.VertexId
 
 import scala.collection.mutable.ArrayBuffer
@@ -88,17 +89,18 @@ class GPUNative extends Serializable {
 
     for(i <- 0 until underIndex){
 
+      // package the vertex as vertex-like format
       tempVertexSet = new VertexSet(resultID(i), false)
       for(j <- sourceList.indices){
         tempVertexSet.addAttr(sourceList(j), resultAttr(i * sourceSize + j))
       }
 
       results.+=(tempVertexSet.TupleReturn())
-
     }
-      val endNew = System.nanoTime()
-      println("Constructing remained arrayBuffer time: " + (endNew - startNew))
-      results
+
+    val endNew = System.nanoTime()
+    println("Constructing remained arrayBuffer time: " + (endNew - startNew))
+    results
   }
 
   // execute algorithm while prev iter skipped
@@ -126,26 +128,23 @@ class GPUNative extends Serializable {
       resultID, resultAttr)
 
     val needCombine = if(underIndex <= 0) false else true
-
     underIndex = math.abs(underIndex)
 
     val startNew = System.nanoTime()
 
     for(i <- 0 until underIndex){
-
+      // package the message as vertex-like format
+      // activeness is of no use but to fill the blank
       tempVertexSet = new VertexSet(resultID(i), true)
       for(j <- sourceList.indices){
         tempVertexSet.addAttr(sourceList(j), resultAttr(i * sourceSize + j))
       }
 
       results.+=(tempVertexSet.TupleReturn())
-
     }
 
     val endNew = System.nanoTime()
-
     println("Constructing returned skipped arrayBuffer time: " + (endNew - startNew))
-
     (results, needCombine)
 
   }
@@ -179,26 +178,25 @@ class GPUNative extends Serializable {
       resultID, resultAttr)
 
     val needCombine = if(underIndex <= 0) false else true
-
     underIndex = math.abs(underIndex)
 
     val startNew = System.nanoTime()
 
     for(i <- 0 until underIndex){
-
+      // package the message as vertex-like format
+      // activeness is of no use but to fill the blank
       tempVertexSet = new VertexSet(resultID(i), true)
+      var invalidDetector = 0.0
       for(j <- sourceList.indices){
-        tempVertexSet.addAttr(sourceList(j), resultAttr(i * sourceSize + j))
+        invalidDetector = resultAttr(i * sourceSize + j)
+        if(invalidDetector < Int.MaxValue) tempVertexSet.addAttr(sourceList(j), resultAttr(i * sourceSize + j))
       }
 
       results.+=(tempVertexSet.TupleReturn())
-
     }
 
     val endNew = System.nanoTime()
-
     println("Constructing returned arrayBuffer time: " + (endNew - startNew))
-
     (results, needCombine)
 
   }
@@ -214,15 +212,25 @@ class GPUNative extends Serializable {
   Boolean = {
 
     GPUShutdown(pid)
+    var runningScript = ""
 
-    val runningScript =
-      "./cpp_native/build/bin/srv_UtilServerTest_BellmanFordGPU " + vertexSum.toString +
-        " " + EdgeSrc.length.toString + " " + sourceList.length.toString + " " + pid.toString
+    if (envControl.controller == 0){
+      runningScript =
+        "/usr/local/ssspexample/cpp_native/build/bin/srv_UtilServerTest_BellmanFordGPU " + vertexSum.toString +
+          " " + EdgeSrc.length.toString + " " + sourceList.length.toString + " " + pid.toString
+
+    }
+    else {
+      runningScript =
+        "./cpp_native/build/bin/srv_UtilServerTest_BellmanFordGPU " + vertexSum.toString +
+          " " + EdgeSrc.length.toString + " " + sourceList.length.toString + " " + pid.toString
+
+    }
 
     Process(runningScript).run()
 
     // too quickly for cuda init
-    Thread.sleep(500)
+    Thread.sleep(1000)
 
     System.loadLibrary("PregelGPU")
 

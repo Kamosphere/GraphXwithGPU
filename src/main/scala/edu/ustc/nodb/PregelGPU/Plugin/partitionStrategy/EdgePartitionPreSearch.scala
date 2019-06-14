@@ -161,7 +161,7 @@ class EdgePartitionPreSearch[VD: ClassTag, ED: ClassTag](g: Graph[VD, ED], landM
       }
 
       else {
-        // may have memory problem
+        // may have memory problem by intersect method
         val sameCenter = edgeSrcMap.keySet.intersect(edgeDstMap.keySet).toArray
 
         if(sameCenter.isEmpty){
