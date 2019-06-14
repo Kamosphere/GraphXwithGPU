@@ -209,7 +209,7 @@ class GPUNative extends Serializable {
               EdgeAttr: Array[Double],
               sourceList: ArrayBuffer[VertexId],
               pid :Int):
-  Boolean = {
+  Unit = {
 
     GPUShutdown(pid)
     var runningScript = ""
@@ -230,7 +230,7 @@ class GPUNative extends Serializable {
     Process(runningScript).run()
 
     // too quickly for cuda init
-    Thread.sleep(1000)
+    //Thread.sleep(1000)
 
     System.loadLibrary("PregelGPU")
 
@@ -240,11 +240,12 @@ class GPUNative extends Serializable {
       sourceId.add(unit)
     }
 
-    // if not success, it will run again outside
-    val result = GPUServerInit(filteredVertex, vertexSum, EdgeSrc, EdgeDst, EdgeAttr, sourceId, pid)
+    // if not success, it will run
+    var result = false
 
-    result
-
+    while(! result){
+      result = GPUServerInit(filteredVertex, vertexSum, EdgeSrc, EdgeDst, EdgeAttr, sourceId, pid)
+    }
   }
 
   // after executing, close the server and release the shared memory

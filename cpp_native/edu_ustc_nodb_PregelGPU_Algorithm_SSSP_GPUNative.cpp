@@ -7,6 +7,7 @@
 #include "Graph_Algo/algo/BellmanFord/BellmanFord.h"
 #include "Graph_Algo/srv/UtilServer.h"
 #include "Graph_Algo/srv/UtilClient.h"
+#include "prober/initProber.h"
 #include <cstdlib>
 #include <chrono>
 
@@ -124,6 +125,10 @@ JNIEXPORT jboolean JNICALL Java_edu_ustc_nodb_PregelGPU_Algorithm_SSSP_GPUNative
     env->ReleaseLongArrayElements(jEdgeSrc, EdgeSrcTemp, 0);
     env->ReleaseLongArrayElements(jEdgeDst, EdgeDstTemp, 0);
     env->ReleaseDoubleArrayElements(jEdgeAttr, EdgeAttrTemp, 0);
+
+    initProber detector = initProber(partitionID);
+    bool status = detector.run();
+    if(! status) return false;
 
     UtilClient<double> execute = UtilClient<double>(vertexAllSum, lenEdge, lenMarkID, partitionID);
 

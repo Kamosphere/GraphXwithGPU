@@ -1,5 +1,5 @@
 #**************************************************************************************************
-# cMake的公共配置
+# global config of cMake
 #**************************************************************************************************
 cmake_minimum_required(VERSION 3.9)
 
@@ -10,7 +10,7 @@ set(GCC_COVERAGE_COMPILE_FLAGS  "-fPIC")
 add_definitions(${GCC_COVERAGE_COMPILE_FLAGS})
 
 #**************************************************************************************************
-# Preprocessor definitions 一些预定义设置
+# Preprocessor definitions
 #**************************************************************************************************
 if (CMAKE_CL_64)
     add_definitions(-DWIN64)
@@ -26,7 +26,7 @@ endif(WIN32)
 
 add_subdirectory(Graph_Algo)
 
-#用$ENV{JAVA_HOME}获取 用于加载jni头文件 前提配置好JAVA_HOME
+#use $ENV{JAVA_HOME} to include the jni header, JAVA_HOME need to be configurated
 INCLUDE_DIRECTORIES($ENV{JAVA_HOME}/include)
 if(WIN32)
     INCLUDE_DIRECTORIES($ENV{JAVA_HOME}/include/win32)
@@ -38,7 +38,7 @@ endif()
 
 add_library(PregelGPU SHARED
         edu_ustc_nodb_PregelGPU_Algorithm_SSSP_GPUNative.h
-        edu_ustc_nodb_PregelGPU_Algorithm_SSSP_GPUNative.cpp)
+        edu_ustc_nodb_PregelGPU_Algorithm_SSSP_GPUNative.cpp prober/initProber.cpp prober/initProber.h)
 
 
 target_link_libraries(PregelGPU

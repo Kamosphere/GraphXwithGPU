@@ -195,12 +195,9 @@ class pregelSSSP (allSource: Broadcast[ArrayBuffer[VertexId]],
     val startTimeB = System.nanoTime()
 
     val Process = new GPUNative
-    var envInit : Boolean = false
-    // loop until server started
-    while(! envInit){
-      envInit = Process.GPUInit(vertexSum.toInt, filteredVertex.toArray,
+    Process.GPUInit(vertexSum.toInt, filteredVertex.toArray,
         pEdgeSrcIDTemp, pEdgeDstIDTemp, pEdgeAttrTemp, sourceList, pid)
-    }
+
     val (results, needCombine) : (ArrayBuffer[(VertexId, SPMapWithActive)], Boolean) = Process.GPUProcess(
       pVertexIDTemp, pVertexActiveTemp, pVertexAttrTemp, vertexSum, VertexCount, pEdgeSrcIDTemp.length, sourceList, pid)
     val result = results.iterator

@@ -188,5 +188,5 @@ object PregelInGPU{
 
 object envControl{
   // 0 for server, other for local
-  val controller : Int = 0
+  val controller : Int = 1
 }
