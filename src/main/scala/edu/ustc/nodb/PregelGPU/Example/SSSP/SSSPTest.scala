@@ -76,26 +76,26 @@ object SSSPTest{
     // the quantity of vertices in the whole graph
     val vertexSum = graph.vertices.count()
     val edgeSum = graph.edges.count()
-/*
+
     val startNormal = System.nanoTime()
     val ssspTest = new PregelSparkSSSP(graph, allSourceList)
     val ssspResult = ssspTest.run()
-    //val d = ssspResult.vertices.count()
-    //println(ssspResult.vertices.collect.mkString("\n"))
+    // val d = ssspResult.vertices.count()
+    println(ssspResult.vertices.collect.mkString("\n"))
     val endNormal = System.nanoTime()
-*/
+
     println("-------------------------")
 
     val startNew = System.nanoTime()
     val ssspAlgo = new pregelSSSP(allSourceList, vertexSum, edgeSum, parts.get)
     val ssspGPUResult = PregelInGPU.run(graph)(ssspAlgo)
-    val q = ssspGPUResult.vertices.count()
-    //println(ssspGPUResult.vertices.collect.mkString("\n"))
+    // val q = ssspGPUResult.vertices.count()
+    println(ssspGPUResult.vertices.collect.mkString("\n"))
     val endNew = System.nanoTime()
 
     println("-------------------------")
 
-    //println(endNormal - startNormal)
+    println(endNormal - startNormal)
 
     println(endNew - startNew)
 

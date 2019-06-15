@@ -1,8 +1,5 @@
 #include "edu_ustc_nodb_PregelGPU_Algorithm_SSSP_GPUNative.h"
-#include <vector>
-#include <map>
-#include <iostream>
-#include <string>
+
 #include "Graph_Algo/core/Graph.h"
 #include "Graph_Algo/algo/BellmanFord/BellmanFord.h"
 #include "Graph_Algo/srv/UtilServer.h"
@@ -10,6 +7,10 @@
 #include "prober/initProber.h"
 #include <cstdlib>
 #include <chrono>
+#include <vector>
+#include <map>
+#include <iostream>
+#include <string>
 
 using namespace std;
 
@@ -267,31 +268,18 @@ JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_Algorithm_SSSP_GPUNative_GPU
 
     bool allGained = true;
     for (int i = 0; i < vertexAllSum; i++) {
-        vector<double> detector = vector<double>();
-        int count = 0;
-        for (int j = 0; j < lenMarkID; j++) {
-            double item = execute.mValues[i * lenMarkID + j];
-            detector.emplace_back(item);
-            if(item != INVALID_MASSAGE){
-                count++;
-            }
-        }
-        if(count == 0){
-            continue;
-        }
-        else{
+        if (execute.vSet[i].isActive) {
+            // copy data
             cPlusReturnId.emplace_back(i);
-            cPlusReturnAttr.insert(cPlusReturnAttr.end(), detector.begin(), detector.end());
+            for (int j = 0; j < lenMarkID; j++) {
+                cPlusReturnAttr.emplace_back(execute.vValues[i * lenMarkID + j]);
+            }
 
             // detect if the vertex is filtered
-            // expanded limitation
             if(! execute.filteredV[i]){
                 allGained = false;
             }
         }
-        //if (execute.vSet[i].isActive) {
-        // copy data
-        //}
     }
 
     env->SetLongArrayRegion(returnId, 0, cPlusReturnId.size(), &cPlusReturnId[0]);
@@ -344,31 +332,18 @@ JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_Algorithm_SSSP_GPUNative_GPU
 
     bool allGained = true;
     for (int i = 0; i < vertexAllSum; i++) {
-        vector<double> detector = vector<double>();
-        int count = 0;
-        for (int j = 0; j < lenMarkID; j++) {
-            double item = execute.mValues[i * lenMarkID + j];
-            detector.emplace_back(item);
-            if(item != INVALID_MASSAGE){
-                count++;
-            }
-        }
-        if(count == 0){
-            continue;
-        }
-        else{
+        if (execute.vSet[i].isActive) {
+            // copy data
             cPlusReturnId.emplace_back(i);
-            cPlusReturnAttr.insert(cPlusReturnAttr.end(), detector.begin(), detector.end());
+            for (int j = 0; j < lenMarkID; j++) {
+                cPlusReturnAttr.emplace_back(execute.vValues[i * lenMarkID + j]);
+            }
 
             // detect if the vertex is filtered
-            // expanded limitation
             if(! execute.filteredV[i]){
                 allGained = false;
             }
         }
-        //if (execute.vSet[i].isActive) {
-        // copy data
-        //}
     }
 
     env->SetLongArrayRegion(returnId, 0, cPlusReturnId.size(), &cPlusReturnId[0]);

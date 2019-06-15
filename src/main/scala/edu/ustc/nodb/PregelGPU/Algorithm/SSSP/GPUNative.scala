@@ -133,8 +133,7 @@ class GPUNative extends Serializable {
     val startNew = System.nanoTime()
 
     for(i <- 0 until underIndex){
-      // package the message as vertex-like format
-      // activeness is of no use but to fill the blank
+      // package the message-like vertex
       tempVertexSet = new VertexSet(resultID(i), true)
       for(j <- sourceList.indices){
         tempVertexSet.addAttr(sourceList(j), resultAttr(i * sourceSize + j))
@@ -183,8 +182,7 @@ class GPUNative extends Serializable {
     val startNew = System.nanoTime()
 
     for(i <- 0 until underIndex){
-      // package the message as vertex-like format
-      // activeness is of no use but to fill the blank
+      // package the message-like vertex
       tempVertexSet = new VertexSet(resultID(i), true)
       var invalidDetector = 0.0
       for(j <- sourceList.indices){

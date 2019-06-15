@@ -52,25 +52,15 @@ class pregelSSSP (allSource: Broadcast[ArrayBuffer[VertexId]],
   }
 
   override def lambda_JoinVerticesDefaultFirst(vid: VertexId,
-                                 v1: SPMapWithActive,
-                                 v2: SPMapWithActive):
+                                               v1: SPMapWithActive,
+                                               v2: SPMapWithActive):
   SPMapWithActive = {
 
-    var b = false
+    val b = v2._1
     val result : mutable.LinkedHashMap[Long, Double] = v1._2++v2._2.map{
-      case (k,r) => {
-        val temp = v1._2.getOrElse(k, Double.PositiveInfinity)
-        if(temp <= r){
-          k->temp
-        }
-        else{
-          b = true
-          k->r
-        }
-      }
+      case (k,r) => k->math.min(r,v1._2.getOrElse(k, Double.PositiveInfinity))
     }
     (b,result)
-
   }
 
   override def lambda_JoinVerticesDefaultSecond(v1: SPMapWithActive):

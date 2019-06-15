@@ -49,8 +49,8 @@ object PregelInGPU{
     // in order to avoid allocation arraycopy
 
     // combine the vertex messages through partitions
-    var vertexModified = modifiedSubGraph.reduceByKey((v1, v2) =>
-      algorithm.lambda_ReduceByKey(v1, v2)).cache()
+    var vertexModified = g.vertices.aggregateUsingIndex(modifiedSubGraph,
+      algorithm.lambda_ReduceByKey).cache()
 
     // get the amount of active vertices
     var activeMessages = vertexModified.count()
@@ -77,12 +77,7 @@ object PregelInGPU{
         algorithm.lambda_JoinVerticesDefaultFirst(vid, v1, v2))(vAttr =>
         algorithm.lambda_JoinVerticesDefaultSecond(vAttr))
         .cache()
-/*
-      val agg = g.vertices.count()
-      val endNew1 = System.nanoTime()
-      println("joining " + agg + " time: " + (endNew1 - startTime))
-      val startNew1 = System.nanoTime()
-*/
+
       if(ifRepartition){
 
         partitionSplit = g.triplets.mapPartitionsWithIndex((pid, Iter)=>{
@@ -108,23 +103,10 @@ object PregelInGPU{
         }
       }
 
-
       // distribute the vertex messages into partitions
-      vertexModified = g.vertices.aggregateUsingIndex(modifiedSubGraph, algorithm.lambda_ReduceByKey).cache()
-      /*
-      val a = vertexModified.count()
-      val endNew = System.nanoTime()
-      println("aggregating " + a + " time: " + (endNew - startNew1))*/
-      //val startNew = System.nanoTime()
-      /*
-      vertexModified = modifiedSubGraph.reduceByKey((v1, v2)=>
-        algorithm.lambda_ReduceByKey(v1, v2)).cache()
+      vertexModified = g.vertices.aggregateUsingIndex(modifiedSubGraph,
+        algorithm.lambda_ReduceByKey).cache()
 
-      val d = vertexModified.collect()
-      for(el <- d){
-        println(el._1 + " : " + el._2)
-      }
-      */
       iterTimes = iterTimes + 1
 
       // get the amount of active vertices
@@ -135,8 +117,7 @@ object PregelInGPU{
        */
 
       val endTime = System.nanoTime()
-      //val endNew = System.nanoTime()
-      //
+
       println("Whole iteration time: " + (endTime - startTime))
       println("-------------------------")
 
@@ -160,8 +141,8 @@ object PregelInGPU{
     modifiedSubGraph = g.triplets.mapPartitionsWithIndex((pid, iter) =>
       algorithm.lambda_ModifiedSubGraph_MPBI_All(pid, iter)(iterTimes, partitionSplit, ifFilteredCounter))
 
-    vertexModified = modifiedSubGraph.reduceByKey((v1, v2)=>
-      algorithm.lambda_ReduceByKey(v1, v2)).cache()
+    vertexModified = g.vertices.aggregateUsingIndex(modifiedSubGraph,
+      algorithm.lambda_ReduceByKey).cache()
 
     // the final combine
     g = GraphXModified.joinVerticesDefault(g, vertexModified)((vid, v1, v2) =>
