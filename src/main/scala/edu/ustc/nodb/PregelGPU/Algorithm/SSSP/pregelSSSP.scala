@@ -4,9 +4,7 @@ import java.util
 
 import edu.ustc.nodb.PregelGPU.Algorithm.{SPMapWithActive, lambdaTemplete}
 import edu.ustc.nodb.PregelGPU.Plugin.partitionStrategy.EdgePartitionPreSearch
-import org.apache.spark.TaskContext
 import org.apache.spark.broadcast.Broadcast
-import org.apache.spark.graphx.PartitionStrategy.EdgePartition1D
 import org.apache.spark.graphx.{EdgeTriplet, Graph, VertexId}
 import org.apache.spark.util.LongAccumulator
 

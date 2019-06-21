@@ -1,6 +1,8 @@
 package edu.ustc.nodb.PregelGPU.Plugin
 
-import org.apache.spark.graphx.{Graph, VertexId}
+import edu.ustc.nodb.PregelGPU.Algorithm.lambdaTemplete
+import org.apache.spark.graphx.impl.modifiedGraphImpl
+import org.apache.spark.graphx._
 import org.apache.spark.rdd.RDD
 
 import scala.reflect.ClassTag
@@ -19,5 +21,13 @@ object GraphXModified {
       }
     }
     graph.outerJoinVertices(table)(uf)
+  }
+
+  def scopeTest[VD:ClassTag, ED:ClassTag](graph: Graph[VD, ED],
+                                                       activeSetOpt: Option[(VertexRDD[VD], EdgeDirection)]):
+  RDD[EdgeTriplet[VD, ED]] = {
+
+    val newOne = new modifiedGraphImpl(graph)
+    newOne.messageUpdateExtract(activeSetOpt)
   }
 }

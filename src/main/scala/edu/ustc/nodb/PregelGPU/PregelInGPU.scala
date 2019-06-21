@@ -1,6 +1,7 @@
 package edu.ustc.nodb.PregelGPU
 
-import edu.ustc.nodb.PregelGPU.Algorithm.SSSP.GPUNative
+import akka.actor.{ActorRef, ActorSystem}
+import edu.ustc.nodb.PregelGPU.Algorithm.SSSP.{GPUNative, dataActor}
 import edu.ustc.nodb.PregelGPU.Algorithm.lambdaTemplete
 import edu.ustc.nodb.PregelGPU.Plugin.GraphXModified
 import edu.ustc.nodb.PregelGPU.Plugin.partitionStrategy.EdgePartition1DReverse
@@ -84,14 +85,19 @@ object PregelInGPU{
           algorithm.lambda_partitionSplit(pid, Iter)
         }).collectAsMap()
 
-        modifiedSubGraph = g.triplets.mapPartitionsWithIndex((pid, iter) =>
-          algorithm.lambda_ModifiedSubGraph_MPBI_afterPartition(pid, iter)(iterTimes, countOutDegree, partitionSplit, ifFilteredCounter))
+        modifiedSubGraph = g.triplets.mapPartitionsWithIndex((pid, iter) =>{
+          algorithm.lambda_ModifiedSubGraph_MPBI_afterPartition(pid, iter)(iterTimes, countOutDegree, partitionSplit, ifFilteredCounter)
+        })
       }
       else{
         if(afterCounter != beforeCounter){
-
-          //run the main process
+/*
           modifiedSubGraph = g.triplets.mapPartitionsWithIndex((pid, iter) =>
+            algorithm.lambda_ModifiedSubGraph_MPBI_IterWithoutPartition(pid, iter)(iterTimes, partitionSplit, ifFilteredCounter))
+*/
+          //run the main process
+
+          modifiedSubGraph = GraphXModified.scopeTest(g, Some(oldVertexModified, EdgeDirection.Either)).mapPartitionsWithIndex((pid, iter) =>
             algorithm.lambda_ModifiedSubGraph_MPBI_IterWithoutPartition(pid, iter)(iterTimes, partitionSplit, ifFilteredCounter))
 
         }
