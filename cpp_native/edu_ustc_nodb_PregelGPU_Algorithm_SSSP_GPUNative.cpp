@@ -4,7 +4,7 @@
 #include "Graph_Algo/algo/BellmanFord/BellmanFord.h"
 #include "Graph_Algo/srv/UtilServer.h"
 #include "Graph_Algo/srv/UtilClient.h"
-#include "prober/initProber.h"
+#include "proberInstance/initProber.h"
 #include <cstdlib>
 #include <chrono>
 #include <vector>
@@ -46,7 +46,7 @@ jint throwIllegalArgument( JNIEnv *env, const char *message )
 
 // Init the edge and markID
 
-JNIEXPORT jboolean JNICALL Java_edu_ustc_nodb_PregelGPU_Algorithm_SSSP_GPUNative_GPUServerInit
+JNIEXPORT jboolean JNICALL Java_edu_ustc_nodb_PregelGPU_Algorithm_SSSP_GPUNative_nativeEnvEdgeInit
 (JNIEnv * env, jobject superClass,
         jlongArray jFilteredVertex,
         jlong vertexSum, jlongArray jEdgeSrc, jlongArray jEdgeDst, jdoubleArray jEdgeAttr,
@@ -154,7 +154,7 @@ JNIEXPORT jboolean JNICALL Java_edu_ustc_nodb_PregelGPU_Algorithm_SSSP_GPUNative
 }
 
 
-JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_Algorithm_SSSP_GPUNative_GPUClientStep
+JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_Algorithm_SSSP_GPUNative_nativeStepMsgExecute
 (JNIEnv * env, jobject superClass,
         jlong vertexSum, jlongArray jVertexId, jbooleanArray jVertexActive, jdoubleArray jVertexAttr,
         jint vertexCount, jint edgeCount, jint markIdLen, jint pid, jlongArray returnId, jdoubleArray returnAttr){
@@ -305,7 +305,7 @@ JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_Algorithm_SSSP_GPUNative_GPU
 
 }
 
-JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_Algorithm_SSSP_GPUNative_GPUClientSkippedStep
+JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_Algorithm_SSSP_GPUNative_nativeSkipStep
         (JNIEnv * env, jobject superClass,
                 jlong vertexSum, jint vertexLen, jint edgeLen, jint markIdLen, jint pid, jlongArray returnId, jdoubleArray returnAttr){
 
@@ -366,7 +366,7 @@ JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_Algorithm_SSSP_GPUNative_GPU
     }
 }
 
-JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_Algorithm_SSSP_GPUNative_GPUClientAllStep
+JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_Algorithm_SSSP_GPUNative_nativeStepFinal
         (JNIEnv * env, jobject superClass,
                 jlong vertexSum, jint vertexLen, jint edgeLen, jint markIdLen, jint pid, jlongArray returnId, jdoubleArray returnAttr) {
 
@@ -417,7 +417,7 @@ JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_Algorithm_SSSP_GPUNative_GPU
 
 // server shutdown
 
-JNIEXPORT jboolean JNICALL Java_edu_ustc_nodb_PregelGPU_Algorithm_SSSP_GPUNative_GPUServerShutdown
+JNIEXPORT jboolean JNICALL Java_edu_ustc_nodb_PregelGPU_Algorithm_SSSP_GPUNative_nativeEnvClose
   (JNIEnv * env, jobject superClass, jint pid){
     UtilClient<double> control = UtilClient<double>(0, 0, 0, pid);
 

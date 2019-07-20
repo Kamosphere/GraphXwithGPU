@@ -6,7 +6,7 @@
 #define PREGELGPU_INITPROBER_H
 
 
-#include "../Graph_Algo/srv/UNIX_msg.h"
+#include "srv/UNIX_msg.h"
 
 class initProber {
 public:

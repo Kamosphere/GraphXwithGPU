@@ -4,7 +4,7 @@
 
 #include <iostream>
 #include "initProber.h"
-#include "../Graph_Algo/include/UNIX_marco.h"
+#include "include/UNIX_macro.h"
 
 initProber::initProber(int nodeNo) {
     //Test

@@ -1,7 +1,7 @@
 package edu.ustc.nodb.PregelGPU
 
-import akka.actor.{ActorRef, ActorSystem}
-import edu.ustc.nodb.PregelGPU.Algorithm.SSSP.{GPUNative, dataActor}
+
+import edu.ustc.nodb.PregelGPU.Algorithm.SSSP.{GPUController, GPUNative}
 import edu.ustc.nodb.PregelGPU.Algorithm.lambdaTemplete
 import edu.ustc.nodb.PregelGPU.Plugin.GraphXModified
 import edu.ustc.nodb.PregelGPU.Plugin.partitionStrategy.EdgePartition1DReverse
@@ -162,12 +162,14 @@ object PregelInGPU{
 
   // after running algorithm, close the server
   def close[VD: ClassTag, ED: ClassTag](Graph: Graph[VD, ED]):Unit = {
+
     Graph.vertices.foreachPartition(g=>{
-      val Process = new GPUNative
-      var envInit : Boolean = false
       val pid = TaskContext.getPartitionId()
+      val Process = new GPUController(pid)
+      var envInit : Boolean = false
+
       while(! envInit){
-        envInit = Process.GPUShutdown(pid)
+        envInit = Process.GPUShutdown()
       }
     })
   }

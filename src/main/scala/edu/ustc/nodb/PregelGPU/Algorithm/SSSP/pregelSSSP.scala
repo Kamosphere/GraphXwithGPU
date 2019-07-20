@@ -182,12 +182,12 @@ class pregelSSSP (allSource: Broadcast[ArrayBuffer[VertexId]],
 
     val startTimeB = System.nanoTime()
 
-    val Process = new GPUNative
-    Process.GPUInit(vertexSum.toInt, filteredVertex.toArray,
-        pEdgeSrcIDTemp, pEdgeDstIDTemp, pEdgeAttrTemp, sourceList, pid)
+    val Process = new GPUController(vertexSum, EdgeCount, sourceList, pid)
+    Process.GPUEnvEdgeInit(filteredVertex.toArray,
+        pEdgeSrcIDTemp, pEdgeDstIDTemp, pEdgeAttrTemp)
 
-    val (results, needCombine) : (ArrayBuffer[(VertexId, SPMapWithActive)], Boolean) = Process.GPUProcess(
-      pVertexIDTemp, pVertexActiveTemp, pVertexAttrTemp, vertexSum, VertexCount, pEdgeSrcIDTemp.length, sourceList, pid)
+    val (results, needCombine) : (ArrayBuffer[(VertexId, SPMapWithActive)], Boolean) = Process.GPUMsgExecute(
+      pVertexIDTemp, pVertexActiveTemp, pVertexAttrTemp, VertexCount)
     val result = results.iterator
     if(needCombine){
       counter.add(1)
@@ -222,38 +222,38 @@ class pregelSSSP (allSource: Broadcast[ArrayBuffer[VertexId]],
     val VertexNumList = new util.HashSet[Long](preVertexLength)
 
     var temp : EdgeTriplet[SPMapWithActive,Double] = null
-    var VertexIndex = 0
-    var EdgeIndex = 0
+    var VertexCount = 0
+    var EdgeCount = 0
 
     while(iter.hasNext){
       temp = iter.next()
 
       if(temp.srcAttr._1){
-        EdgeIndex = EdgeIndex + 1
+        EdgeCount = EdgeCount + 1
 
         if(! VertexNumList.contains(temp.srcId)){
-          pVertexIDTemp(VertexIndex)=temp.srcId
-          pVertexActiveTemp(VertexIndex)=temp.srcAttr._1
+          pVertexIDTemp(VertexCount)=temp.srcId
+          pVertexActiveTemp(VertexCount)=temp.srcAttr._1
           VertexNumList.add(temp.srcId)
           // the order of sourceList in array is guarded by linkedHashMap
           var index = 0
           for(part <- temp.srcAttr._2.values){
-            pVertexAttrTemp(VertexIndex * preMap + index) = part
+            pVertexAttrTemp(VertexCount * preMap + index) = part
             index = index + 1
           }
-          VertexIndex = VertexIndex + 1
+          VertexCount = VertexCount + 1
         }
         if(! VertexNumList.contains(temp.dstId)){
-          pVertexIDTemp(VertexIndex)=temp.dstId
-          pVertexActiveTemp(VertexIndex)=temp.dstAttr._1
+          pVertexIDTemp(VertexCount)=temp.dstId
+          pVertexActiveTemp(VertexCount)=temp.dstAttr._1
           VertexNumList.add(temp.dstId)
           // the order of sourceList in array is guarded by linkedHashMap
           var index = 0
           for(part <- temp.dstAttr._2.values){
-            pVertexAttrTemp(VertexIndex * preMap + index) = part
+            pVertexAttrTemp(VertexCount * preMap + index) = part
             index = index + 1
           }
-          VertexIndex = VertexIndex + 1
+          VertexCount = VertexCount + 1
         }
       }
     }
@@ -261,9 +261,9 @@ class pregelSSSP (allSource: Broadcast[ArrayBuffer[VertexId]],
 
     val startTimeB = System.nanoTime()
 
-    val Process = new GPUNative
-    val (results, needCombine) : (ArrayBuffer[(VertexId, SPMapWithActive)], Boolean) = Process.GPUProcess(
-      pVertexIDTemp, pVertexActiveTemp, pVertexAttrTemp, vertexSum, VertexIndex, preEdgeLength, sourceList, pid)
+    val Process = new GPUController(vertexSum, preEdgeLength, sourceList, pid)
+    val (results, needCombine) : (ArrayBuffer[(VertexId, SPMapWithActive)], Boolean) = Process.GPUMsgExecute(
+      pVertexIDTemp, pVertexActiveTemp, pVertexAttrTemp, VertexCount)
     if(needCombine){
       counter.add(1)
     }
@@ -288,9 +288,9 @@ class pregelSSSP (allSource: Broadcast[ArrayBuffer[VertexId]],
     val preEdgeLength = preParameter.get._2
     val sourceList = allSource.value
 
-    val Process = new GPUNative
-    val (results, needCombine): (ArrayBuffer[(VertexId, SPMapWithActive)], Boolean) = Process.GPUSkippedProcess(
-      vertexSum, preVertexLength, preEdgeLength, sourceList, pid)
+    val Process = new GPUController(vertexSum, preEdgeLength, sourceList, pid)
+    val (results, needCombine): (ArrayBuffer[(VertexId, SPMapWithActive)], Boolean) =
+      Process.GPUIterSkipCollect(preVertexLength)
     if (needCombine) {
       counter.add(1)
     }
@@ -310,9 +310,9 @@ class pregelSSSP (allSource: Broadcast[ArrayBuffer[VertexId]],
     val preEdgeLength = preParameter.get._2
     val sourceList = allSource.value
 
-    val Process = new GPUNative
-    val results : ArrayBuffer[(VertexId, SPMapWithActive)] = Process.GPUAllProcess(
-      vertexSum, preVertexLength, preEdgeLength, sourceList, pid)
+    val Process = new GPUController(vertexSum, preEdgeLength, sourceList, pid)
+    val results : ArrayBuffer[(VertexId, SPMapWithActive)] =
+      Process.GPUFinalCollect(preVertexLength)
     val result = results.iterator
     result
   }

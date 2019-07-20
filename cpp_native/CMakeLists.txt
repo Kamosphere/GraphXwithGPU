@@ -25,6 +25,10 @@ if(WIN32)
 endif(WIN32)
 
 add_subdirectory(Graph_Algo)
+include_directories(Graph_Algo)
+
+add_subdirectory(prober)
+include_directories(prober)
 
 #use $ENV{JAVA_HOME} to include the jni header, JAVA_HOME need to be configurated
 INCLUDE_DIRECTORIES($ENV{JAVA_HOME}/include)
@@ -38,9 +42,19 @@ endif()
 
 add_library(PregelGPU SHARED
         edu_ustc_nodb_PregelGPU_Algorithm_SSSP_GPUNative.h
-        edu_ustc_nodb_PregelGPU_Algorithm_SSSP_GPUNative.cpp prober/initProber.cpp prober/initProber.h)
-
+        edu_ustc_nodb_PregelGPU_Algorithm_SSSP_GPUNative.cpp)
 
 target_link_libraries(PregelGPU
-        srv_UtilClient)
+        srv_UtilClient
+        initProber)
 
+#[[
+add_library(PregelGPUBatch SHARED
+        edu_ustc_nodb_PregelGPU_Algorithm_SSSPBatch_GPUNativeBatch.h
+        edu_ustc_nodb_PregelGPU_Algorithm_SSSPBatch_GPUNativeBatch.cpp)
+
+target_link_libraries(PregelGPUBatch
+        srv_cli_BatchClient_BellmanFord
+        dataProber
+        initProber)
+]]#
