@@ -1,16 +1,71 @@
-#include "edu_ustc_nodb_PregelGPU_Algorithm_SSSPBatch_GPUNativeBatch.h"
+#include "edu_ustc_nodb_PregelGPU_Algorithm_SSSPshm_GPUNativeShm.h"
 
 #include "util/JNIPlugin.h"
 
+#include <sys/stat.h>
+#include <sys/mman.h>
+#include <fcntl.h>
+#include <cerrno>
+#include <cstring>
+#include <dirent.h>
+#include <zconf.h>
+
 using namespace std;
+
+template <typename T>
+int openShm(const string &filename, int counter, T* &Arr)
+{
+
+    int counterSize = counter * sizeof(T);
+
+    int chk = shm_open(filename.c_str(), O_RDWR, 0664);
+
+    if(chk == -1) {
+        cout<<errno<<endl;
+        return -1;
+    }
+
+    void* ptr = mmap(nullptr, counterSize, PROT_READ | PROT_WRITE, MAP_SHARED, chk, 0);
+
+    Arr = (T* )ptr;
+
+    return 0;
+}
+
+template <typename T>
+int writeShm(const string &filename, vector<T> &Arr)
+{
+
+    int counterSize = Arr.size() * sizeof(T);
+    T* ArrAddress = &Arr[0];
+
+    int chk = shm_open(filename.c_str(), O_RDWR | O_CREAT, 0664);
+
+    if(chk == -1) {
+        cout<<errno<<endl;
+        return -1;
+    }
+
+    void* ptr = mmap(nullptr, counterSize, PROT_READ | PROT_WRITE, MAP_SHARED, chk, 0);
+
+    int ft = ftruncate(chk, counterSize);
+    if(ft == -1) {
+        cout<<errno<<endl;
+        return -1;
+    }
+
+    memcpy((T* )ptr, ArrAddress, counterSize);
+
+    return 0;
+}
 
 // Init the edge and markID
 
-JNIEXPORT jboolean JNICALL Java_edu_ustc_nodb_PregelGPU_Algorithm_SSSPBatch_GPUNativeBatch_nativeEnvEdgeInit
-        (JNIEnv * env, jobject superClass,
-         jlongArray jFilteredVertex,
-         jlong vertexSum, jlongArray jEdgeSrc, jlongArray jEdgeDst, jdoubleArray jEdgeAttr,
-         jobject markId, jint pid){
+JNIEXPORT jboolean JNICALL Java_edu_ustc_nodb_PregelGPU_Algorithm_SSSPshm_GPUNativeShm_nativeEnvEdgeInit
+(JNIEnv * env, jobject superClass,
+        jlongArray jFilteredVertex,
+        jlong vertexSum, jlongArray jEdgeSrc, jlongArray jEdgeDst, jdoubleArray jEdgeAttr,
+        jobject markId, jint pid){
 
     jclass c_Long = env->FindClass("java/lang/Long");
     jmethodID longValue = env->GetMethodID(c_Long, "longValue", "()J");
@@ -104,7 +159,7 @@ JNIEXPORT jboolean JNICALL Java_edu_ustc_nodb_PregelGPU_Algorithm_SSSPBatch_GPUN
     chk = execute.transfer(vValues, &vertices[0], &edges[0], initVSet, filteredV, lenFiltered);
 
     if(chk == -1){
-        throwIllegalArgument(env, "Cannot establish the connection with server correctly");
+        throwIllegalArgument(env, "Cannot transfer with server correctly");
         return false;
     }
 
@@ -114,10 +169,17 @@ JNIEXPORT jboolean JNICALL Java_edu_ustc_nodb_PregelGPU_Algorithm_SSSPBatch_GPUN
 }
 
 
-JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_Algorithm_SSSPBatch_GPUNativeBatch_nativeStepMsgInitInput
-        (JNIEnv * env, jobject superClass,
-         jlong vertexSum, jlongArray jVertexId, jbooleanArray jVertexActive, jdoubleArray jVertexAttr,
-         jint vertexCount, jint edgeCount, jint markIdLen, jint pid, jlongArray returnId, jdoubleArray returnAttr){
+JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_Algorithm_SSSPshm_GPUNativeShm_nativeStepMsgExecute
+(JNIEnv * env, jobject superClass,
+        jlong vertexSum, jobject shmWriter, jobject shmReader,
+        jint vertexCount, jint edgeCount, jint markIdLen, jint pid){
+
+    jclass writerClass = env->GetObjectClass(shmWriter);
+    jmethodID getWriterName = env->GetMethodID(writerClass, "getNameByUnder", "(I)Ljava/lang/String;");
+    jmethodID getWriterSize = env->GetMethodID(writerClass, "getSizeByUnder", "(I)I");
+
+    jclass readerClass = env->GetObjectClass(shmReader);
+    jmethodID addReaderName = env->GetMethodID(readerClass, "addName", "(Ljava/lang/String;I)Z");
 
     //---------Debug tools---------
 
@@ -160,11 +222,33 @@ JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_Algorithm_SSSPBatch_GPUNativ
         vertices.at(execute.initVSet[i]).initVIndex = i;
     }
 
-    jboolean isCopy = false;
     // fill vertices attributes
-    long* VertexIDTemp = env->GetLongArrayElements(jVertexId, &isCopy);
-    jboolean * VertexActiveTemp = env->GetBooleanArrayElements(jVertexActive, &isCopy);
-    double* VertexAttrTemp = env->GetDoubleArrayElements(jVertexAttr, &isCopy);
+    long* VertexIDTemp;
+    bool * VertexActiveTemp;
+    double* VertexAttrTemp;
+
+    string VertexIDTempName = jString2String(env, (jstring)env->CallObjectMethod(shmWriter, getWriterName, 0));
+    string VertexActiveTempName = jString2String(env, (jstring)env->CallObjectMethod(shmWriter, getWriterName, 1));
+    string VertexAttrTempName = jString2String(env, (jstring)env->CallObjectMethod(shmWriter, getWriterName, 2));
+
+    int sizeID = env->CallIntMethod(shmWriter, getWriterSize, 0);
+    int sizeActive = env->CallIntMethod(shmWriter, getWriterSize, 1);
+    int sizeAttr = env->CallIntMethod(shmWriter, getWriterSize, 2);
+
+    chk = openShm(VertexIDTempName, sizeID, VertexIDTemp);
+    if (chk == -1){
+        throwIllegalArgument(env, "Shared memory corruption");
+    }
+
+    chk = openShm(VertexActiveTempName, sizeActive, VertexActiveTemp);
+    if (chk == -1){
+        throwIllegalArgument(env, "Shared memory corruption");
+    }
+
+    chk = openShm(VertexAttrTempName, sizeAttr, VertexAttrTemp);
+    if (chk == -1){
+        throwIllegalArgument(env, "Shared memory corruption");
+    }
 
     for (int i = 0; i < lenVertex; i++) {
 
@@ -175,7 +259,7 @@ JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_Algorithm_SSSPBatch_GPUNativ
         for(int j = 0; j < lenMarkID; j++){
             double jDis = VertexAttrTemp[i * lenMarkID + j] ;
             int index = vertices.at(execute.initVSet[j]).initVIndex;
-            if(index != INVALID_INITV_INDEX)vValues[jVertexId_get * lenMarkID + index] = jDis;
+            if(index != INVALID_INITV_INDEX) vValues[jVertexId_get * lenMarkID + index] = jDis;
         }
 
         bool jVertexActive_get = VertexActiveTemp[i];
@@ -183,10 +267,6 @@ JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_Algorithm_SSSPBatch_GPUNativ
         vertices.at(jVertexId_get).isActive = jVertexActive_get;
 
     }
-
-    env->ReleaseLongArrayElements(jVertexId, VertexIDTemp, 0);
-    env->ReleaseBooleanArrayElements(jVertexActive, VertexActiveTemp, 0);
-    env->ReleaseDoubleArrayElements(jVertexAttr, VertexAttrTemp, 0);
 
 /*
     // test for multithreading environment
@@ -214,7 +294,7 @@ JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_Algorithm_SSSPBatch_GPUNativ
     chk = execute.update(vValues, &vertices[0]);
 
     if(chk == -1){
-        throwIllegalArgument(env, "Cannot establish the connection with server correctly");
+        throwIllegalArgument(env, "Cannot update with server correctly");
     }
 
     execute.request();
@@ -242,10 +322,33 @@ JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_Algorithm_SSSPBatch_GPUNativ
         }
     }
 
-    env->SetLongArrayRegion(returnId, 0, cPlusReturnId.size(), &cPlusReturnId[0]);
-    env->SetDoubleArrayRegion(returnAttr, 0, cPlusReturnAttr.size(), &cPlusReturnAttr[0]);
+    string resultAttrIdentifier = to_string(pid) + "Double" + "Results";
+    string resultIdIdentifier = to_string(pid) + "Long" + "Results";
+
+    chk = writeShm(resultIdIdentifier, cPlusReturnId);
+    if(chk == -1){
+        throwIllegalArgument(env, "Cannot construct shared data memory");
+    }
+
+    chk = writeShm(resultAttrIdentifier, cPlusReturnAttr);
+    if(chk == -1){
+        throwIllegalArgument(env, "Cannot construct shared data memory");
+    }
 
     execute.disconnect();
+
+    bool ifReturnId = env->CallObjectMethod(shmReader, addReaderName, env->NewStringUTF(resultIdIdentifier.c_str()), cPlusReturnId.size());
+
+    if(! ifReturnId){
+        throwIllegalArgument(env, "Cannot write back identifier");
+    }
+
+    bool ifReturnAttr = env->CallObjectMethod(shmReader, addReaderName, env->NewStringUTF(resultAttrIdentifier.c_str()), cPlusReturnAttr.size());
+
+    if(! ifReturnAttr){
+        throwIllegalArgument(env, "Cannot write back identifier");
+    }
+
     std::chrono::nanoseconds durationB = std::chrono::high_resolution_clock::now() - startTime;
 
     std::chrono::nanoseconds durationAll = std::chrono::high_resolution_clock::now() - startTimeAll;
@@ -265,127 +368,14 @@ JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_Algorithm_SSSPBatch_GPUNativ
 
 }
 
-JNIEXPORT jboolean JNICALL Java_edu_ustc_nodb_PregelGPU_Algorithm_SSSPBatch_GPUNativeBatch_nativeStepMsgBatchInput
+JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_Algorithm_SSSPshm_GPUNativeShm_nativeSkipStep
         (JNIEnv * env, jobject superClass,
-         jlong vertexSum, jlongArray jVertexId, jbooleanArray jVertexActive, jdoubleArray jVertexAttr,
-         jint vertexCount, jint edgeCount, jint markIdLen, jint pid){
-
-    auto startTimeAll = std::chrono::high_resolution_clock::now();
-    auto startTimeA = std::chrono::high_resolution_clock::now();
-
-    int lenMarkID = static_cast<int>(markIdLen);
-    int lenEdge = static_cast<int>(edgeCount);
-    int lenVertex = static_cast<int>(vertexCount);
-
-    dataProber carrier = dataProber(pid, lenVertex, lenMarkID);
-
-    int chk = 0;
-
-    chk = carrier.connectToClient();
-    if (chk == -1){
-        throwIllegalArgument(env, "Cannot establish the connection with server correctly");
-        return false;
-    }
-
-    jboolean isCopy = false;
-    // fill vertices attributes
-    long* VertexIDTemp = env->GetLongArrayElements(jVertexId, &isCopy);
-    jboolean * VertexActiveJTemp = env->GetBooleanArrayElements(jVertexActive, &isCopy);
-    double* VertexAttrTemp = env->GetDoubleArrayElements(jVertexAttr, &isCopy);
-
-    bool* VertexActiveTemp = new bool[lenEdge];
-    for(int i = 0; i < lenEdge; i++){
-        VertexActiveTemp[i] = VertexActiveJTemp[i];
-    }
-    // execute sssp using GPU in server-client mode
-
-    chk = carrier.sendToClient(VertexIDTemp, VertexActiveTemp, VertexAttrTemp);
-
-    if(chk == -1){
-        throwIllegalArgument(env, "qqqCannot establish the connection with server correctly");
-        return false;
-    }
-
-    carrier.disconnect();
-
-    return true;
-}
-
-
-JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_Algorithm_SSSPBatch_GPUNativeBatch_nativeStepMsgBatchExecute
-        (JNIEnv * env, jobject superClass,
-         jlong vertexSum, jint vertexCount, jint edgeCount, jint markIdLen, jint pid,
-         jlongArray returnId, jdoubleArray returnAttr){
-
-    auto startTimeAll = std::chrono::high_resolution_clock::now();
-    auto startTimeA = std::chrono::high_resolution_clock::now();
-
-    int vertexAllSum = static_cast<int>(vertexSum);
-    int partitionID = static_cast<int>(pid);
-    int lenMarkID = static_cast<int>(markIdLen);
-    int lenEdge = static_cast<int>(edgeCount);
-    int lenVertex = static_cast<int>(vertexCount);
-
-    dataProber carrier = dataProber(pid, lenVertex, lenMarkID);
-
-    int chk = 0;
-
-    chk = carrier.connectToClient();
-    if (chk == -1){
-        throwIllegalArgument(env, "1Cannot establish the connection with server correctly");
-        return false;
-    }
-
-    chk = carrier.resultGenerate();
-
-    if(chk == -1){
-        throwIllegalArgument(env, "2Cannot establish the connection with server correctly");
-        return false;
-    }
-
-    carrier.disconnect();
-
-    UtilClient<double, double> execute = UtilClient<double, double>(vertexAllSum, lenEdge, lenMarkID, partitionID);
-
-    vector<long> cPlusReturnId = vector<long>();
-    vector<double> cPlusReturnAttr = vector<double>();
-
-    bool allGained = true;
-    for (int i = 0; i < vertexAllSum; i++) {
-        if (execute.vSet[i].isActive) {
-            // copy data
-            cPlusReturnId.emplace_back(i);
-            for (int j = 0; j < lenMarkID; j++) {
-                cPlusReturnAttr.emplace_back(execute.vValues[i * lenMarkID + j]);
-            }
-
-            // detect if the vertex is filtered
-            if(! execute.filteredV[i]){
-                allGained = false;
-            }
-        }
-    }
-
-    env->SetLongArrayRegion(returnId, 0, cPlusReturnId.size(), &cPlusReturnId[0]);
-    env->SetDoubleArrayRegion(returnAttr, 0, cPlusReturnAttr.size(), &cPlusReturnAttr[0]);
-
-    execute.disconnect();
-
-    if(allGained){
-        return static_cast<int>(0-cPlusReturnId.size());
-    }
-    else{
-        return static_cast<int>(cPlusReturnId.size());
-    }
-}
-
-JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_Algorithm_SSSPBatch_GPUNativeBatch_nativeSkipStep
-        (JNIEnv * env, jobject superClass,
-         jlong vertexSum, jint vertexLen, jint edgeLen, jint markIdLen, jint pid, jlongArray returnId, jdoubleArray returnAttr){
+                jlong vertexSum, jint vertexLen, jint edgeLen, jint markIdLen, jint pid, jobject shmReader){
 
     auto startTimeB = std::chrono::high_resolution_clock::now();
 
-    // TODO: Terminate possible batch client if exist
+    jclass readerClass = env->GetObjectClass(shmReader);
+    jmethodID addReaderName = env->GetMethodID(readerClass, "addName", "(Ljava/lang/String;I)Z");
 
     int vertexAllSum = static_cast<int>(vertexSum);
     int partitionID = static_cast<int>(pid);
@@ -422,10 +412,32 @@ JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_Algorithm_SSSPBatch_GPUNativ
         }
     }
 
-    env->SetLongArrayRegion(returnId, 0, cPlusReturnId.size(), &cPlusReturnId[0]);
-    env->SetDoubleArrayRegion(returnAttr, 0, cPlusReturnAttr.size(), &cPlusReturnAttr[0]);
+    string resultAttrIdentifier = to_string(pid) + "Double" + "Results";
+    string resultIdIdentifier = to_string(pid) + "Long" + "Results";
+
+    chk = writeShm(resultIdIdentifier, cPlusReturnId);
+    if(chk == -1){
+        throwIllegalArgument(env, "Cannot construct shared data memory");
+    }
+
+    chk = writeShm(resultAttrIdentifier, cPlusReturnAttr);
+    if(chk == -1){
+        throwIllegalArgument(env, "Cannot construct shared data memory");
+    }
 
     execute.disconnect();
+
+    bool ifReturnId = env->CallObjectMethod(shmReader, addReaderName, env->NewStringUTF(resultIdIdentifier.c_str()), cPlusReturnId.size());
+
+    if(! ifReturnId){
+        throwIllegalArgument(env, "Cannot write back identifier");
+    }
+
+    bool ifReturnAttr = env->CallObjectMethod(shmReader, addReaderName, env->NewStringUTF(resultAttrIdentifier.c_str()), cPlusReturnAttr.size());
+
+    if(! ifReturnAttr){
+        throwIllegalArgument(env, "Cannot write back identifier");
+    }
 
     std::chrono::nanoseconds durationB = std::chrono::high_resolution_clock::now() - startTimeB;
 
@@ -442,13 +454,14 @@ JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_Algorithm_SSSPBatch_GPUNativ
     }
 }
 
-JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_Algorithm_SSSPBatch_GPUNativeBatch_nativeStepFinal
+JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_Algorithm_SSSPshm_GPUNativeShm_nativeStepFinal
         (JNIEnv * env, jobject superClass,
-         jlong vertexSum, jint vertexLen, jint edgeLen, jint markIdLen, jint pid, jlongArray returnId, jdoubleArray returnAttr) {
+                jlong vertexSum, jint vertexLen, jint edgeLen, jint markIdLen, jint pid, jobject shmReader) {
 
     auto startTimeB = std::chrono::high_resolution_clock::now();
 
-    // TODO: Terminate possible batch client if exist
+    jclass readerClass = env->GetObjectClass(shmReader);
+    jmethodID addReaderName = env->GetMethodID(readerClass, "addName", "(Ljava/lang/String;I)Z");
 
     int vertexAllSum = static_cast<int>(vertexSum);
     int partitionID = static_cast<int>(pid);
@@ -477,9 +490,32 @@ JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_Algorithm_SSSPBatch_GPUNativ
         }
     }
 
-    env->SetLongArrayRegion(returnId, 0, cPlusReturnId.size(), &cPlusReturnId[0]);
-    env->SetDoubleArrayRegion(returnAttr, 0, cPlusReturnAttr.size(), &cPlusReturnAttr[0]);
+    string resultAttrIdentifier = to_string(pid) + "Double" + "Results";
+    string resultIdIdentifier = to_string(pid) + "Long" + "Results";
+
+    chk = writeShm(resultIdIdentifier, cPlusReturnId);
+    if(chk == -1){
+        throwIllegalArgument(env, "Cannot construct shared data memory");
+    }
+
+    chk = writeShm(resultAttrIdentifier, cPlusReturnAttr);
+    if(chk == -1){
+        throwIllegalArgument(env, "Cannot construct shared data memory");
+    }
+
     execute.disconnect();
+
+    bool ifReturnId = env->CallObjectMethod(shmReader, addReaderName, env->NewStringUTF(resultIdIdentifier.c_str()), cPlusReturnId.size());
+
+    if(! ifReturnId){
+        throwIllegalArgument(env, "Cannot write back identifier");
+    }
+
+    bool ifReturnAttr = env->CallObjectMethod(shmReader, addReaderName, env->NewStringUTF(resultAttrIdentifier.c_str()), cPlusReturnAttr.size());
+
+    if(! ifReturnAttr){
+        throwIllegalArgument(env, "Cannot write back identifier");
+    }
 
     std::chrono::nanoseconds durationB = std::chrono::high_resolution_clock::now() - startTimeB;
 
@@ -495,13 +531,13 @@ JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_Algorithm_SSSPBatch_GPUNativ
 
 // server shutdown
 
-JNIEXPORT jboolean JNICALL Java_edu_ustc_nodb_PregelGPU_Algorithm_SSSPBatch_GPUNativeBatch_nativeEnvClose
-        (JNIEnv * env, jobject superClass, jint pid){
+JNIEXPORT jboolean JNICALL Java_edu_ustc_nodb_PregelGPU_Algorithm_SSSPshm_GPUNativeShm_nativeEnvClose
+  (JNIEnv * env, jobject superClass, jint pid){
+
     UtilClient<double, double> control = UtilClient<double, double>(0, 0, 0, pid);
 
     int chk = control.connect();
-    if (chk == -1)
-    {
+    if (chk == -1){
         return false;
     }
 

@@ -1,6 +1,8 @@
 package edu.ustc.nodb.PregelGPU.Example.SSSP
 
 import edu.ustc.nodb.PregelGPU.Algorithm.SSSP.pregelSSSP
+import edu.ustc.nodb.PregelGPU.Algorithm.SSSPBatch.pregelSSSPBatch
+import edu.ustc.nodb.PregelGPU.Algorithm.SSSPshm.pregelSSSPShm
 import edu.ustc.nodb.PregelGPU.Plugin.partitionStrategy.EdgePartitionPreSearch
 import edu.ustc.nodb.PregelGPU.{PregelInGPU, envControl}
 import org.apache.spark.graphx.{Edge, Graph, VertexId}
@@ -77,6 +79,7 @@ object SSSPTest{
     val vertexSum = graph.vertices.count()
     val edgeSum = graph.edges.count()
 
+
     val startNormal = System.nanoTime()
     val ssspTest = new PregelSparkSSSP(graph, allSourceList)
     val ssspResult = ssspTest.run()
@@ -87,7 +90,7 @@ object SSSPTest{
     println("-------------------------")
 
     val startNew = System.nanoTime()
-    val ssspAlgo = new pregelSSSP(allSourceList, vertexSum, edgeSum, parts.get)
+    val ssspAlgo = new pregelSSSPShm(allSourceList, vertexSum, edgeSum, parts.get)
     val ssspGPUResult = PregelInGPU.run(graph)(ssspAlgo)
     // val q = ssspGPUResult.vertices.count()
     println(ssspGPUResult.vertices.collect.mkString("\n"))

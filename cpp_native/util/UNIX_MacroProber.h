@@ -5,7 +5,7 @@
 #ifndef PREGELGPU_UNIX_MACROPROBER_H
 #define PREGELGPU_UNIX_MACROPROBER_H
 
-#include "../Graph_Algo/include/UNIX_macro.h"
+#include "../Graph_Algo/include/UNIX_marco.h"
 
 #define TEMPENV_SHM 8
 #define TEMPNODE_SHM 9

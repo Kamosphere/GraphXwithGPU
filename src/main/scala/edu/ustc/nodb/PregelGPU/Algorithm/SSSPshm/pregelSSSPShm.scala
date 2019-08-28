@@ -1,7 +1,8 @@
-package edu.ustc.nodb.PregelGPU.Algorithm.SSSPBatch
+package edu.ustc.nodb.PregelGPU.Algorithm.SSSPshm
 
 import java.util
 
+import edu.ustc.nodb.PregelGPU.Algorithm.SSSPshm.shmManager.shmArrayWriterImpl.{shmArrayWriterBoolean, shmArrayWriterDouble, shmArrayWriterLong}
 import edu.ustc.nodb.PregelGPU.Algorithm.{SPMapWithActive, lambdaTemplete}
 import edu.ustc.nodb.PregelGPU.Plugin.partitionStrategy.EdgePartitionPreSearch
 import org.apache.spark.broadcast.Broadcast
@@ -11,10 +12,10 @@ import org.apache.spark.util.LongAccumulator
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 
-class pregelSSSPBatch(allSource: Broadcast[ArrayBuffer[VertexId]],
-                      vertexSum: Long,
-                      edgeSum: Long,
-                      parts: Int) extends lambdaTemplete[SPMapWithActive, Double]{
+class pregelSSSPShm(allSource: Broadcast[ArrayBuffer[VertexId]],
+                    vertexSum: Long,
+                    edgeSum: Long,
+                    parts: Int) extends lambdaTemplete[SPMapWithActive, Double]{
 
   override def repartition(g: Graph[SPMapWithActive, Double]): Graph[SPMapWithActive, Double] = {
 
@@ -119,9 +120,10 @@ class pregelSSSPBatch(allSource: Broadcast[ArrayBuffer[VertexId]],
     val preVertexLength = preParameter.get._1
     val preEdgeLength = preParameter.get._2
     // vertex data and edge data array
-    val pVertexIDTemp = new Array[Long](preVertexLength)
-    val pVertexActiveTemp = new Array[Boolean](preVertexLength)
-    val pVertexAttrTemp = new Array[Double](preVertexLength * preMap)
+    val pVertexIDShm = new shmArrayWriterLong(pid, preVertexLength, "")
+    val pVertexActiveShm = new shmArrayWriterBoolean(pid, preVertexLength, "")
+    val pVertexAttrShm = new shmArrayWriterDouble(pid, preVertexLength * preMap, "")
+
     val pEdgeSrcIDTemp = new Array[Long](preEdgeLength)
     val pEdgeDstIDTemp = new Array[Long](preEdgeLength)
     val pEdgeAttrTemp = new Array[Double](preEdgeLength)
@@ -141,13 +143,13 @@ class pregelSSSPBatch(allSource: Broadcast[ArrayBuffer[VertexId]],
       EdgeCount = EdgeCount + 1
 
       if(! VertexNumList.contains(temp.srcId)){
-        pVertexIDTemp(VertexCount)=temp.srcId
-        pVertexActiveTemp(VertexCount)=temp.srcAttr._1
+        pVertexIDShm.shmArrayWriterSet(temp.srcId)
+        pVertexActiveShm.shmArrayWriterSet(temp.srcAttr._1)
         VertexNumList.put(temp.srcId, 1)
         // the order of sourceList in array is guarded by linkedHashMap
         var index = 0
         for(part <- temp.srcAttr._2.values){
-          pVertexAttrTemp(VertexCount * preMap + index) = part
+          pVertexAttrShm.shmArrayWriterSet(part)
           index = index + 1
         }
         VertexCount = VertexCount + 1
@@ -158,13 +160,14 @@ class pregelSSSPBatch(allSource: Broadcast[ArrayBuffer[VertexId]],
       }
 
       if(! VertexNumList.contains(temp.dstId)){
-        pVertexIDTemp(VertexCount)=temp.dstId
-        pVertexActiveTemp(VertexCount)=temp.dstAttr._1
+        pVertexIDShm.shmArrayWriterSet(temp.dstId)
+        pVertexActiveShm.shmArrayWriterSet(temp.dstAttr._1)
+
         VertexNumList.put(temp.dstId, 0)
         // the order of sourceList in array is guarded by linkedHashMap
         var index = 0
         for(part <- temp.dstAttr._2.values){
-          pVertexAttrTemp(VertexCount * preMap + index) = part
+          pVertexAttrShm.shmArrayWriterSet(part)
           index = index + 1
         }
         VertexCount = VertexCount + 1
@@ -182,12 +185,16 @@ class pregelSSSPBatch(allSource: Broadcast[ArrayBuffer[VertexId]],
 
     val startTimeB = System.nanoTime()
 
-    val Process = new GPUControllerBatch(vertexSum, EdgeCount, sourceList, pid)
+    val Process = new GPUControllerShm(vertexSum, EdgeCount, sourceList, pid)
+
     Process.GPUEnvEdgeInit(filteredVertex.toArray,
         pEdgeSrcIDTemp, pEdgeDstIDTemp, pEdgeAttrTemp)
 
-    val (results, needCombine) : (ArrayBuffer[(VertexId, SPMapWithActive)], Boolean) = Process.GPUMsgInitInput(
-      pVertexIDTemp, pVertexActiveTemp, pVertexAttrTemp, VertexCount)
+    val (results, needCombine)  = Process.GPUMsgExecute(
+      pVertexIDShm.shmWriterClose(),
+      pVertexActiveShm.shmWriterClose(),
+      pVertexAttrShm.shmWriterClose(),
+      VertexCount)
     val result = results.iterator
     if(needCombine){
       counter.add(1)
@@ -199,7 +206,6 @@ class pregelSSSPBatch(allSource: Broadcast[ArrayBuffer[VertexId]],
     result
   }
 
-  // TODO: copy array in batch
   override def lambda_ModifiedSubGraph_MPBI_IterWithoutPartition(pid: Int,
                                                                  iter: Iterator[EdgeTriplet[SPMapWithActive,Double]])
                                                                 (iterTimes:Int,
@@ -216,67 +222,69 @@ class pregelSSSPBatch(allSource: Broadcast[ArrayBuffer[VertexId]],
     val preVertexLength = preParameter.get._1
     val preEdgeLength = preParameter.get._2
 
-    val batchSize = 10000
-    // vertex data array
-    val pVertexIDTemp = new Array[Long](batchSize + 1)
-    val pVertexActiveTemp = new Array[Boolean](batchSize + 1)
-    val pVertexAttrTemp = new Array[Double]((batchSize + 1) * preMap)
+    // vertex data shm name
+
+    val pVertexIDShm = new shmArrayWriterLong(pid, preVertexLength, "")
+    val pVertexActiveShm = new shmArrayWriterBoolean(pid, preVertexLength, "")
+    val pVertexAttrShm = new shmArrayWriterDouble(pid, preVertexLength * preMap, "")
+
     // used to remove the abundant vertices
     val VertexNumList = new util.HashSet[Long](preVertexLength)
 
     var temp : EdgeTriplet[SPMapWithActive,Double] = null
     var VertexCount = 0
-    var status : Boolean = true
-
-    val Process = new GPUControllerBatch(vertexSum, preEdgeLength, sourceList, pid)
+    var EdgeCount = 0
 
     while(iter.hasNext){
       temp = iter.next()
 
       if(temp.srcAttr._1){
+        EdgeCount = EdgeCount + 1
 
         if(! VertexNumList.contains(temp.srcId)){
-          pVertexIDTemp(VertexCount)=temp.srcId
-          pVertexActiveTemp(VertexCount)=temp.srcAttr._1
+
+          pVertexIDShm.shmArrayWriterSet(temp.srcId)
+          pVertexActiveShm.shmArrayWriterSet(temp.srcAttr._1)
+
           VertexNumList.add(temp.srcId)
           // the order of sourceList in array is guarded by linkedHashMap
           var index = 0
           for(part <- temp.srcAttr._2.values){
-            pVertexAttrTemp(VertexCount * preMap + index) = part
+
+            pVertexAttrShm.shmArrayWriterSet(part)
             index = index + 1
           }
           VertexCount = VertexCount + 1
         }
         if(! VertexNumList.contains(temp.dstId)){
-          pVertexIDTemp(VertexCount)=temp.dstId
-          pVertexActiveTemp(VertexCount)=temp.dstAttr._1
+
+          pVertexIDShm.shmArrayWriterSet(temp.dstId)
+          pVertexActiveShm.shmArrayWriterSet(temp.dstAttr._1)
+
           VertexNumList.add(temp.dstId)
           // the order of sourceList in array is guarded by linkedHashMap
           var index = 0
           for(part <- temp.dstAttr._2.values){
-            pVertexAttrTemp(VertexCount * preMap + index) = part
+
+            pVertexAttrShm.shmArrayWriterSet(part)
+
             index = index + 1
           }
           VertexCount = VertexCount + 1
         }
-
-        if(VertexCount >= batchSize){
-          status = Process.GPUMsgBatchInput(
-            pVertexIDTemp, pVertexActiveTemp, pVertexAttrTemp, VertexCount)
-          VertexCount = 0
-          println("Batching in" + pid + "of iter" + iterTimes + " for " + VertexCount)
-        }
       }
     }
-    status = Process.GPUMsgBatchInput(
-      pVertexIDTemp, pVertexActiveTemp, pVertexAttrTemp, VertexCount)
-    println("Batching in" + pid + "of iter" + iterTimes + " for " + VertexCount + ", status is: " + status)
-
     val endTimeA = System.nanoTime()
 
     val startTimeB = System.nanoTime()
 
-    val (results, needCombine) : (ArrayBuffer[(VertexId, SPMapWithActive)], Boolean) = Process.GPUMsgBatchExecute(VertexCount)
+    val Process = new GPUControllerShm(vertexSum, preEdgeLength, sourceList, pid)
+    val (results, needCombine) = Process.GPUMsgExecute(
+      pVertexIDShm.shmWriterClose(),
+      pVertexActiveShm.shmWriterClose(),
+      pVertexAttrShm.shmWriterClose(),
+      VertexCount)
+
     if(needCombine){
       counter.add(1)
     }
@@ -301,7 +309,7 @@ class pregelSSSPBatch(allSource: Broadcast[ArrayBuffer[VertexId]],
     val preEdgeLength = preParameter.get._2
     val sourceList = allSource.value
 
-    val Process = new GPUControllerBatch(vertexSum, preEdgeLength, sourceList, pid)
+    val Process = new GPUControllerShm(vertexSum, preEdgeLength, sourceList, pid)
     val (results, needCombine): (ArrayBuffer[(VertexId, SPMapWithActive)], Boolean) =
       Process.GPUIterSkipCollect(preVertexLength)
     if (needCombine) {
@@ -323,7 +331,7 @@ class pregelSSSPBatch(allSource: Broadcast[ArrayBuffer[VertexId]],
     val preEdgeLength = preParameter.get._2
     val sourceList = allSource.value
 
-    val Process = new GPUControllerBatch(vertexSum, preEdgeLength, sourceList, pid)
+    val Process = new GPUControllerShm(vertexSum, preEdgeLength, sourceList, pid)
     val results : ArrayBuffer[(VertexId, SPMapWithActive)] =
       Process.GPUFinalCollect(preVertexLength)
     val result = results.iterator

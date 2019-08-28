@@ -105,6 +105,9 @@ void pBellmanFordClient::execute() {
         }
         else if(std::string("end") == cmd)
             break;
+        else if(std::string("terminate") == cmd){
+            exit(0);
+        }
         else break;
     }
 
@@ -139,10 +142,10 @@ void pBellmanFordClient::execute() {
 
     }
 
-    this->update(VSetValues, &vertices[0]);
+    int sts = this->update(VSetValues, &vertices[0]);
 
     //Test
-    std::cout << "Batch copy complete" << std::endl;
+    std::cout << "Batch copy complete in " << sts << std::endl;
     //Test end
 
     this->request();

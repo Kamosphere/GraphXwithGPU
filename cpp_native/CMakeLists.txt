@@ -27,8 +27,8 @@ endif(WIN32)
 add_subdirectory(Graph_Algo)
 include_directories(Graph_Algo)
 
-add_subdirectory(prober)
-include_directories(prober)
+add_subdirectory(util)
+include_directories(util)
 
 #use $ENV{JAVA_HOME} to include the jni header, JAVA_HOME need to be configurated
 INCLUDE_DIRECTORIES($ENV{JAVA_HOME}/include)
@@ -40,15 +40,26 @@ ELSE()
     INCLUDE_DIRECTORIES($ENV{JAVA_HOME}/include/linux)
 endif()
 
+
 add_library(PregelGPU SHARED
         edu_ustc_nodb_PregelGPU_Algorithm_SSSP_GPUNative.h
         edu_ustc_nodb_PregelGPU_Algorithm_SSSP_GPUNative.cpp)
 
 target_link_libraries(PregelGPU
         srv_UtilClient
-        initProber)
+        initProber
+        JNIPlugin)
 
-#[[
+add_library(PregelGPUShm SHARED
+        edu_ustc_nodb_PregelGPU_Algorithm_SSSPshm_GPUNativeShm.h
+        edu_ustc_nodb_PregelGPU_Algorithm_SSSPshm_GPUNativeShm.cpp)
+
+target_link_libraries(PregelGPUShm
+        srv_UtilClient
+        initProber
+        JNIPlugin
+        rt)
+
 add_library(PregelGPUBatch SHARED
         edu_ustc_nodb_PregelGPU_Algorithm_SSSPBatch_GPUNativeBatch.h
         edu_ustc_nodb_PregelGPU_Algorithm_SSSPBatch_GPUNativeBatch.cpp)
@@ -56,5 +67,5 @@ add_library(PregelGPUBatch SHARED
 target_link_libraries(PregelGPUBatch
         srv_cli_BatchClient_BellmanFord
         dataProber
-        initProber)
-]]#
+        initProber
+        JNIPlugin)

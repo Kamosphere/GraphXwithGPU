@@ -7,7 +7,7 @@
 
 #include "../../../Graph_Algo/srv/UtilClient.h"
 
-class pBellmanFordClient : UtilClient<double>{
+class pBellmanFordClient : UtilClient<double, double>{
 public:
     pBellmanFordClient(int vCount, int eCount, int numOfInitV, int nodeNo = 0, int batch = 10000);
     ~pBellmanFordClient() = default;

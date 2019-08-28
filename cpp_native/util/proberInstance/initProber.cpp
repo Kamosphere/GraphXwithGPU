@@ -4,7 +4,7 @@
 
 #include <iostream>
 #include "initProber.h"
-#include "include/UNIX_macro.h"
+#include "include/UNIX_marco.h"
 
 initProber::initProber(int nodeNo) {
     //Test

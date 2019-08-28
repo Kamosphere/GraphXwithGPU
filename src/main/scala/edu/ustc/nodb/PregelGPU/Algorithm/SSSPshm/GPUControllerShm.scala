@@ -1,32 +1,35 @@
-package edu.ustc.nodb.PregelGPU.Algorithm.SSSPBatch
+package edu.ustc.nodb.PregelGPU.Algorithm.SSSPshm
 
+import java.nio.file.{Files, Path, Paths}
 import java.util
 
 import edu.ustc.nodb.PregelGPU.Algorithm.SPMapWithActive
+import edu.ustc.nodb.PregelGPU.Algorithm.SSSPshm.shmManager.shmArrayReaderImpl.{shmArrayReaderDouble, shmArrayReaderLong}
+import edu.ustc.nodb.PregelGPU.Algorithm.SSSPshm.shmManager.shmNamePackager.{shmReaderPackager, shmWriterPackager}
 import edu.ustc.nodb.PregelGPU.envControl
 import org.apache.spark.graphx.VertexId
 
 import scala.collection.mutable.ArrayBuffer
 import scala.sys.process.Process
 
-class GPUControllerBatch(vertexSum: Long,
-                         edgeSize: Int,
-                         sourceList: ArrayBuffer[VertexId],
-                         pid :Int)
+class GPUControllerShm(vertexSum: Long,
+                       edgeSize: Int,
+                       sourceList: ArrayBuffer[VertexId],
+                       pid :Int)
 
-  extends Serializable{
+extends Serializable{
 
   def this(pid: Int) = this(0, 0, new ArrayBuffer[VertexId], pid)
 
-  val native = new GPUNativeBatch
+  val native = new GPUNativeShm
   val sourceSize: Int = sourceList.length
 
-  val resultID : Array[Long] = new Array[Long](vertexSum.toInt)
-  val resultAttr : Array[Double] = new Array[Double](vertexSum.toInt * sourceSize)
+  var resultID : Array[Long] = _
+  var resultAttr : Array[Double] = _
 
   var tempVertexSet : VertexSet = _
 
-  System.loadLibrary("PregelGPUBatch")
+  System.loadLibrary("PregelGPUShm")
 
   // before executing, run the server first
   def GPUEnvEdgeInit(filteredVertex: Array[Long],
@@ -35,8 +38,7 @@ class GPUControllerBatch(vertexSum: Long,
                      EdgeAttr: Array[Double]):
   Unit = {
 
-    GPUShutdown()
-
+    GPUShutdown(0)
     var runningScript = ""
 
     if (envControl.controller == 0){
@@ -66,107 +68,42 @@ class GPUControllerBatch(vertexSum: Long,
     while(! result){
       result = native.nativeEnvEdgeInit(filteredVertex, vertexSum, EdgeSrc, EdgeDst, EdgeAttr, sourceId, pid)
     }
-
   }
 
   // execute SSSP algorithm
-  def GPUMsgInitInput(VertexID: Array[Long],
-                      VertexActive: Array[Boolean],
-                      VertexAttr: Array[Double],
-                      vertexCount: Int):
+  def GPUMsgExecute(VertexID: String,
+                    VertexActive: String,
+                    VertexAttr: String,
+                    vertexCount: Int):
   (ArrayBuffer[(VertexId, SPMapWithActive)], Boolean) = {
 
+    val shmReader = new shmReaderPackager(3)
+
+    shmReader.addName(VertexID, vertexCount)
+    shmReader.addName(VertexActive, vertexCount)
+    shmReader.addName(VertexAttr, vertexCount * sourceSize)
+
+    val shmWriter = new shmWriterPackager(2)
+
     // pass vertices through JNI and get result array back
-    var underIndex = native.nativeStepMsgInitInput(vertexSum,
-      VertexID, VertexActive, VertexAttr,
-      vertexCount, edgeSize, sourceSize, pid,
-      resultID, resultAttr)
-
-    val batch = 10000
-
-    var runningScript = ""
-
-    if (envControl.controller == 0){
-      runningScript =
-        "/usr/local/ssspexample/cpp_native/build/bin/algo_pBellmanFordBatchClientTest " + vertexSum.toString +
-          " " + edgeSize.toString + " " + sourceList.length.toString + " " + pid.toString + " " + batch.toString
-
-    }
-    else {
-      runningScript =
-        "./cpp_native/build/bin/algo_pBellmanFordBatchClientTest " + vertexSum.toString +
-          " " + edgeSize.toString + " " + sourceList.length.toString + " " + pid.toString + " " + batch.toString
-
-    }
-
-    Process(runningScript).run()
-
-    val needCombine = if(underIndex <= 0) false else true
-    underIndex = math.abs(underIndex)
-
-    val startNew = System.nanoTime()
-
-    val results = vertexMsgPackage(underIndex, activeness = true)
-
-    val endNew = System.nanoTime()
-    println("Constructing returned arrayBuffer time: " + (endNew - startNew))
-
-    (results, needCombine)
-
-  }
-
-  //
-  def GPUMsgBatchInput(VertexID: Array[Long],
-                       VertexActive: Array[Boolean],
-                       VertexAttr: Array[Double],
-                       vertexCount: Int):
-  Boolean = {
-
-    if(VertexID.length != vertexCount){
-      return false
-    }
-
-    // pass part of vertices through JNI
-    native.nativeStepMsgBatchInput(vertexSum,
-      VertexID, VertexActive, VertexAttr,
+    var underIndex = native.nativeStepMsgExecute(vertexSum,
+      shmReader, shmWriter,
       vertexCount, edgeSize, sourceSize, pid)
 
-  }
-
-  // execute SSSP algorithm
-  def GPUMsgBatchExecute(vertexCount: Int):
-  (ArrayBuffer[(VertexId, SPMapWithActive)], Boolean) = {
-
-    // pass vertices through JNI and get result array back
-    var underIndex = native.nativeStepMsgBatchExecute(vertexSum,
-      vertexCount, edgeSize, sourceSize, pid,
-      resultID, resultAttr)
-
     val needCombine = if(underIndex <= 0) false else true
     underIndex = math.abs(underIndex)
+
+    val resultIDReader = new shmArrayReaderLong(
+      shmWriter.getSizeByUnder(0), shmWriter.getNameByUnder(0))
+    val resultAttrReader = new shmArrayReaderDouble(
+      shmWriter.getSizeByUnder(1), shmWriter.getNameByUnder(1))
+
+    resultID = resultIDReader.shmArrayReaderGet()
+    resultAttr = resultAttrReader.shmArrayReaderGet()
 
     val startNew = System.nanoTime()
 
     val results = vertexMsgPackage(underIndex, activeness = true)
-
-    val batch = 10000
-
-    var runningScript = ""
-
-    if (envControl.controller == 0){
-      runningScript =
-        "/usr/local/ssspexample/cpp_native/build/bin/algo_pBellmanFordBatchClientTest " + vertexSum.toString +
-          " " + edgeSize.toString + " " + sourceList.length.toString + " " + pid.toString + " " + batch.toString
-
-    }
-    else {
-      runningScript =
-        "./cpp_native/build/bin/algo_pBellmanFordBatchClientTest " + vertexSum.toString +
-          " " + edgeSize.toString + " " + sourceList.length.toString + " " + pid.toString + " " + batch.toString
-
-    }
-
-    Process(runningScript).run()
 
     val endNew = System.nanoTime()
     println("Constructing returned arrayBuffer time: " + (endNew - startNew))
@@ -178,13 +115,23 @@ class GPUControllerBatch(vertexSum: Long,
   def GPUIterSkipCollect(vertexCount: Int):
   (ArrayBuffer[(VertexId, SPMapWithActive)], Boolean) = {
 
+    val shmWriter = new shmWriterPackager(2)
+
     //pass vertices through JNI and get arrayBuffer back
     var underIndex = native.nativeSkipStep(vertexSum,
       vertexCount, edgeSize, sourceSize, pid,
-      resultID, resultAttr)
+      shmWriter)
 
     val needCombine = if(underIndex <= 0) false else true
     underIndex = math.abs(underIndex)
+
+    val resultIDReader = new shmArrayReaderLong(
+      shmWriter.getSizeByUnder(0), shmWriter.getNameByUnder(0))
+    val resultAttrReader = new shmArrayReaderDouble(
+      shmWriter.getSizeByUnder(1), shmWriter.getNameByUnder(1))
+
+    resultID = resultIDReader.shmArrayReaderGet()
+    resultAttr = resultAttrReader.shmArrayReaderGet()
 
     val startNew = System.nanoTime()
 
@@ -200,10 +147,20 @@ class GPUControllerBatch(vertexSum: Long,
   def GPUFinalCollect(vertexCount: Int):
   ArrayBuffer[(VertexId, SPMapWithActive)] = {
 
+    val shmWriter = new shmWriterPackager(2)
+
     //pass vertices through JNI and get arrayBuffer back
     val underIndex = native.nativeStepFinal(vertexSum,
       vertexCount, edgeSize, sourceSize, pid,
-      resultID, resultAttr)
+      shmWriter)
+
+    val resultIDReader = new shmArrayReaderLong(
+      shmWriter.getSizeByUnder(0), shmWriter.getNameByUnder(0))
+    val resultAttrReader = new shmArrayReaderDouble(
+      shmWriter.getSizeByUnder(1), shmWriter.getNameByUnder(1))
+
+    resultID = resultIDReader.shmArrayReaderGet()
+    resultAttr = resultAttrReader.shmArrayReaderGet()
 
     val startNew = System.nanoTime()
 
@@ -211,13 +168,27 @@ class GPUControllerBatch(vertexSum: Long,
 
     val endNew = System.nanoTime()
     println("Constructing remained arrayBuffer time: " + (endNew - startNew))
+
     results
   }
 
-
   // after executing, close the server and release the shared memory
-  def GPUShutdown():Boolean = {
+  def GPUShutdown(runningStep: Int): Boolean = {
 
+    // 0 for the first iter, other for the times of iter
+    if(runningStep == 0){
+
+    }
+    else{
+
+      val k = Files.newDirectoryStream( Paths.get("/dev/shm/") ).iterator()
+      var pathTemp: Path = null
+      while(k.hasNext){
+          pathTemp = k.next()
+          Files.deleteIfExists(pathTemp)
+
+        }
+    }
     native.nativeEnvClose(pid)
 
   }
@@ -242,4 +213,5 @@ class GPUControllerBatch(vertexSum: Long,
 
     results
   }
+
 }

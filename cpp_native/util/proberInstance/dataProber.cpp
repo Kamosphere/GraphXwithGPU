@@ -50,6 +50,8 @@ int dataProber::connectToClient() {
     if(ret != -1) ret = this->tempNode_shm.fetch(((this->nodeNo << NODE_NUM_OFFSET) | (TEMPNODE_SHM << SHM_OFFSET)));
     if(ret != -1) ret = this->tempData_shm.fetch(((this->nodeNo << NODE_NUM_OFFSET) | (TEMPDATA_SHM << SHM_OFFSET)));
 
+    printf("%d :000 %d", ret, errno);
+
     if(ret != -1) ret = this->clientProber_msg.fetch(((this->nodeNo << NODE_NUM_OFFSET) | (PROCLI_MSG_TYPE << MSG_TYPE_OFFSET)));
     if(ret != -1) ret = this->proberData_msg.fetch(((this->nodeNo << NODE_NUM_OFFSET) | (PRODT_MSG_TYPE << MSG_TYPE_OFFSET)));
     if(ret != -1) ret = this->init_msg.fetch(((this->nodeNo << NODE_NUM_OFFSET) | (INIT_MSG_TYPE << MSG_TYPE_OFFSET)));
@@ -117,4 +119,7 @@ void dataProber::disconnect() {
     this->tempNode = nullptr;
     this->tempActive = nullptr;
 }
+
+
+
 

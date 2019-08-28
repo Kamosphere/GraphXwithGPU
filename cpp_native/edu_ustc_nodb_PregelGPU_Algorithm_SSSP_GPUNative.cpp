@@ -1,48 +1,8 @@
 #include "edu_ustc_nodb_PregelGPU_Algorithm_SSSP_GPUNative.h"
 
-#include "Graph_Algo/core/Graph.h"
-#include "Graph_Algo/algo/BellmanFord/BellmanFord.h"
-#include "Graph_Algo/srv/UtilServer.h"
-#include "Graph_Algo/srv/UtilClient.h"
-#include "proberInstance/initProber.h"
-#include <cstdlib>
-#include <chrono>
-#include <vector>
-#include <map>
-#include <iostream>
-#include <string>
+#include "util/JNIPlugin.h"
 
 using namespace std;
-
-// throw error to JVM
-
-jint throwNoClassDefError( JNIEnv *env, const char *message )
-{
-    jclass exClass;
-    const char *className = "java/lang/NoClassDefFoundError";
-
-    exClass = env->FindClass(className);
-    if (exClass == nullptr) {
-        return throwNoClassDefError( env, className );
-    }
-
-    return env->ThrowNew( exClass, message );
-}
-
-// throw error to JVM
-
-jint throwIllegalArgument( JNIEnv *env, const char *message )
-{
-    jclass exClass;
-    const char *className = "java/lang/IllegalArgumentException" ;
-
-    exClass = env->FindClass( className );
-    if ( exClass == nullptr ) {
-        return throwNoClassDefError( env, className );
-    }
-
-    return env->ThrowNew( exClass, message );
-}
 
 // Init the edge and markID
 
@@ -131,7 +91,7 @@ JNIEXPORT jboolean JNICALL Java_edu_ustc_nodb_PregelGPU_Algorithm_SSSP_GPUNative
     bool status = detector.run();
     if(! status) return false;
 
-    UtilClient<double> execute = UtilClient<double>(vertexAllSum, lenEdge, lenMarkID, partitionID);
+    UtilClient<double, double> execute = UtilClient<double,double>(vertexAllSum, lenEdge, lenMarkID, partitionID);
 
     int chk = 0;
 
@@ -175,7 +135,7 @@ JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_Algorithm_SSSP_GPUNative_nat
     int lenEdge = static_cast<int>(edgeCount);
     int lenVertex = static_cast<int>(vertexCount);
 
-    UtilClient<double> execute = UtilClient<double>(vertexAllSum, lenEdge, lenMarkID, partitionID);
+    UtilClient<double, double> execute = UtilClient<double, double>(vertexAllSum, lenEdge, lenMarkID, partitionID);
 
     int chk = 0;
 
@@ -316,7 +276,7 @@ JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_Algorithm_SSSP_GPUNative_nat
     int lenMarkID = static_cast<int>(markIdLen);
     int lenEdge = static_cast<int>(edgeLen);
 
-    UtilClient<double> execute = UtilClient<double>(vertexAllSum, lenEdge, lenMarkID, partitionID);
+    UtilClient<double, double> execute = UtilClient<double, double>(vertexAllSum, lenEdge, lenMarkID, partitionID);
 
     int chk = 0;
 
@@ -377,7 +337,7 @@ JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_Algorithm_SSSP_GPUNative_nat
     int lenMarkID = static_cast<int>(markIdLen);
     int lenEdge = static_cast<int>(edgeLen);
 
-    UtilClient<double> execute = UtilClient<double>(vertexAllSum, lenEdge, lenMarkID, partitionID);
+    UtilClient<double, double> execute = UtilClient<double, double>(vertexAllSum, lenEdge, lenMarkID, partitionID);
 
     int chk = 0;
 
@@ -419,7 +379,7 @@ JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_Algorithm_SSSP_GPUNative_nat
 
 JNIEXPORT jboolean JNICALL Java_edu_ustc_nodb_PregelGPU_Algorithm_SSSP_GPUNative_nativeEnvClose
   (JNIEnv * env, jobject superClass, jint pid){
-    UtilClient<double> control = UtilClient<double>(0, 0, 0, pid);
+    UtilClient<double, double> control = UtilClient<double, double>(0, 0, 0, pid);
 
     int chk = control.connect();
     if (chk == -1)

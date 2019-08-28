@@ -2,6 +2,8 @@ package edu.ustc.nodb.PregelGPU
 
 
 import edu.ustc.nodb.PregelGPU.Algorithm.SSSP.{GPUController, GPUNative}
+import edu.ustc.nodb.PregelGPU.Algorithm.SSSPBatch.GPUControllerBatch
+import edu.ustc.nodb.PregelGPU.Algorithm.SSSPshm.GPUControllerShm
 import edu.ustc.nodb.PregelGPU.Algorithm.lambdaTemplete
 import edu.ustc.nodb.PregelGPU.Plugin.GraphXModified
 import edu.ustc.nodb.PregelGPU.Plugin.partitionStrategy.EdgePartition1DReverse
@@ -90,7 +92,7 @@ object PregelInGPU{
         })
       }
       else{
-        if(afterCounter != beforeCounter){
+        //if(afterCounter != beforeCounter){
 /*
           modifiedSubGraph = g.triplets.mapPartitionsWithIndex((pid, iter) =>
             algorithm.lambda_ModifiedSubGraph_MPBI_IterWithoutPartition(pid, iter)(iterTimes, partitionSplit, ifFilteredCounter))
@@ -100,13 +102,13 @@ object PregelInGPU{
           modifiedSubGraph = GraphXModified.scopeTest(g, Some(oldVertexModified, EdgeDirection.Either)).mapPartitionsWithIndex((pid, iter) =>
             algorithm.lambda_ModifiedSubGraph_MPBI_IterWithoutPartition(pid, iter)(iterTimes, partitionSplit, ifFilteredCounter))
 
-        }
+        //}
         // skip getting vertex information through graph
-        else{
+        //else{
 
-          modifiedSubGraph = g.triplets.mapPartitionsWithIndex((pid, iter) =>
-            algorithm.lambda_ModifiedSubGraph_MPBI_skipStep(pid, iter)(iterTimes, partitionSplit, ifFilteredCounter))
-        }
+        //  modifiedSubGraph = g.triplets.mapPartitionsWithIndex((pid, iter) =>
+        //    algorithm.lambda_ModifiedSubGraph_MPBI_skipStep(pid, iter)(iterTimes, partitionSplit, ifFilteredCounter))
+        //}
       }
 
       // distribute the vertex messages into partitions
@@ -165,11 +167,11 @@ object PregelInGPU{
 
     Graph.vertices.foreachPartition(g=>{
       val pid = TaskContext.getPartitionId()
-      val Process = new GPUController(pid)
+      val Process = new GPUControllerShm(pid)
       var envInit : Boolean = false
 
       while(! envInit){
-        envInit = Process.GPUShutdown()
+        envInit = Process.GPUShutdown(1)
       }
     })
   }
