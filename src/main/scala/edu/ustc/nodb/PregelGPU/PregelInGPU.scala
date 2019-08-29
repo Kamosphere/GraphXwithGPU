@@ -2,7 +2,6 @@ package edu.ustc.nodb.PregelGPU
 
 
 import edu.ustc.nodb.PregelGPU.Algorithm.SSSP.{GPUController, GPUNative}
-import edu.ustc.nodb.PregelGPU.Algorithm.SSSPBatch.GPUControllerBatch
 import edu.ustc.nodb.PregelGPU.Algorithm.SSSPshm.GPUControllerShm
 import edu.ustc.nodb.PregelGPU.Algorithm.lambdaTemplete
 import edu.ustc.nodb.PregelGPU.Plugin.GraphXModified
@@ -46,7 +45,7 @@ object PregelInGPU{
     }).collectAsMap()
 
     var modifiedSubGraph: RDD[(VertexId, VD)] = g.triplets.mapPartitionsWithIndex((pid, iter) =>
-      algorithm.lambda_ModifiedSubGraph_MPBI_afterPartition(pid, iter)(iterTimes, countOutDegree, partitionSplit, ifFilteredCounter))
+      algorithm.lambda_ModifiedSubGraph_repartitionIter(pid, iter)(iterTimes, countOutDegree, partitionSplit, ifFilteredCounter))
 
     // get the vertex number and edge number in every partition
     // in order to avoid allocation arraycopy
@@ -76,7 +75,7 @@ object PregelInGPU{
       val tempBeforeCounter = ifFilteredCounter.sum
 
       //combine the messages with graph
-      g = GraphXModified.joinVerticesDefault(g, vertexModified)((vid, v1, v2) =>
+      g = GraphXModified.joinVerticesOrModify(g, vertexModified)((vid, v1, v2) =>
         algorithm.lambda_JoinVerticesDefaultFirst(vid, v1, v2))(vAttr =>
         algorithm.lambda_JoinVerticesDefaultSecond(vAttr))
         .cache()
@@ -88,27 +87,27 @@ object PregelInGPU{
         }).collectAsMap()
 
         modifiedSubGraph = g.triplets.mapPartitionsWithIndex((pid, iter) =>{
-          algorithm.lambda_ModifiedSubGraph_MPBI_afterPartition(pid, iter)(iterTimes, countOutDegree, partitionSplit, ifFilteredCounter)
+          algorithm.lambda_ModifiedSubGraph_repartitionIter(pid, iter)(iterTimes, countOutDegree, partitionSplit, ifFilteredCounter)
         })
       }
       else{
-        //if(afterCounter != beforeCounter){
+        if(afterCounter != beforeCounter){
 /*
           modifiedSubGraph = g.triplets.mapPartitionsWithIndex((pid, iter) =>
             algorithm.lambda_ModifiedSubGraph_MPBI_IterWithoutPartition(pid, iter)(iterTimes, partitionSplit, ifFilteredCounter))
 */
           //run the main process
 
-          modifiedSubGraph = GraphXModified.scopeTest(g, Some(oldVertexModified, EdgeDirection.Either)).mapPartitionsWithIndex((pid, iter) =>
-            algorithm.lambda_ModifiedSubGraph_MPBI_IterWithoutPartition(pid, iter)(iterTimes, partitionSplit, ifFilteredCounter))
+          modifiedSubGraph = GraphXModified.msgExtract(g, Some(oldVertexModified, EdgeDirection.Either)).mapPartitionsWithIndex((pid, iter) =>
+            algorithm.lambda_ModifiedSubGraph_normalIter(pid, iter)(iterTimes, partitionSplit, ifFilteredCounter))
 
-        //}
+        }
         // skip getting vertex information through graph
-        //else{
+        else{
 
-        //  modifiedSubGraph = g.triplets.mapPartitionsWithIndex((pid, iter) =>
-        //    algorithm.lambda_ModifiedSubGraph_MPBI_skipStep(pid, iter)(iterTimes, partitionSplit, ifFilteredCounter))
-        //}
+          modifiedSubGraph = g.triplets.mapPartitionsWithIndex((pid, iter) =>
+            algorithm.lambda_modifiedSubGraph_skipStep(pid, iter)(iterTimes, partitionSplit, ifFilteredCounter))
+        }
       }
 
       // distribute the vertex messages into partitions
@@ -140,20 +139,20 @@ object PregelInGPU{
 
     }
 
-    g = GraphXModified.joinVerticesDefault(g, vertexModified)((vid, v1, v2) =>
+    g = GraphXModified.joinVerticesOrModify(g, vertexModified)((vid, v1, v2) =>
       algorithm.lambda_JoinVerticesDefaultFirst(vid, v1, v2))(vAttr =>
       algorithm.lambda_JoinVerticesDefaultSecond(vAttr))
       .cache()
 
     // extract the remained data
     modifiedSubGraph = g.triplets.mapPartitionsWithIndex((pid, iter) =>
-      algorithm.lambda_ModifiedSubGraph_MPBI_All(pid, iter)(iterTimes, partitionSplit, ifFilteredCounter))
+      algorithm.lambda_modifiedSubGraph_collectAll(pid, iter)(iterTimes, partitionSplit, ifFilteredCounter))
 
     vertexModified = g.vertices.aggregateUsingIndex(modifiedSubGraph,
       algorithm.lambda_ReduceByKey).cache()
 
     // the final combine
-    g = GraphXModified.joinVerticesDefault(g, vertexModified)((vid, v1, v2) =>
+    g = GraphXModified.joinVerticesOrModify(g, vertexModified)((vid, v1, v2) =>
       algorithm.lambda_JoinVerticesDefaultFirst(vid, v1, v2))(vAttr =>
       algorithm.lambda_JoinVerticesDefaultSecond(vAttr))
       .cache()
@@ -163,16 +162,11 @@ object PregelInGPU{
   }
 
   // after running algorithm, close the server
-  def close[VD: ClassTag, ED: ClassTag](Graph: Graph[VD, ED]):Unit = {
+  def close[VD: ClassTag, ED: ClassTag](Graph: Graph[VD, ED], algorithm: lambdaTemplete[VD, ED]): Unit = {
 
-    Graph.vertices.foreachPartition(g=>{
+    Graph.vertices.foreachPartition(g => {
       val pid = TaskContext.getPartitionId()
-      val Process = new GPUControllerShm(pid)
-      var envInit : Boolean = false
-
-      while(! envInit){
-        envInit = Process.GPUShutdown(1)
-      }
+      algorithm.lambda_shutDown(pid, g)
     })
   }
 }

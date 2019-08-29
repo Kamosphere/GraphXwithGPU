@@ -59,13 +59,3 @@ target_link_libraries(PregelGPUShm
         initProber
         JNIPlugin
         rt)
-
-add_library(PregelGPUBatch SHARED
-        edu_ustc_nodb_PregelGPU_Algorithm_SSSPBatch_GPUNativeBatch.h
-        edu_ustc_nodb_PregelGPU_Algorithm_SSSPBatch_GPUNativeBatch.cpp)
-
-target_link_libraries(PregelGPUBatch
-        srv_cli_BatchClient_BellmanFord
-        dataProber
-        initProber
-        JNIPlugin)

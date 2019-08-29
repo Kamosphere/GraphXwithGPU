@@ -17,8 +17,6 @@
 #include <iostream>
 #include <string>
 
-#include "proberInstance/dataProber.h"
-
 #include <jni.h>
 
 using namespace std;

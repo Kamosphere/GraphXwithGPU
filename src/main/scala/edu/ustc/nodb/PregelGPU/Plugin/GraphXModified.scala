@@ -9,11 +9,12 @@ import scala.reflect.ClassTag
 
 object GraphXModified {
 
-  def joinVerticesDefault[U: ClassTag, VD:ClassTag, ED:ClassTag](graph: Graph[VD, ED],
-                                                                 table: RDD[(VertexId, U)])
-                                                                (mapFunc: (VertexId, VD, U) => VD)
-                                                                (defaultFunc: VD => VD):
+  def joinVerticesOrModify[U: ClassTag, VD:ClassTag, ED:ClassTag](graph: Graph[VD, ED],
+                                                                  table: RDD[(VertexId, U)])
+                                                                 (mapFunc: (VertexId, VD, U) => VD)
+                                                                 (defaultFunc: VD => VD):
   Graph[VD, ED] = {
+
     val uf = (id: VertexId, data: VD, o: Option[U]) => {
       o match {
         case Some(u) => mapFunc(id, data, u)
@@ -23,8 +24,8 @@ object GraphXModified {
     graph.outerJoinVertices(table)(uf)
   }
 
-  def scopeTest[VD:ClassTag, ED:ClassTag](graph: Graph[VD, ED],
-                                                       activeSetOpt: Option[(VertexRDD[VD], EdgeDirection)]):
+  def msgExtract[VD:ClassTag, ED:ClassTag](graph: Graph[VD, ED],
+                                           activeSetOpt: Option[(VertexRDD[VD], EdgeDirection)]):
   RDD[EdgeTriplet[VD, ED]] = {
 
     val newOne = new modifiedGraphImpl(graph)

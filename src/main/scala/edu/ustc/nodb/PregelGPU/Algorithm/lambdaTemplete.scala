@@ -20,7 +20,7 @@ trait lambdaTemplete[VD, ED] extends Serializable {
                             iter: Iterator[EdgeTriplet[VD, ED]]):
   Iterator[(Int, (Int, Int))]
 
-  def lambda_ModifiedSubGraph_MPBI_afterPartition
+  def lambda_ModifiedSubGraph_repartitionIter
   (pid: Int, iter: Iterator[EdgeTriplet[VD, ED]])
   (iterTimes: Int,
    countOutDegree: collection.Map[VertexId, Int],
@@ -28,25 +28,29 @@ trait lambdaTemplete[VD, ED] extends Serializable {
    counter: LongAccumulator):
   Iterator[(VertexId, VD)]
 
-  def lambda_ModifiedSubGraph_MPBI_IterWithoutPartition
+  def lambda_ModifiedSubGraph_normalIter
   (pid: Int, iter: Iterator[EdgeTriplet[VD, ED]])
   (iterTimes: Int,
    partitionSplit: collection.Map[Int,(Int, Int)],
    counter: LongAccumulator):
   Iterator[(VertexId, VD)]
 
-  def lambda_ModifiedSubGraph_MPBI_skipStep
+  def lambda_modifiedSubGraph_skipStep
   (pid: Int, iter: Iterator[EdgeTriplet[VD, ED]])
   (iterTimes: Int,
    partitionSplit: collection.Map[Int,(Int, Int)],
    counter: LongAccumulator):
   Iterator[(VertexId, VD)]
 
-  def lambda_ModifiedSubGraph_MPBI_All
+  def lambda_modifiedSubGraph_collectAll
   (pid: Int, iter: Iterator[EdgeTriplet[VD, ED]])
   (iterTimes:Int,
    partitionSplit: collection.Map[Int,(Int, Int)],
    counter: LongAccumulator):
   Iterator[(VertexId, VD)]
+
+  def lambda_shutDown
+  (pid: Int, iter: Iterator[(VertexId, VD)]):
+  Unit
 
 }

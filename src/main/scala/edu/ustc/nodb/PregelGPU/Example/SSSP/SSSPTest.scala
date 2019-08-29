@@ -1,8 +1,8 @@
 package edu.ustc.nodb.PregelGPU.Example.SSSP
 
-import edu.ustc.nodb.PregelGPU.Algorithm.SSSP.pregelSSSP
-import edu.ustc.nodb.PregelGPU.Algorithm.SSSPBatch.pregelSSSPBatch
+import edu.ustc.nodb.PregelGPU.Algorithm._
 import edu.ustc.nodb.PregelGPU.Algorithm.SSSPshm.pregelSSSPShm
+import edu.ustc.nodb.PregelGPU.Plugin.graphGenerator
 import edu.ustc.nodb.PregelGPU.Plugin.partitionStrategy.EdgePartitionPreSearch
 import edu.ustc.nodb.PregelGPU.{PregelInGPU, envControl}
 import org.apache.spark.graphx.{Edge, Graph, VertexId}
@@ -25,23 +25,6 @@ object SSSPTest{
     var parts = Some(args(0).toInt)
     if(parts.isEmpty) parts =Some(4)
 
-    /*
-    // generate the graph randomly
-
-    val random = new Random()
-    val listRandom = new ListBuffer[Double]()
-    val numbersVertex = 10000
-    for (i <- 0 to numbersVertex){
-      listRandom+=(random.nextDouble()*100/9).toInt.toDouble
-    }
-    listRandom.toList
-    val graph: Graph[Long, Double] =
-      GraphGenerators.logNormalGraph(sc, numVertices = numbersVertex).mapEdges(e => e.attr.toDouble+listRandom(e.srcId.toInt))
-
-    println(graph.edges.count())
-
-    */
-
     // load graph from file
 
     var sourceFile = ""
@@ -50,22 +33,7 @@ object SSSPTest{
     }
     else sourceFile = "testGraph.txt"
 
-    val vertex: RDD[(VertexId, VertexId)] = sc.textFile(sourceFile).map{
-      lines =>{
-        val para = lines.split(" ")
-        (para(0).toLong, para(0).toLong)
-      }
-    }.repartition(parts.get)
-    val edge: RDD[Edge[Double]] = sc.textFile(sourceFile).map{
-      lines =>{
-        val para = lines.split(" ")
-        val q = para(2).toDouble
-        Edge(para(0).toLong, para(1).toLong, q)
-      }
-    }.repartition(parts.get)
-
-    val graph = Graph(vertex, edge)
-    println(graph.edges.count())
+    val graph = graphGenerator.readFile(sc, sourceFile)(parts.get)
 
     //running two versions of SSSP
 
@@ -78,7 +46,6 @@ object SSSPTest{
     // the quantity of vertices in the whole graph
     val vertexSum = graph.vertices.count()
     val edgeSum = graph.edges.count()
-
 
     val startNormal = System.nanoTime()
     val ssspTest = new PregelSparkSSSP(graph, allSourceList)
@@ -99,10 +66,10 @@ object SSSPTest{
     println("-------------------------")
 
     println(endNormal - startNormal)
-
     println(endNew - startNew)
 
-    PregelInGPU.close(ssspGPUResult)
+    PregelInGPU.close(ssspGPUResult, ssspAlgo)
+
     val k = StdIn.readInt()
     println(k)
 

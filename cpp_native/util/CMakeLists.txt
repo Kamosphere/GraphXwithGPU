@@ -17,8 +17,6 @@ ELSE()
     INCLUDE_DIRECTORIES($ENV{JAVA_HOME}/include/linux)
 endif()
 
-
-add_subdirectory(proberClient)
 add_subdirectory(proberInstance)
 
 add_library(JNIPlugin

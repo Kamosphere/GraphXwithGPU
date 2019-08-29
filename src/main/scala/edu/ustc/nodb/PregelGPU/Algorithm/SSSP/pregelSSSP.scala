@@ -102,9 +102,9 @@ class pregelSSSP (allSource: Broadcast[ArrayBuffer[VertexId]],
 
   }
 
-  override def lambda_ModifiedSubGraph_MPBI_afterPartition(pid: Int,
-                                                           iter: Iterator[EdgeTriplet[SPMapWithActive,Double]])
-                                                          (iterTimes:Int,
+  override def lambda_ModifiedSubGraph_repartitionIter(pid: Int,
+                                                       iter: Iterator[EdgeTriplet[SPMapWithActive,Double]])
+                                                      (iterTimes:Int,
                                                            countOutDegree: collection.Map[VertexId, Int],
                                                            partitionSplit: collection.Map[Int,(Int, Int)],
                                                            counter: LongAccumulator):
@@ -199,9 +199,9 @@ class pregelSSSP (allSource: Broadcast[ArrayBuffer[VertexId]],
     result
   }
 
-  override def lambda_ModifiedSubGraph_MPBI_IterWithoutPartition(pid: Int,
-                                                                 iter: Iterator[EdgeTriplet[SPMapWithActive,Double]])
-                                                                (iterTimes:Int,
+  override def lambda_ModifiedSubGraph_normalIter(pid: Int,
+                                                  iter: Iterator[EdgeTriplet[SPMapWithActive,Double]])
+                                                 (iterTimes:Int,
                                                                  partitionSplit: collection.Map[Int,(Int, Int)],
                                                                  counter: LongAccumulator):
   Iterator[(VertexId, SPMapWithActive)] = {
@@ -276,9 +276,9 @@ class pregelSSSP (allSource: Broadcast[ArrayBuffer[VertexId]],
     result
   }
 
-  override def lambda_ModifiedSubGraph_MPBI_skipStep(pid: Int,
-                                                     iter: Iterator[EdgeTriplet[SPMapWithActive, Double]])
-                                                    (iterTimes:Int,
+  override def lambda_modifiedSubGraph_skipStep(pid: Int,
+                                                iter: Iterator[EdgeTriplet[SPMapWithActive, Double]])
+                                               (iterTimes:Int,
                                                      partitionSplit: collection.Map[Int,(Int, Int)],
                                                      counter: LongAccumulator):
   Iterator[(VertexId, SPMapWithActive)] = {
@@ -298,9 +298,9 @@ class pregelSSSP (allSource: Broadcast[ArrayBuffer[VertexId]],
     result
   }
 
-  override def lambda_ModifiedSubGraph_MPBI_All(pid: Int,
-                                                iter: Iterator[EdgeTriplet[SPMapWithActive, Double]])
-                                               (iterTimes:Int,
+  override def lambda_modifiedSubGraph_collectAll(pid: Int,
+                                                  iter: Iterator[EdgeTriplet[SPMapWithActive, Double]])
+                                                 (iterTimes:Int,
                                                 partitionSplit: collection.Map[Int,(Int, Int)],
                                                 counter: LongAccumulator):
   Iterator[(VertexId, SPMapWithActive)] = {
@@ -315,6 +315,16 @@ class pregelSSSP (allSource: Broadcast[ArrayBuffer[VertexId]],
       Process.GPUFinalCollect(preVertexLength)
     val result = results.iterator
     result
+  }
+
+  override def lambda_shutDown(pid: Int, iter: Iterator[(VertexId, SPMapWithActive)]): Unit = {
+
+    val Process = new GPUController(pid)
+    var envInit : Boolean = false
+
+    while(! envInit){
+      envInit = Process.GPUShutdown()
+    }
   }
 
 }
