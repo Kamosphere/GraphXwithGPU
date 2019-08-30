@@ -21,7 +21,9 @@ extends Serializable{
 
   def this(pid: Int) = this(0, 0, new ArrayBuffer[VertexId], pid)
 
+  // native interface
   val native = new GPUNativeShm
+
   val sourceSize: Int = sourceList.length
 
   var resultID : Array[Long] = _
@@ -41,6 +43,7 @@ extends Serializable{
     GPUShutdown(0)
     var runningScript = ""
 
+    // running script to activate server
     if (envControl.controller == 0){
       runningScript =
         "/usr/local/ssspexample/cpp_native/build/bin/srv_UtilServerTest_BellmanFordGPU " + vertexSum.toString +
@@ -56,13 +59,13 @@ extends Serializable{
 
     Process(runningScript).run()
 
-    //initialize the source id array
+    // initialize the source id array
     val sourceId = new util.ArrayList[Long](sourceList.length+(sourceList.length>>1))
     for(unit <- sourceList){
       sourceId.add(unit)
     }
 
-    // if not success, it will run
+    // if native method not success, it will run until finished
     var result = false
 
     while(! result){
@@ -77,15 +80,17 @@ extends Serializable{
                     vertexCount: Int):
   (ArrayBuffer[(VertexId, SPMapWithActive)], Boolean) = {
 
+    // create reader list to get input array in shm
     val shmReader = new shmReaderPackager(3)
 
     shmReader.addName(VertexID, vertexCount)
     shmReader.addName(VertexActive, vertexCount)
     shmReader.addName(VertexAttr, vertexCount * sourceSize)
 
+    // create writer list to return shm file names
     val shmWriter = new shmWriterPackager(2)
 
-    // pass vertices through JNI and get result array back
+    // pass reader and writer through JNI
     var underIndex = native.nativeStepMsgExecute(vertexSum,
       shmReader, shmWriter,
       vertexCount, edgeSize, sourceSize, pid)
@@ -93,6 +98,7 @@ extends Serializable{
     val needCombine = if(underIndex <= 0) false else true
     underIndex = math.abs(underIndex)
 
+    // read files in writer list ( already written in c++ )
     val resultIDReader = new shmArrayReaderLong(
       shmWriter.getSizeByUnder(0), shmWriter.getNameByUnder(0))
     val resultAttrReader = new shmArrayReaderDouble(
@@ -117,7 +123,7 @@ extends Serializable{
 
     val shmWriter = new shmWriterPackager(2)
 
-    //pass vertices through JNI and get arrayBuffer back
+    // pass writer through JNI, for the data in the last iter is in the server
     var underIndex = native.nativeSkipStep(vertexSum,
       vertexCount, edgeSize, sourceSize, pid,
       shmWriter)
@@ -149,7 +155,7 @@ extends Serializable{
 
     val shmWriter = new shmWriterPackager(2)
 
-    //pass vertices through JNI and get arrayBuffer back
+    // pass writer through JNI, in order to get last skipped data back
     val underIndex = native.nativeStepFinal(vertexSum,
       vertexCount, edgeSize, sourceSize, pid,
       shmWriter)
@@ -181,6 +187,7 @@ extends Serializable{
     }
     else{
 
+      // remove all shm files in file way
       val k = Files.newDirectoryStream( Paths.get("/dev/shm/") ).iterator()
       var pathTemp: Path = null
       while(k.hasNext){
@@ -193,6 +200,7 @@ extends Serializable{
 
   }
 
+  // package the returned array into iterable data structure
   def vertexMsgPackage(underIndex: Int, activeness: Boolean):
   ArrayBuffer[(VertexId, SPMapWithActive)] = {
 

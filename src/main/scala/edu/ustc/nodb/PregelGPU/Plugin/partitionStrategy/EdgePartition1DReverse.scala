@@ -12,5 +12,5 @@ case object EdgePartition1DReverse extends PartitionStrategy {
     (math.abs(dst * mixingPrime) % numParts).toInt
   }
 
-  // will be used in label Propagation
+  // might be used in label Propagation
 }

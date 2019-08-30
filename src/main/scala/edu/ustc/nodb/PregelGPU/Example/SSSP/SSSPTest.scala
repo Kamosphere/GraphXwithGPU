@@ -1,12 +1,8 @@
 package edu.ustc.nodb.PregelGPU.Example.SSSP
 
-import edu.ustc.nodb.PregelGPU.Algorithm._
 import edu.ustc.nodb.PregelGPU.Algorithm.SSSPshm.pregelSSSPShm
 import edu.ustc.nodb.PregelGPU.Plugin.graphGenerator
-import edu.ustc.nodb.PregelGPU.Plugin.partitionStrategy.EdgePartitionPreSearch
-import edu.ustc.nodb.PregelGPU.{PregelInGPU, envControl}
-import org.apache.spark.graphx.{Edge, Graph, VertexId}
-import org.apache.spark.rdd.RDD
+import edu.ustc.nodb.PregelGPU.{PregelGPU, envControl}
 import org.apache.spark.{SparkConf, SparkContext}
 
 import scala.collection.mutable.ArrayBuffer
@@ -26,7 +22,6 @@ object SSSPTest{
     if(parts.isEmpty) parts =Some(4)
 
     // load graph from file
-
     var sourceFile = ""
     if(envControl.controller == 0){
       sourceFile = "/usr/local/ssspexample/testGraph.txt"
@@ -58,7 +53,7 @@ object SSSPTest{
 
     val startNew = System.nanoTime()
     val ssspAlgo = new pregelSSSPShm(allSourceList, vertexSum, edgeSum, parts.get)
-    val ssspGPUResult = PregelInGPU.run(graph)(ssspAlgo)
+    val ssspGPUResult = PregelGPU.run(graph)(ssspAlgo)
     // val q = ssspGPUResult.vertices.count()
     println(ssspGPUResult.vertices.collect.mkString("\n"))
     val endNew = System.nanoTime()
@@ -68,7 +63,7 @@ object SSSPTest{
     println(endNormal - startNormal)
     println(endNew - startNew)
 
-    PregelInGPU.close(ssspGPUResult, ssspAlgo)
+    PregelGPU.close(ssspGPUResult, ssspAlgo)
 
     val k = StdIn.readInt()
     println(k)

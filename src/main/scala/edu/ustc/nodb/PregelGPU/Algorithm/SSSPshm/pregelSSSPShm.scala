@@ -222,8 +222,7 @@ class pregelSSSPShm(allSource: Broadcast[ArrayBuffer[VertexId]],
     val preVertexLength = preParameter.get._1
     val preEdgeLength = preParameter.get._2
 
-    // vertex data shm name
-
+    // write vertex data into shm files
     val pVertexIDShm = new shmArrayWriterLong(pid, preVertexLength, "")
     val pVertexActiveShm = new shmArrayWriterBoolean(pid, preVertexLength, "")
     val pVertexAttrShm = new shmArrayWriterDouble(pid, preVertexLength * preMap, "")

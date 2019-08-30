@@ -18,7 +18,9 @@ extends Serializable{
 
   def this(pid: Int) = this(0, 0, new ArrayBuffer[VertexId], pid)
 
+  // native interface
   val native = new GPUNative
+
   val sourceSize: Int = sourceList.length
 
   val resultID : Array[Long] = new Array[Long](vertexSum.toInt)
@@ -38,6 +40,7 @@ extends Serializable{
     GPUShutdown()
     var runningScript = ""
 
+    // running script to activate server
     if (envControl.controller == 0){
       runningScript =
         "/usr/local/ssspexample/cpp_native/build/bin/srv_UtilServerTest_BellmanFordGPU " + vertexSum.toString +
@@ -53,13 +56,13 @@ extends Serializable{
 
     Process(runningScript).run()
 
-    //initialize the source id array
+    // initialize the source id array
     val sourceId = new util.ArrayList[Long](sourceList.length+(sourceList.length>>1))
     for(unit <- sourceList){
       sourceId.add(unit)
     }
 
-    // if not success, it will run
+    // if native method not success, it will run until finished
     var result = false
 
     while(! result){

@@ -10,6 +10,7 @@ import scala.util.Random
 
 object graphGenerator {
 
+  // generate log graph
   def logNormalGraph(sc: SparkContext, numbersVertex: Int): Graph[Long, Double] = {
 
     val random = new Random()
@@ -29,6 +30,7 @@ object graphGenerator {
     graph
   }
 
+  // read graph file
   def readFile(sc: SparkContext, sourceFile: String)(implicit parts: Int = 4): Graph[Long, Double] ={
 
     val vertex: RDD[(VertexId, VertexId)] = sc.textFile(sourceFile).map{

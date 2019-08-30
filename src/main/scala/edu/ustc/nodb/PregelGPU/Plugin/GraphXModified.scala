@@ -9,6 +9,8 @@ import scala.reflect.ClassTag
 
 object GraphXModified {
 
+  // advanced version of joinVertices
+  // for data in graph : do mapFunc or defaultFunc
   def joinVerticesOrModify[U: ClassTag, VD:ClassTag, ED:ClassTag](graph: Graph[VD, ED],
                                                                   table: RDD[(VertexId, U)])
                                                                  (mapFunc: (VertexId, VD, U) => VD)
@@ -24,6 +26,7 @@ object GraphXModified {
     graph.outerJoinVertices(table)(uf)
   }
 
+  // Use the graphX way of merging message
   def msgExtract[VD:ClassTag, ED:ClassTag](graph: Graph[VD, ED],
                                            activeSetOpt: Option[(VertexRDD[VD], EdgeDirection)]):
   RDD[EdgeTriplet[VD, ED]] = {

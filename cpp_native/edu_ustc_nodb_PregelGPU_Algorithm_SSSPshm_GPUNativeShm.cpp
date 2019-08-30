@@ -128,11 +128,8 @@ JNIEXPORT jboolean JNICALL Java_edu_ustc_nodb_PregelGPU_Algorithm_SSSPshm_GPUNat
     for (int i = 0; i < lenEdge; i++) {
 
         int jSrcId_get = EdgeSrcTemp[i];
-        //jlong SrcId_get = env->CallLongMethod(jSrcId, longValue);
         int jDstId_get = EdgeDstTemp[i];
-        //jlong DstId_get = env->CallLongMethod(jDstId, longValue);
         double jAttr_get = EdgeAttrTemp[i];
-        //jdouble Attr_get = env->CallDoubleMethod(jAttr, doubleValue);
 
         edges.emplace_back(Edge(jSrcId_get, jDstId_get, jAttr_get));
 
@@ -222,7 +219,7 @@ JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_Algorithm_SSSPshm_GPUNativeS
         vertices.at(execute.initVSet[i]).initVIndex = i;
     }
 
-    // fill vertices attributes
+    // read vertices attributes from shm files
     long* VertexIDTemp;
     bool * VertexActiveTemp;
     double* VertexAttrTemp;
@@ -322,6 +319,7 @@ JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_Algorithm_SSSPshm_GPUNativeS
         }
     }
 
+    // name the returned shm file
     string resultAttrIdentifier = to_string(pid) + "Double" + "Results";
     string resultIdIdentifier = to_string(pid) + "Long" + "Results";
 
@@ -337,6 +335,7 @@ JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_Algorithm_SSSPshm_GPUNativeS
 
     execute.disconnect();
 
+    // fill them into scala object
     bool ifReturnId = env->CallObjectMethod(shmReader, addReaderName, env->NewStringUTF(resultIdIdentifier.c_str()), cPlusReturnId.size());
 
     if(! ifReturnId){

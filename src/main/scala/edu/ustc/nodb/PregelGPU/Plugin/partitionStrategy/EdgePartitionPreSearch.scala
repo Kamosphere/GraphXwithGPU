@@ -9,6 +9,11 @@ import scala.reflect.ClassTag
 import scala.util.Random
 import scala.util.control.Breaks._
 
+// To partition the graph in a topological way, it was addressed
+// search the second jump of neighborhood for landmark, then part them together
+// in order to avoid the sync process in the first several iter
+//
+// Efficiency needs to be improved
 class EdgePartitionPreSearch[VD: ClassTag, ED: ClassTag](g: Graph[VD, ED], landMarks: ArrayBuffer[VertexId]) extends Serializable {
 
   val landMarkVertexIndexed : collection.Map[VertexId, Map[VertexId, Int]] = NeighborCollect.run(g, 2, landMarks)
