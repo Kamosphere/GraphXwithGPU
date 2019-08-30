@@ -32,6 +32,7 @@ extends Serializable{
 
   // before executing, run the server first
   def GPUEnvEdgeInit(filteredVertex: Array[Long],
+                     EdgeCount: Int,
                      EdgeSrc: Array[VertexId],
                      EdgeDst: Array[VertexId],
                      EdgeAttr: Array[Double]):
@@ -44,13 +45,13 @@ extends Serializable{
     if (envControl.controller == 0){
       runningScript =
         "/usr/local/ssspexample/cpp_native/build/bin/srv_UtilServerTest_BellmanFordGPU " + vertexSum.toString +
-          " " + EdgeSrc.length.toString + " " + sourceList.length.toString + " " + pid.toString
+          " " + EdgeCount.toString + " " + sourceList.length.toString + " " + pid.toString
 
     }
     else {
       runningScript =
         "./cpp_native/build/bin/srv_UtilServerTest_BellmanFordGPU " + vertexSum.toString +
-          " " + EdgeSrc.length.toString + " " + sourceList.length.toString + " " + pid.toString
+          " " + EdgeCount.toString + " " + sourceList.length.toString + " " + pid.toString
 
     }
 

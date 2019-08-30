@@ -183,7 +183,7 @@ class pregelSSSP (allSource: Broadcast[ArrayBuffer[VertexId]],
     val startTimeB = System.nanoTime()
 
     val Process = new GPUController(vertexSum, EdgeCount, sourceList, pid)
-    Process.GPUEnvEdgeInit(filteredVertex.toArray,
+    Process.GPUEnvEdgeInit(filteredVertex.toArray, EdgeCount,
         pEdgeSrcIDTemp, pEdgeDstIDTemp, pEdgeAttrTemp)
 
     val (results, needCombine) : (ArrayBuffer[(VertexId, SPMapWithActive)], Boolean) = Process.GPUMsgExecute(

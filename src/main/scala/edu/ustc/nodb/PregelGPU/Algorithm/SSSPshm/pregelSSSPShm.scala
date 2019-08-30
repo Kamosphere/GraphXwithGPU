@@ -124,9 +124,9 @@ class pregelSSSPShm(allSource: Broadcast[ArrayBuffer[VertexId]],
     val pVertexActiveShm = new shmArrayWriterBoolean(pid, preVertexLength, "")
     val pVertexAttrShm = new shmArrayWriterDouble(pid, preVertexLength * preMap, "")
 
-    val pEdgeSrcIDTemp = new Array[Long](preEdgeLength)
-    val pEdgeDstIDTemp = new Array[Long](preEdgeLength)
-    val pEdgeAttrTemp = new Array[Double](preEdgeLength)
+    val pEdgeSrcIDShm = new shmArrayWriterLong(pid, preEdgeLength, "EdgeSrc")
+    val pEdgeDstIDShm = new shmArrayWriterLong(pid, preEdgeLength, "EdgeDst")
+    val pEdgeAttrShm = new shmArrayWriterDouble(pid, preEdgeLength, "EdgeAttr")
     // used to remove the abundant vertices and record outDegree
     val VertexNumList = new mutable.HashMap[Long, Int]
 
@@ -137,9 +137,10 @@ class pregelSSSPShm(allSource: Broadcast[ArrayBuffer[VertexId]],
     while(iter.hasNext){
       temp = iter.next()
 
-      pEdgeSrcIDTemp(EdgeCount)=temp.srcId
-      pEdgeDstIDTemp(EdgeCount)=temp.dstId
-      pEdgeAttrTemp(EdgeCount)=temp.attr
+      pEdgeSrcIDShm.shmArrayWriterSet(temp.srcId)
+      pEdgeDstIDShm.shmArrayWriterSet(temp.dstId)
+      pEdgeAttrShm.shmArrayWriterSet(temp.attr)
+
       EdgeCount = EdgeCount + 1
 
       if(! VertexNumList.contains(temp.srcId)){
@@ -188,7 +189,10 @@ class pregelSSSPShm(allSource: Broadcast[ArrayBuffer[VertexId]],
     val Process = new GPUControllerShm(vertexSum, EdgeCount, sourceList, pid)
 
     Process.GPUEnvEdgeInit(filteredVertex.toArray,
-        pEdgeSrcIDTemp, pEdgeDstIDTemp, pEdgeAttrTemp)
+      EdgeCount,
+      pEdgeSrcIDShm.shmWriterClose(),
+      pEdgeDstIDShm.shmWriterClose(),
+      pEdgeAttrShm.shmWriterClose())
 
     val (results, needCombine)  = Process.GPUMsgExecute(
       pVertexIDShm.shmWriterClose(),

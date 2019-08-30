@@ -10,10 +10,10 @@ extern "C" {
 /*
  * Class:     edu_ustc_nodb_PregelGPU_Algorithm_SSSPshm_GPUNativeShm
  * Method:    nativeEnvEdgeInit
- * Signature: ([JJ[J[J[DLjava/util/ArrayList;I)Z
+ * Signature: ([JJLjava/util/ArrayList;ILedu/ustc/nodb/PregelGPU/Algorithm/SSSPshm/shmManager/shmNamePackager/shmReaderPackager;)Z
  */
 JNIEXPORT jboolean JNICALL Java_edu_ustc_nodb_PregelGPU_Algorithm_SSSPshm_GPUNativeShm_nativeEnvEdgeInit
-  (JNIEnv *, jobject, jlongArray, jlong, jlongArray, jlongArray, jdoubleArray, jobject, jint);
+  (JNIEnv *, jobject, jlongArray, jlong, jobject, jint, jobject);
 
 /*
  * Class:     edu_ustc_nodb_PregelGPU_Algorithm_SSSPshm_GPUNativeShm

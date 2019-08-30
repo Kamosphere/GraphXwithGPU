@@ -3,7 +3,6 @@ package edu.ustc.nodb.PregelGPU.Algorithm.SSSPshm
 import java.util
 
 import edu.ustc.nodb.PregelGPU.Algorithm.SSSPshm.shmManager.shmNamePackager._
-import org.apache.spark.graphx.VertexId
 
 private[SSSPshm] class GPUNativeShm extends Serializable {
 
@@ -12,12 +11,10 @@ private[SSSPshm] class GPUNativeShm extends Serializable {
 
   // native function to init the edge
   @native def nativeEnvEdgeInit(filteredVertex: Array[Long],
-                            vertexSum: Long,
-                            EdgeSrc: Array[VertexId],
-                            EdgeDst: Array[VertexId],
-                            EdgeAttr: Array[Double],
-                            sourceId: util.ArrayList[Long],
-                            pid:Int):
+                                vertexSum: Long,
+                                sourceId: util.ArrayList[Long],
+                                pid: Int,
+                                shmReader: shmReaderPackager):
   Boolean
 
   // native function to execute algorithm

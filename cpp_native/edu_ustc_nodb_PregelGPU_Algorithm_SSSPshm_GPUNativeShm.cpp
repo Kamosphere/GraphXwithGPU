@@ -63,9 +63,7 @@ int writeShm(const string &filename, vector<T> &Arr)
 
 JNIEXPORT jboolean JNICALL Java_edu_ustc_nodb_PregelGPU_Algorithm_SSSPshm_GPUNativeShm_nativeEnvEdgeInit
 (JNIEnv * env, jobject superClass,
-        jlongArray jFilteredVertex,
-        jlong vertexSum, jlongArray jEdgeSrc, jlongArray jEdgeDst, jdoubleArray jEdgeAttr,
-        jobject markId, jint pid){
+        jlongArray jFilteredVertex, jlong vertexSum, jobject markId, jint pid, jobject shmReader){
 
     jclass c_Long = env->FindClass("java/lang/Long");
     jmethodID longValue = env->GetMethodID(c_Long, "longValue", "()J");
@@ -74,15 +72,20 @@ JNIEXPORT jboolean JNICALL Java_edu_ustc_nodb_PregelGPU_Algorithm_SSSPshm_GPUNat
     jmethodID id_ArrayList_size = env->GetMethodID(c_ArrayList, "size", "()I");
     jmethodID id_ArrayList_get = env->GetMethodID(c_ArrayList, "get", "(I)Ljava/lang/Object;");
 
+    jclass readerClass = env->GetObjectClass(shmReader);
+    jmethodID getReaderName = env->GetMethodID(readerClass, "getNameByUnder", "(I)Ljava/lang/String;");
+    jmethodID getReaderSize = env->GetMethodID(readerClass, "getSizeByUnder", "(I)I");
+
+
     //---------Entity---------
 
     int lenMarkID = env->CallIntMethod(markId, id_ArrayList_size);
-    int lenEdge = env->GetArrayLength(jEdgeSrc);
     int lenFiltered = env->GetArrayLength(jFilteredVertex);
 
     int vertexAllSum = static_cast<int>(vertexSum);
     int partitionID = static_cast<int>(pid);
 
+    int chk = 0;
     //Init the Graph with blank vertices
 
     vector<Vertex> vertices = vector<Vertex>();
@@ -117,9 +120,38 @@ JNIEXPORT jboolean JNICALL Java_edu_ustc_nodb_PregelGPU_Algorithm_SSSPshm_GPUNat
     jboolean isCopy = false;
     long* FilteredVertexTemp = env->GetLongArrayElements(jFilteredVertex, &isCopy);
 
-    long* EdgeSrcTemp = env->GetLongArrayElements(jEdgeSrc, &isCopy);
-    long* EdgeDstTemp = env->GetLongArrayElements(jEdgeDst, &isCopy);
-    double * EdgeAttrTemp = env->GetDoubleArrayElements(jEdgeAttr, &isCopy);
+    // read vertices attributes from shm files
+    long* EdgeSrcTemp;
+    long* EdgeDstTemp;
+    double* EdgeAttrTemp;
+
+    string EdgeSrcTempName = jString2String(env, (jstring)env->CallObjectMethod(shmReader, getReaderName, 0));
+    string EdgeDstTempName = jString2String(env, (jstring)env->CallObjectMethod(shmReader, getReaderName, 1));
+    string EdgeAttrTempName = jString2String(env, (jstring)env->CallObjectMethod(shmReader, getReaderName, 2));
+
+    int sizeSrcID = env->CallIntMethod(shmReader, getReaderSize, 0);
+    int sizeDstID = env->CallIntMethod(shmReader, getReaderSize, 1);
+    int sizeAttr = env->CallIntMethod(shmReader, getReaderSize, 2);
+
+    if(sizeSrcID != sizeDstID || sizeDstID != sizeAttr){
+        throwIllegalArgument(env, "Shared memory align corruption");
+    }
+    int lenEdge = sizeAttr;
+
+    chk = openShm(EdgeSrcTempName, sizeSrcID, EdgeSrcTemp);
+    if (chk == -1){
+        throwIllegalArgument(env, "Shared memory corruption");
+    }
+
+    chk = openShm(EdgeDstTempName, sizeDstID, EdgeDstTemp);
+    if (chk == -1){
+        throwIllegalArgument(env, "Shared memory corruption");
+    }
+
+    chk = openShm(EdgeAttrTempName, sizeAttr, EdgeAttrTemp);
+    if (chk == -1){
+        throwIllegalArgument(env, "Shared memory corruption");
+    }
 
     for(int i = 0; i < lenFiltered; i++){
         filteredV[FilteredVertexTemp[i]] = true;
@@ -135,17 +167,12 @@ JNIEXPORT jboolean JNICALL Java_edu_ustc_nodb_PregelGPU_Algorithm_SSSPshm_GPUNat
 
     }
 
-    env->ReleaseLongArrayElements(jEdgeSrc, EdgeSrcTemp, 0);
-    env->ReleaseLongArrayElements(jEdgeDst, EdgeDstTemp, 0);
-    env->ReleaseDoubleArrayElements(jEdgeAttr, EdgeAttrTemp, 0);
 
     initProber detector = initProber(partitionID);
     bool status = detector.run();
     if(! status) return false;
 
     UtilClient<double, double> execute = UtilClient<double, double>(vertexAllSum, lenEdge, lenMarkID, partitionID);
-
-    int chk = 0;
 
     chk = execute.connect();
     if (chk == -1){
@@ -159,7 +186,6 @@ JNIEXPORT jboolean JNICALL Java_edu_ustc_nodb_PregelGPU_Algorithm_SSSPshm_GPUNat
         throwIllegalArgument(env, "Cannot transfer with server correctly");
         return false;
     }
-
     execute.disconnect();
 
     return true;
@@ -168,15 +194,15 @@ JNIEXPORT jboolean JNICALL Java_edu_ustc_nodb_PregelGPU_Algorithm_SSSPshm_GPUNat
 
 JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_Algorithm_SSSPshm_GPUNativeShm_nativeStepMsgExecute
 (JNIEnv * env, jobject superClass,
-        jlong vertexSum, jobject shmWriter, jobject shmReader,
+        jlong vertexSum, jobject shmReader, jobject shmWriter,
         jint vertexCount, jint edgeCount, jint markIdLen, jint pid){
 
-    jclass writerClass = env->GetObjectClass(shmWriter);
-    jmethodID getWriterName = env->GetMethodID(writerClass, "getNameByUnder", "(I)Ljava/lang/String;");
-    jmethodID getWriterSize = env->GetMethodID(writerClass, "getSizeByUnder", "(I)I");
-
     jclass readerClass = env->GetObjectClass(shmReader);
-    jmethodID addReaderName = env->GetMethodID(readerClass, "addName", "(Ljava/lang/String;I)Z");
+    jmethodID getReaderName = env->GetMethodID(readerClass, "getNameByUnder", "(I)Ljava/lang/String;");
+    jmethodID getReaderSize = env->GetMethodID(readerClass, "getSizeByUnder", "(I)I");
+
+    jclass writerClass = env->GetObjectClass(shmWriter);
+    jmethodID addWriterName = env->GetMethodID(writerClass, "addName", "(Ljava/lang/String;I)Z");
 
     //---------Debug tools---------
 
@@ -224,13 +250,13 @@ JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_Algorithm_SSSPshm_GPUNativeS
     bool * VertexActiveTemp;
     double* VertexAttrTemp;
 
-    string VertexIDTempName = jString2String(env, (jstring)env->CallObjectMethod(shmWriter, getWriterName, 0));
-    string VertexActiveTempName = jString2String(env, (jstring)env->CallObjectMethod(shmWriter, getWriterName, 1));
-    string VertexAttrTempName = jString2String(env, (jstring)env->CallObjectMethod(shmWriter, getWriterName, 2));
+    string VertexIDTempName = jString2String(env, (jstring)env->CallObjectMethod(shmReader, getReaderName, 0));
+    string VertexActiveTempName = jString2String(env, (jstring)env->CallObjectMethod(shmReader, getReaderName, 1));
+    string VertexAttrTempName = jString2String(env, (jstring)env->CallObjectMethod(shmReader, getReaderName, 2));
 
-    int sizeID = env->CallIntMethod(shmWriter, getWriterSize, 0);
-    int sizeActive = env->CallIntMethod(shmWriter, getWriterSize, 1);
-    int sizeAttr = env->CallIntMethod(shmWriter, getWriterSize, 2);
+    int sizeID = env->CallIntMethod(shmReader, getReaderSize, 0);
+    int sizeActive = env->CallIntMethod(shmReader, getReaderSize, 1);
+    int sizeAttr = env->CallIntMethod(shmReader, getReaderSize, 2);
 
     chk = openShm(VertexIDTempName, sizeID, VertexIDTemp);
     if (chk == -1){
@@ -336,13 +362,13 @@ JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_Algorithm_SSSPshm_GPUNativeS
     execute.disconnect();
 
     // fill them into scala object
-    bool ifReturnId = env->CallObjectMethod(shmReader, addReaderName, env->NewStringUTF(resultIdIdentifier.c_str()), cPlusReturnId.size());
+    bool ifReturnId = env->CallObjectMethod(shmWriter, addWriterName, env->NewStringUTF(resultIdIdentifier.c_str()), cPlusReturnId.size());
 
     if(! ifReturnId){
         throwIllegalArgument(env, "Cannot write back identifier");
     }
 
-    bool ifReturnAttr = env->CallObjectMethod(shmReader, addReaderName, env->NewStringUTF(resultAttrIdentifier.c_str()), cPlusReturnAttr.size());
+    bool ifReturnAttr = env->CallObjectMethod(shmWriter, addWriterName, env->NewStringUTF(resultAttrIdentifier.c_str()), cPlusReturnAttr.size());
 
     if(! ifReturnAttr){
         throwIllegalArgument(env, "Cannot write back identifier");
@@ -369,12 +395,12 @@ JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_Algorithm_SSSPshm_GPUNativeS
 
 JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_Algorithm_SSSPshm_GPUNativeShm_nativeSkipStep
         (JNIEnv * env, jobject superClass,
-                jlong vertexSum, jint vertexLen, jint edgeLen, jint markIdLen, jint pid, jobject shmReader){
+                jlong vertexSum, jint vertexLen, jint edgeLen, jint markIdLen, jint pid, jobject shmWriter){
 
     auto startTimeB = std::chrono::high_resolution_clock::now();
 
-    jclass readerClass = env->GetObjectClass(shmReader);
-    jmethodID addReaderName = env->GetMethodID(readerClass, "addName", "(Ljava/lang/String;I)Z");
+    jclass writerClass = env->GetObjectClass(shmWriter);
+    jmethodID addWriterName = env->GetMethodID(writerClass, "addName", "(Ljava/lang/String;I)Z");
 
     int vertexAllSum = static_cast<int>(vertexSum);
     int partitionID = static_cast<int>(pid);
@@ -426,13 +452,13 @@ JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_Algorithm_SSSPshm_GPUNativeS
 
     execute.disconnect();
 
-    bool ifReturnId = env->CallObjectMethod(shmReader, addReaderName, env->NewStringUTF(resultIdIdentifier.c_str()), cPlusReturnId.size());
+    bool ifReturnId = env->CallObjectMethod(shmWriter, addWriterName, env->NewStringUTF(resultIdIdentifier.c_str()), cPlusReturnId.size());
 
     if(! ifReturnId){
         throwIllegalArgument(env, "Cannot write back identifier");
     }
 
-    bool ifReturnAttr = env->CallObjectMethod(shmReader, addReaderName, env->NewStringUTF(resultAttrIdentifier.c_str()), cPlusReturnAttr.size());
+    bool ifReturnAttr = env->CallObjectMethod(shmWriter, addWriterName, env->NewStringUTF(resultAttrIdentifier.c_str()), cPlusReturnAttr.size());
 
     if(! ifReturnAttr){
         throwIllegalArgument(env, "Cannot write back identifier");
@@ -455,12 +481,12 @@ JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_Algorithm_SSSPshm_GPUNativeS
 
 JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_Algorithm_SSSPshm_GPUNativeShm_nativeStepFinal
         (JNIEnv * env, jobject superClass,
-                jlong vertexSum, jint vertexLen, jint edgeLen, jint markIdLen, jint pid, jobject shmReader) {
+                jlong vertexSum, jint vertexLen, jint edgeLen, jint markIdLen, jint pid, jobject shmWriter) {
 
     auto startTimeB = std::chrono::high_resolution_clock::now();
 
-    jclass readerClass = env->GetObjectClass(shmReader);
-    jmethodID addReaderName = env->GetMethodID(readerClass, "addName", "(Ljava/lang/String;I)Z");
+    jclass writerClass = env->GetObjectClass(shmWriter);
+    jmethodID addWriterName = env->GetMethodID(writerClass, "addName", "(Ljava/lang/String;I)Z");
 
     int vertexAllSum = static_cast<int>(vertexSum);
     int partitionID = static_cast<int>(pid);
@@ -504,13 +530,13 @@ JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_Algorithm_SSSPshm_GPUNativeS
 
     execute.disconnect();
 
-    bool ifReturnId = env->CallObjectMethod(shmReader, addReaderName, env->NewStringUTF(resultIdIdentifier.c_str()), cPlusReturnId.size());
+    bool ifReturnId = env->CallObjectMethod(shmWriter, addWriterName, env->NewStringUTF(resultIdIdentifier.c_str()), cPlusReturnId.size());
 
     if(! ifReturnId){
         throwIllegalArgument(env, "Cannot write back identifier");
     }
 
-    bool ifReturnAttr = env->CallObjectMethod(shmReader, addReaderName, env->NewStringUTF(resultAttrIdentifier.c_str()), cPlusReturnAttr.size());
+    bool ifReturnAttr = env->CallObjectMethod(shmWriter, addWriterName, env->NewStringUTF(resultAttrIdentifier.c_str()), cPlusReturnAttr.size());
 
     if(! ifReturnAttr){
         throwIllegalArgument(env, "Cannot write back identifier");

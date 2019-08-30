@@ -13,7 +13,7 @@ import scala.collection.mutable.ArrayBuffer
 import scala.sys.process.Process
 
 class GPUControllerShm(vertexSum: Long,
-                       edgeSize: Int,
+                       edgeCount: Int,
                        sourceList: ArrayBuffer[VertexId],
                        pid :Int)
 
@@ -35,9 +35,10 @@ extends Serializable{
 
   // before executing, run the server first
   def GPUEnvEdgeInit(filteredVertex: Array[Long],
-                     EdgeSrc: Array[VertexId],
-                     EdgeDst: Array[VertexId],
-                     EdgeAttr: Array[Double]):
+                     EdgeCount: Int,
+                     EdgeSrc: String,
+                     EdgeDst: String,
+                     EdgeAttr: String):
   Unit = {
 
     GPUShutdown(0)
@@ -47,13 +48,13 @@ extends Serializable{
     if (envControl.controller == 0){
       runningScript =
         "/usr/local/ssspexample/cpp_native/build/bin/srv_UtilServerTest_BellmanFordGPU " + vertexSum.toString +
-          " " + EdgeSrc.length.toString + " " + sourceList.length.toString + " " + pid.toString
+          " " + EdgeCount.toString + " " + sourceList.length.toString + " " + pid.toString
 
     }
     else {
       runningScript =
         "./cpp_native/build/bin/srv_UtilServerTest_BellmanFordGPU " + vertexSum.toString +
-          " " + EdgeSrc.length.toString + " " + sourceList.length.toString + " " + pid.toString
+          " " + EdgeCount.toString + " " + sourceList.length.toString + " " + pid.toString
 
     }
 
@@ -68,8 +69,14 @@ extends Serializable{
     // if native method not success, it will run until finished
     var result = false
 
+    val shmReader = new shmReaderPackager(3)
+
+    shmReader.addName(EdgeSrc, edgeCount)
+    shmReader.addName(EdgeDst, edgeCount)
+    shmReader.addName(EdgeAttr, edgeCount)
+
     while(! result){
-      result = native.nativeEnvEdgeInit(filteredVertex, vertexSum, EdgeSrc, EdgeDst, EdgeAttr, sourceId, pid)
+      result = native.nativeEnvEdgeInit(filteredVertex, vertexSum, sourceId, pid, shmReader)
     }
   }
 
@@ -93,7 +100,7 @@ extends Serializable{
     // pass reader and writer through JNI
     var underIndex = native.nativeStepMsgExecute(vertexSum,
       shmReader, shmWriter,
-      vertexCount, edgeSize, sourceSize, pid)
+      vertexCount, edgeCount, sourceSize, pid)
 
     val needCombine = if(underIndex <= 0) false else true
     underIndex = math.abs(underIndex)
@@ -125,7 +132,7 @@ extends Serializable{
 
     // pass writer through JNI, for the data in the last iter is in the server
     var underIndex = native.nativeSkipStep(vertexSum,
-      vertexCount, edgeSize, sourceSize, pid,
+      vertexCount, edgeCount, sourceSize, pid,
       shmWriter)
 
     val needCombine = if(underIndex <= 0) false else true
@@ -157,7 +164,7 @@ extends Serializable{
 
     // pass writer through JNI, in order to get last skipped data back
     val underIndex = native.nativeStepFinal(vertexSum,
-      vertexCount, edgeSize, sourceSize, pid,
+      vertexCount, edgeCount, sourceSize, pid,
       shmWriter)
 
     val resultIDReader = new shmArrayReaderLong(
