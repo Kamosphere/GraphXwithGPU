@@ -1,8 +1,8 @@
 package edu.ustc.nodb.PregelGPU
 
-import edu.ustc.nodb.PregelGPU.Algorithm.lambdaTemplete
-import edu.ustc.nodb.PregelGPU.Plugin.GraphXModified
-import edu.ustc.nodb.PregelGPU.Plugin.partitionStrategy.EdgePartition1DReverse
+import edu.ustc.nodb.PregelGPU.algorithm.lambdaTemplate
+import edu.ustc.nodb.PregelGPU.plugin.GraphXModified
+import edu.ustc.nodb.PregelGPU.plugin.partitionStrategy.EdgePartition1DReverse
 import org.apache.spark.{SparkConf, TaskContext}
 import org.apache.spark.graphx._
 import org.apache.spark.rdd.RDD
@@ -13,7 +13,7 @@ object PregelGPU{
 
   def run[VD: ClassTag, ED: ClassTag](graph: Graph[VertexId, ED],
                                       maxIterations: Int = Int.MaxValue)
-                                     (algorithm: lambdaTemplete[VD, ED])
+                                     (algorithm: lambdaTemplate[VD, ED])
   : Graph[VD, ED] = {
 
     // initiate the graph
@@ -159,7 +159,7 @@ object PregelGPU{
   }
 
   // after running algorithm, close the server
-  def close[VD: ClassTag, ED: ClassTag](Graph: Graph[VD, ED], algorithm: lambdaTemplete[VD, ED]): Unit = {
+  def close[VD: ClassTag, ED: ClassTag](Graph: Graph[VD, ED], algorithm: lambdaTemplate[VD, ED]): Unit = {
 
     Graph.vertices.foreachPartition(g => {
       val pid = TaskContext.getPartitionId()

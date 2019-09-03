@@ -42,8 +42,8 @@ endif()
 
 
 add_library(PregelGPU SHARED
-        edu_ustc_nodb_PregelGPU_Algorithm_SSSP_GPUNative.h
-        edu_ustc_nodb_PregelGPU_Algorithm_SSSP_GPUNative.cpp)
+        edu_ustc_nodb_PregelGPU_algorithm_SSSP_GPUNative.h
+        edu_ustc_nodb_PregelGPU_algorithm_SSSP_GPUNative.cpp)
 
 target_link_libraries(PregelGPU
         srv_UtilClient
@@ -51,8 +51,8 @@ target_link_libraries(PregelGPU
         JNIPlugin)
 
 add_library(PregelGPUShm SHARED
-        edu_ustc_nodb_PregelGPU_Algorithm_SSSPshm_GPUNativeShm.h
-        edu_ustc_nodb_PregelGPU_Algorithm_SSSPshm_GPUNativeShm.cpp)
+        edu_ustc_nodb_PregelGPU_algorithm_SSSPshm_GPUNativeShm.h
+        edu_ustc_nodb_PregelGPU_algorithm_SSSPshm_GPUNativeShm.cpp)
 
 target_link_libraries(PregelGPUShm
         srv_UtilClient
