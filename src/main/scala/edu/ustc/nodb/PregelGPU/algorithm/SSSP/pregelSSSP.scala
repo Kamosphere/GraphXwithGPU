@@ -16,21 +16,12 @@ class pregelSSSP (allSource: Broadcast[ArrayBuffer[VertexId]],
                   edgeSum: Long,
                   parts: Int) extends lambdaTemplate[SPMapWithActive, Double]{
 
+  // scalastyle:off println
+
   override def repartition(g: Graph[SPMapWithActive, Double]): Graph[SPMapWithActive, Double] = {
 
     val partitionMethod = new EdgePartitionPreSearch(g, allSource.value)
-    val afterG = partitionMethod.generateMappedGraph()
-    /*afterG.triplets.foreachPartition(v => {
-      val pid = TaskContext.getPartitionId()
-      var count = 0
-      while(v.hasNext){
-        val temp = v.next()
-        count = count + 1
-        println(temp.srcId + " to " + temp.dstId + " is in " + pid.toString)
-      }
-      println(count + " for after graph")
-    })*/
-    afterG
+    partitionMethod.generateMappedGraph()
   }
 
   override def lambda_initGraph(vid: VertexId, attr: VertexId): SPMapWithActive = {
@@ -56,43 +47,45 @@ class pregelSSSP (allSource: Broadcast[ArrayBuffer[VertexId]],
 
     val b = v2._1
     val result : mutable.LinkedHashMap[Long, Double] = v1._2++v2._2.map{
-      case (k,r) => k->math.min(r,v1._2.getOrElse(k, Double.PositiveInfinity))
+      case (k, r) => k -> math.min(r, v1._2.getOrElse(k, Double.PositiveInfinity))
     }
-    (b,result)
+    (b, result)
   }
 
   override def lambda_JoinVerticesDefaultSecond(v1: SPMapWithActive):
-  SPMapWithActive = (false,v1._2)
+  SPMapWithActive = (false, v1._2)
 
-  override def lambda_ReduceByKey(v1: SPMapWithActive,
-                                  v2: SPMapWithActive):
+  override def lambda_ReduceByKey
+  (v1: SPMapWithActive,
+   v2: SPMapWithActive):
   SPMapWithActive = {
 
     val b = v1._1 | v2._1
     val result : mutable.LinkedHashMap[Long, Double] = v1._2++v2._2.map{
-      case (k,r) => k->math.min(r,v1._2.getOrElse(k, Double.PositiveInfinity))
+      case (k, r) => k -> math.min(r, v1._2.getOrElse(k, Double.PositiveInfinity))
     }
-    (b,result)
+    (b, result)
 
   }
 
-  override def lambda_partitionSplit(pid: Int,
-                                     iter: Iterator[EdgeTriplet[SPMapWithActive,Double]]):
+  override def lambda_partitionSplit
+  (pid: Int,
+   iter: Iterator[EdgeTriplet[SPMapWithActive, Double]]):
   Iterator[(Int, (Int, Int))] = {
 
     var EdgeNum = 0
     var VertexNum = 0
     val VertexNumList = new util.HashSet[Long]
-    var temp : EdgeTriplet[SPMapWithActive,Double] = null
+    var temp : EdgeTriplet[SPMapWithActive, Double] = null
 
-    while(iter.hasNext){
+    while(iter.hasNext) {
       temp = iter.next()
       EdgeNum = EdgeNum + 1
-      if(! VertexNumList.contains(temp.srcId)){
+      if(! VertexNumList.contains(temp.srcId)) {
         VertexNumList.add(temp.srcId)
         VertexNum = VertexNum + 1
       }
-      if(! VertexNumList.contains(temp.dstId)){
+      if(! VertexNumList.contains(temp.dstId)) {
         VertexNumList.add(temp.dstId)
         VertexNum = VertexNum + 1
       }
@@ -102,12 +95,13 @@ class pregelSSSP (allSource: Broadcast[ArrayBuffer[VertexId]],
 
   }
 
-  override def lambda_ModifiedSubGraph_repartitionIter(pid: Int,
-                                                       iter: Iterator[EdgeTriplet[SPMapWithActive,Double]])
-                                                      (iterTimes:Int,
-                                                           countOutDegree: collection.Map[VertexId, Int],
-                                                           partitionSplit: collection.Map[Int,(Int, Int)],
-                                                           counter: LongAccumulator):
+  override def lambda_ModifiedSubGraph_repartitionIter
+  (pid: Int,
+   iter: Iterator[EdgeTriplet[SPMapWithActive, Double]])
+  (iterTimes: Int,
+   countOutDegree: collection.Map[VertexId, Int],
+   partitionSplit: collection.Map[Int, (Int, Int)],
+   counter: LongAccumulator):
   Iterator[(VertexId, SPMapWithActive)] = {
 
     val startTimeA = System.nanoTime()
@@ -128,25 +122,25 @@ class pregelSSSP (allSource: Broadcast[ArrayBuffer[VertexId]],
     // used to remove the abundant vertices and record outDegree
     val VertexNumList = new mutable.HashMap[Long, Int]
 
-    var temp : EdgeTriplet[SPMapWithActive,Double] = null
+    var temp : EdgeTriplet[SPMapWithActive, Double] = null
     var VertexCount = 0
     var EdgeCount = 0
 
-    while(iter.hasNext){
+    while(iter.hasNext) {
       temp = iter.next()
 
-      pEdgeSrcIDTemp(EdgeCount)=temp.srcId
-      pEdgeDstIDTemp(EdgeCount)=temp.dstId
-      pEdgeAttrTemp(EdgeCount)=temp.attr
+      pEdgeSrcIDTemp(EdgeCount) = temp.srcId
+      pEdgeDstIDTemp(EdgeCount) = temp.dstId
+      pEdgeAttrTemp(EdgeCount) = temp.attr
       EdgeCount = EdgeCount + 1
 
-      if(! VertexNumList.contains(temp.srcId)){
-        pVertexIDTemp(VertexCount)=temp.srcId
-        pVertexActiveTemp(VertexCount)=temp.srcAttr._1
+      if(! VertexNumList.contains(temp.srcId)) {
+        pVertexIDTemp(VertexCount) = temp.srcId
+        pVertexActiveTemp(VertexCount) = temp.srcAttr._1
         VertexNumList.put(temp.srcId, 1)
         // the order of sourceList in array is guarded by linkedHashMap
         var index = 0
-        for(part <- temp.srcAttr._2.values){
+        for(part <- temp.srcAttr._2.values) {
           pVertexAttrTemp(VertexCount * preMap + index) = part
           index = index + 1
         }
@@ -157,13 +151,13 @@ class pregelSSSP (allSource: Broadcast[ArrayBuffer[VertexId]],
         VertexNumList.update(temp.srcId, countTracker + 1)
       }
 
-      if(! VertexNumList.contains(temp.dstId)){
-        pVertexIDTemp(VertexCount)=temp.dstId
-        pVertexActiveTemp(VertexCount)=temp.dstAttr._1
+      if(! VertexNumList.contains(temp.dstId)) {
+        pVertexIDTemp(VertexCount) = temp.dstId
+        pVertexActiveTemp(VertexCount) = temp.dstAttr._1
         VertexNumList.put(temp.dstId, 0)
         // the order of sourceList in array is guarded by linkedHashMap
         var index = 0
-        for(part <- temp.dstAttr._2.values){
+        for(part <- temp.dstAttr._2.values) {
           pVertexAttrTemp(VertexCount * preMap + index) = part
           index = index + 1
         }
@@ -172,9 +166,9 @@ class pregelSSSP (allSource: Broadcast[ArrayBuffer[VertexId]],
     }
 
     val filteredVertex = new ArrayBuffer[Long]
-    for(part <- VertexNumList){
-      if(countOutDegree.getOrElse(part._1, -1) == part._2){
-        filteredVertex.+=(part._1)
+    for (part <- VertexNumList) {
+      if (countOutDegree.getOrElse(part._1, -1) == part._2) {
+        filteredVertex. += (part._1)
       }
     }
 
@@ -184,26 +178,29 @@ class pregelSSSP (allSource: Broadcast[ArrayBuffer[VertexId]],
 
     val Process = new GPUController(vertexSum, EdgeCount, sourceList, pid)
     Process.GPUEnvEdgeInit(filteredVertex.toArray, EdgeCount,
-        pEdgeSrcIDTemp, pEdgeDstIDTemp, pEdgeAttrTemp)
+      pEdgeSrcIDTemp, pEdgeDstIDTemp, pEdgeAttrTemp)
 
-    val (results, needCombine) : (ArrayBuffer[(VertexId, SPMapWithActive)], Boolean) = Process.GPUMsgExecute(
+    val (results, needCombine) = Process.GPUMsgExecute(
       pVertexIDTemp, pVertexActiveTemp, pVertexAttrTemp, VertexCount)
     val result = results.iterator
-    if(needCombine){
+    if(needCombine) {
       counter.add(1)
     }
 
     val endTimeB = System.nanoTime()
 
-    println("In iter 0 of part" + pid + ", Collecting data time: " + (endTimeA - startTimeA) + " Processing time: " + (endTimeB - startTimeB))
+    println("In iter 0 of part" + pid + ", Collecting data time: "
+      + (endTimeA - startTimeA) + " Processing time: "
+      + (endTimeB - startTimeB))
     result
   }
 
-  override def lambda_ModifiedSubGraph_normalIter(pid: Int,
-                                                  iter: Iterator[EdgeTriplet[SPMapWithActive,Double]])
-                                                 (iterTimes:Int,
-                                                                 partitionSplit: collection.Map[Int,(Int, Int)],
-                                                                 counter: LongAccumulator):
+  override def lambda_ModifiedSubGraph_normalIter
+  (pid: Int,
+   iter: Iterator[EdgeTriplet[SPMapWithActive, Double]])
+  (iterTimes: Int,
+   partitionSplit: collection.Map[Int, (Int, Int)],
+   counter: LongAccumulator):
   Iterator[(VertexId, SPMapWithActive)] = {
 
     val startTimeA = System.nanoTime()
@@ -221,35 +218,35 @@ class pregelSSSP (allSource: Broadcast[ArrayBuffer[VertexId]],
     // used to remove the abundant vertices
     val VertexNumList = new util.HashSet[Long](preVertexLength)
 
-    var temp : EdgeTriplet[SPMapWithActive,Double] = null
+    var temp : EdgeTriplet[SPMapWithActive, Double] = null
     var VertexCount = 0
     var EdgeCount = 0
 
-    while(iter.hasNext){
+    while(iter.hasNext) {
       temp = iter.next()
 
-      if(temp.srcAttr._1){
+      if(temp.srcAttr._1) {
         EdgeCount = EdgeCount + 1
 
-        if(! VertexNumList.contains(temp.srcId)){
-          pVertexIDTemp(VertexCount)=temp.srcId
-          pVertexActiveTemp(VertexCount)=temp.srcAttr._1
+        if(! VertexNumList.contains(temp.srcId)) {
+          pVertexIDTemp(VertexCount) = temp.srcId
+          pVertexActiveTemp(VertexCount) = temp.srcAttr._1
           VertexNumList.add(temp.srcId)
           // the order of sourceList in array is guarded by linkedHashMap
           var index = 0
-          for(part <- temp.srcAttr._2.values){
+          for(part <- temp.srcAttr._2.values) {
             pVertexAttrTemp(VertexCount * preMap + index) = part
             index = index + 1
           }
           VertexCount = VertexCount + 1
         }
-        if(! VertexNumList.contains(temp.dstId)){
-          pVertexIDTemp(VertexCount)=temp.dstId
-          pVertexActiveTemp(VertexCount)=temp.dstAttr._1
+        if(! VertexNumList.contains(temp.dstId)) {
+          pVertexIDTemp(VertexCount) = temp.dstId
+          pVertexActiveTemp(VertexCount) = temp.dstAttr._1
           VertexNumList.add(temp.dstId)
           // the order of sourceList in array is guarded by linkedHashMap
           var index = 0
-          for(part <- temp.dstAttr._2.values){
+          for(part <- temp.dstAttr._2.values) {
             pVertexAttrTemp(VertexCount * preMap + index) = part
             index = index + 1
           }
@@ -262,9 +259,9 @@ class pregelSSSP (allSource: Broadcast[ArrayBuffer[VertexId]],
     val startTimeB = System.nanoTime()
 
     val Process = new GPUController(vertexSum, preEdgeLength, sourceList, pid)
-    val (results, needCombine) : (ArrayBuffer[(VertexId, SPMapWithActive)], Boolean) = Process.GPUMsgExecute(
+    val (results, needCombine) = Process.GPUMsgExecute(
       pVertexIDTemp, pVertexActiveTemp, pVertexAttrTemp, VertexCount)
-    if(needCombine){
+    if(needCombine) {
       counter.add(1)
     }
 
@@ -272,15 +269,18 @@ class pregelSSSP (allSource: Broadcast[ArrayBuffer[VertexId]],
 
     val endTimeB = System.nanoTime()
 
-    println("In iter "+ iterTimes + " of part" + pid + ", Collecting data time: " + (endTimeA - startTimeA) + " Processing time: " + (endTimeB - startTimeB))
+    println("In iter " + iterTimes + " of part" + pid + ", Collecting data time: "
+      + (endTimeA - startTimeA) + " Processing time: "
+      + (endTimeB - startTimeB))
     result
   }
 
-  override def lambda_modifiedSubGraph_skipStep(pid: Int,
-                                                iter: Iterator[EdgeTriplet[SPMapWithActive, Double]])
-                                               (iterTimes:Int,
-                                                     partitionSplit: collection.Map[Int,(Int, Int)],
-                                                     counter: LongAccumulator):
+  override def lambda_modifiedSubGraph_skipStep
+  (pid: Int,
+   iter: Iterator[EdgeTriplet[SPMapWithActive, Double]])
+  (iterTimes: Int,
+   partitionSplit: collection.Map[Int, (Int, Int)],
+   counter: LongAccumulator):
   Iterator[(VertexId, SPMapWithActive)] = {
 
     val preParameter = partitionSplit.get(pid)
@@ -289,8 +289,7 @@ class pregelSSSP (allSource: Broadcast[ArrayBuffer[VertexId]],
     val sourceList = allSource.value
 
     val Process = new GPUController(vertexSum, preEdgeLength, sourceList, pid)
-    val (results, needCombine): (ArrayBuffer[(VertexId, SPMapWithActive)], Boolean) =
-      Process.GPUIterSkipCollect(preVertexLength)
+    val (results, needCombine) = Process.GPUIterSkipCollect(preVertexLength)
     if (needCombine) {
       counter.add(1)
     }
@@ -298,11 +297,12 @@ class pregelSSSP (allSource: Broadcast[ArrayBuffer[VertexId]],
     result
   }
 
-  override def lambda_modifiedSubGraph_collectAll(pid: Int,
-                                                  iter: Iterator[EdgeTriplet[SPMapWithActive, Double]])
-                                                 (iterTimes:Int,
-                                                partitionSplit: collection.Map[Int,(Int, Int)],
-                                                counter: LongAccumulator):
+  override def lambda_modifiedSubGraph_collectAll
+  (pid: Int,
+   iter: Iterator[EdgeTriplet[SPMapWithActive, Double]])
+  (iterTimes: Int,
+   partitionSplit: collection.Map[Int, (Int, Int)],
+   counter: LongAccumulator):
   Iterator[(VertexId, SPMapWithActive)] = {
 
     val preParameter = partitionSplit.get(pid)
@@ -311,20 +311,21 @@ class pregelSSSP (allSource: Broadcast[ArrayBuffer[VertexId]],
     val sourceList = allSource.value
 
     val Process = new GPUController(vertexSum, preEdgeLength, sourceList, pid)
-    val results : ArrayBuffer[(VertexId, SPMapWithActive)] =
-      Process.GPUFinalCollect(preVertexLength)
+    val results = Process.GPUFinalCollect(preVertexLength)
     val result = results.iterator
     result
   }
 
-  override def lambda_shutDown(pid: Int, iter: Iterator[(VertexId, SPMapWithActive)]): Unit = {
+  override def lambda_shutDown
+  (pid: Int, iter: Iterator[(VertexId, SPMapWithActive)]): Unit = {
 
     val Process = new GPUController(pid)
     var envInit : Boolean = false
 
-    while(! envInit){
+    while(! envInit) {
       envInit = Process.GPUShutdown()
     }
   }
 
+  // scalastyle:on println
 }

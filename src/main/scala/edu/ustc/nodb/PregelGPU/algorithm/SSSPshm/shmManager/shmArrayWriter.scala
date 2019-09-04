@@ -11,17 +11,19 @@ abstract class shmArrayWriter(preAllocateSize: Int)
 
   var shmName : String
 
-  lazy val channel : FileChannel = Files.newByteChannel(Paths.get("/dev/shm/" + shmName),
+  lazy val channel : FileChannel
+  = Files.newByteChannel(Paths.get("/dev/shm/" + shmName),
     StandardOpenOption.READ, StandardOpenOption.WRITE, StandardOpenOption.CREATE)
     .asInstanceOf[FileChannel]
-  lazy val buffer : MappedByteBuffer = channel.map(FileChannel.MapMode.READ_WRITE, 0, preAllocateSize * dataTypeSize)
+
+  lazy val buffer : MappedByteBuffer
+  = channel.map(FileChannel.MapMode.READ_WRITE, 0, preAllocateSize * dataTypeSize)
 
 
   def shmWriterClose(): String = {
-
     // write the remained data
     buffer.force()
-    if(channel.isOpen){
+    if (channel.isOpen) {
       channel.close()
     }
 

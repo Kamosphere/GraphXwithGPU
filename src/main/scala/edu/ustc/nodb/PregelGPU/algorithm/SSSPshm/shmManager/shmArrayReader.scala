@@ -11,14 +11,16 @@ abstract class shmArrayReader(readSize: Int)
 
   var shmName : String
 
-  lazy val channel : FileChannel = Files.newByteChannel(Paths.get("/dev/shm/" + shmName),
+  lazy val channel : FileChannel
+  = Files.newByteChannel(Paths.get("/dev/shm/" + shmName),
     StandardOpenOption.READ)
     .asInstanceOf[FileChannel]
-  lazy val buffer : MappedByteBuffer = channel.map(FileChannel.MapMode.READ_ONLY, 0, readSize * dataTypeSize)
+
+  lazy val buffer : MappedByteBuffer
+  = channel.map(FileChannel.MapMode.READ_ONLY, 0, readSize * dataTypeSize)
 
   def shmReaderClose(): Unit = {
-
-    if(channel.isOpen){
+    if (channel.isOpen) {
       channel.close()
     }
 

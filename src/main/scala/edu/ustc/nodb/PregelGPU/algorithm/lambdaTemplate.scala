@@ -24,28 +24,28 @@ trait lambdaTemplate[VD, ED] extends Serializable {
   (pid: Int, iter: Iterator[EdgeTriplet[VD, ED]])
   (iterTimes: Int,
    countOutDegree: collection.Map[VertexId, Int],
-   partitionSplit: collection.Map[Int,(Int, Int)],
+   partitionSplit: collection.Map[Int, (Int, Int)],
    counter: LongAccumulator):
   Iterator[(VertexId, VD)]
 
   def lambda_ModifiedSubGraph_normalIter
   (pid: Int, iter: Iterator[EdgeTriplet[VD, ED]])
   (iterTimes: Int,
-   partitionSplit: collection.Map[Int,(Int, Int)],
+   partitionSplit: collection.Map[Int, (Int, Int)],
    counter: LongAccumulator):
   Iterator[(VertexId, VD)]
 
   def lambda_modifiedSubGraph_skipStep
   (pid: Int, iter: Iterator[EdgeTriplet[VD, ED]])
   (iterTimes: Int,
-   partitionSplit: collection.Map[Int,(Int, Int)],
+   partitionSplit: collection.Map[Int, (Int, Int)],
    counter: LongAccumulator):
   Iterator[(VertexId, VD)]
 
   def lambda_modifiedSubGraph_collectAll
   (pid: Int, iter: Iterator[EdgeTriplet[VD, ED]])
-  (iterTimes:Int,
-   partitionSplit: collection.Map[Int,(Int, Int)],
+  (iterTimes: Int,
+   partitionSplit: collection.Map[Int, (Int, Int)],
    counter: LongAccumulator):
   Iterator[(VertexId, VD)]
 

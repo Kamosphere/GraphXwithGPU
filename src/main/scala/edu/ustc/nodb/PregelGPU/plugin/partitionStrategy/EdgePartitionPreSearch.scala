@@ -9,29 +9,35 @@ import scala.reflect.ClassTag
 import scala.util.Random
 import scala.util.control.Breaks._
 
-// To partition the graph in a topological way, it was addressed
-// search the second jump of neighborhood for landmark, then part them together
+// It was addressed to partition the graph in a topological way
+// search the second jump of neighborhood for landmark
+// then part them together
 // in order to avoid the sync process in the first several iter
 //
 // Efficiency needs to be improved
-class EdgePartitionPreSearch[VD: ClassTag, ED: ClassTag](g: Graph[VD, ED], landMarks: ArrayBuffer[VertexId]) extends Serializable {
+class EdgePartitionPreSearch[VD: ClassTag, ED: ClassTag]
+(g: Graph[VD, ED], landMarks: ArrayBuffer[VertexId]) extends Serializable {
 
-  val landMarkVertexIndexed : collection.Map[VertexId, Map[VertexId, Int]] = NeighborCollect.run(g, 2, landMarks)
+  val landMarkVertexIndexed : collection.Map[VertexId, Map[VertexId, Int]]
+  = NeighborCollect.run(g, 2, landMarks)
 
-  val landMarkActiveIndexed : mutable.HashMap[VertexId, ArrayBuffer[VertexId]] = init_landMap()
+  val landMarkActiveIndexed : mutable.HashMap[VertexId, ArrayBuffer[VertexId]]
+  = init_landMap()
 
-  val numParts : Int = g.vertices.getNumPartitions
+  val numParts : Int
+  = g.vertices.getNumPartitions
 
-  val landMarkPartitionID : mutable.HashMap[VertexId, PartitionID] = init_landDist()
+  val landMarkPartitionID : mutable.HashMap[VertexId, PartitionID]
+  = init_landDist()
 
   val mixingPrime: VertexId = 1125899906842597L
 
   // To generate map centered on landmarks
-  def init_landMap(): mutable.HashMap[VertexId, ArrayBuffer[VertexId]] ={
+  def init_landMap(): mutable.HashMap[VertexId, ArrayBuffer[VertexId]] = {
     val landMarkMap = new mutable.HashMap[VertexId, ArrayBuffer[VertexId]]
 
-    for(unit <- landMarkVertexIndexed){
-      for(kvPair <- unit._2){
+    for (unit <- landMarkVertexIndexed) {
+      for (kvPair <- unit._2) {
         val c = landMarkMap.getOrElse(kvPair._1, new ArrayBuffer[VertexId])
         c.+=(unit._1)
         landMarkMap.put(kvPair._1, c)
@@ -39,32 +45,6 @@ class EdgePartitionPreSearch[VD: ClassTag, ED: ClassTag](g: Graph[VD, ED], landM
     }
     landMarkMap
   }
-/*
-
-// version for merge if active vertex exist in vertexIndex
-
-  def init_landDist(): mutable.HashMap[VertexId, PartitionID] = {
-    val landMarkDist = new mutable.HashMap[VertexId, PartitionID]
-    var i = 0
-
-    for(unit <- landMarks){
-      if(landMarkVertexIndexed.contains(unit) && ! landMarkDist.contains(unit)){
-        val landMarkMerge = landMarkVertexIndexed(unit).keySet.toArray
-        val pid = (unit % numParts).toInt
-        landMarkDist.put(unit, pid)
-        for(elem <- landMarkMerge){
-          landMarkDist.put(elem, pid)
-        }
-      }
-      else if (! landMarkVertexIndexed.contains(unit) && ! landMarkDist.contains(unit)){
-        val pid = (unit % numParts).toInt
-        landMarkDist.put(unit, pid)
-      }
-    }
-
-    landMarkDist
-  }
-*/
 
   // To generate the partition distribution
   def init_landDist(): mutable.HashMap[VertexId, PartitionID] = {
@@ -74,21 +54,21 @@ class EdgePartitionPreSearch[VD: ClassTag, ED: ClassTag](g: Graph[VD, ED], landM
     val multipleVertices = new ArrayBuffer[ArrayBuffer[VertexId]]
     val uniqueVertices = new ArrayBuffer[ArrayBuffer[VertexId]]
 
-    for(unit <- landMarkVertexIndexed){
-      if(unit._2.size > 1){
-        val insert = ArrayBuffer(unit._2.keySet.toArray:_*)
+    for (unit <- landMarkVertexIndexed) {
+      if (unit._2.size > 1) {
+        val insert = ArrayBuffer(unit._2.keySet.toArray: _*)
         multipleVertices.+=(insert)
       }
     }
 
     // merge landmarks exist in multipleVertices
-    breakable{
-      while(multipleVertices.nonEmpty){
+    breakable {
+      while (multipleVertices.nonEmpty) {
         var firstElems = multipleVertices(0)
 
-        for(i <- multipleVertices.indices.reverse){
+        for(i <- multipleVertices.indices.reverse) {
           val merged = firstElems.union(multipleVertices(i)).distinct
-          if(merged.length != multipleVertices(i).length + firstElems.length){
+          if(merged.length != multipleVertices(i).length + firstElems.length) {
             firstElems = merged
             multipleVertices.remove(i)
           }
@@ -102,16 +82,16 @@ class EdgePartitionPreSearch[VD: ClassTag, ED: ClassTag](g: Graph[VD, ED], landM
     }
 
     // if no vertices belong to multiple landmarks
-    if(uniqueVertices.isEmpty){
-      for(unit <- landMarks){
+    if(uniqueVertices.isEmpty) {
+      for (unit <- landMarks) {
         uniqueVertices.+=(ArrayBuffer(unit))
       }
     }
 
     // apart into map
     var i = 0
-    for(unit <- uniqueVertices){
-      for(elem <- unit){
+    for(unit <- uniqueVertices) {
+      for (elem <- unit) {
         landMarkDist.put(elem, i%numParts)
       }
       i = i + 1
@@ -124,27 +104,21 @@ class EdgePartitionPreSearch[VD: ClassTag, ED: ClassTag](g: Graph[VD, ED], landM
 
     // val checkNum = 169
 
-    if(landMarks.contains(e.srcId)){
-      /* test
-      val identifier = 1
-      if(e.srcId == checkNum || e.dstId == checkNum){
-        println("checking " + e.srcId + " to " + e.dstId + " in " + identifier + " " + landMarkPartitionID(e.srcId))
-      }*/
+    if (landMarks.contains(e.srcId)) {
       landMarkPartitionID(e.srcId)
     }
 
-    else if(landMarks.contains(e.dstId)){
+    else if (landMarks.contains(e.dstId)) {
       landMarkPartitionID(e.dstId)
     }
 
-    else{
+    else {
       val random = new Random(System.currentTimeMillis())
 
       val edgeSrcMap = landMarkVertexIndexed.getOrElse(e.srcId, Map())
       val edgeDstMap = landMarkVertexIndexed.getOrElse(e.dstId, Map())
 
-      if(edgeSrcMap.nonEmpty && edgeDstMap.isEmpty){
-
+      if (edgeSrcMap.nonEmpty && edgeDstMap.isEmpty) {
         val randomIndex = random.nextInt(edgeSrcMap.keySet.size)
         val resultArr = edgeSrcMap.keySet.toArray
         val result = resultArr(randomIndex)
@@ -152,7 +126,7 @@ class EdgePartitionPreSearch[VD: ClassTag, ED: ClassTag](g: Graph[VD, ED], landM
         landMarkPartitionID(result)
       }
 
-      else if(edgeSrcMap.isEmpty && edgeDstMap.nonEmpty){
+      else if (edgeSrcMap.isEmpty && edgeDstMap.nonEmpty) {
         val randomIndex = random.nextInt(edgeDstMap.keySet.size)
         val resultArr = edgeDstMap.keySet.toArray
         val result = resultArr(randomIndex)
@@ -160,7 +134,7 @@ class EdgePartitionPreSearch[VD: ClassTag, ED: ClassTag](g: Graph[VD, ED], landM
         landMarkPartitionID(result)
       }
 
-      else if(edgeSrcMap.isEmpty && edgeDstMap.isEmpty){
+      else if (edgeSrcMap.isEmpty && edgeDstMap.isEmpty) {
 
         (math.abs(e.dstId * mixingPrime) % numParts).toInt
       }
@@ -169,7 +143,7 @@ class EdgePartitionPreSearch[VD: ClassTag, ED: ClassTag](g: Graph[VD, ED], landM
         // may have memory problem by intersect method
         val sameCenter = edgeSrcMap.keySet.intersect(edgeDstMap.keySet).toArray
 
-        if(sameCenter.isEmpty){
+        if (sameCenter.isEmpty) {
           val combineCenter = edgeSrcMap.keySet.union(edgeDstMap.keySet).toArray.distinct
           val randomIndex = random.nextInt(combineCenter.length)
           val result = combineCenter(randomIndex)
@@ -177,11 +151,11 @@ class EdgePartitionPreSearch[VD: ClassTag, ED: ClassTag](g: Graph[VD, ED], landM
           landMarkPartitionID(result)
 
         }
-        else{
-          if(sameCenter.length == 1){
+        else {
+          if (sameCenter.length == 1) {
             landMarkPartitionID(sameCenter(0))
           }
-          else{
+          else {
             val randomIndex = random.nextInt(sameCenter.length)
             val result = sameCenter(randomIndex)
 

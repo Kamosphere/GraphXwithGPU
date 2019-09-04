@@ -15,4 +15,3 @@ abstract class shmArrayPrototype(preAllocateSize: Int) {
   val buffer : MappedByteBuffer
 
 }
-

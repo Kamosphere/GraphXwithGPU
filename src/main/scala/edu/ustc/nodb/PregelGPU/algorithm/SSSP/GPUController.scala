@@ -12,10 +12,11 @@ import scala.sys.process.Process
 class GPUController(vertexSum: Long,
                     edgeSize: Int,
                     sourceList: ArrayBuffer[VertexId],
-                    pid :Int)
+                    pid: Int)
 
-extends Serializable{
+  extends Serializable{
 
+  // scalastyle:off println
   def this(pid: Int) = this(0, 0, new ArrayBuffer[VertexId], pid)
 
   // native interface
@@ -28,7 +29,7 @@ extends Serializable{
 
   var tempVertexSet : VertexSet = _
 
-  System.loadLibrary("PregelGPU")
+  System.loadLibrary("edu/ustc/nodb/PregelGPU")
 
   // before executing, run the server first
   def GPUEnvEdgeInit(filteredVertex: Array[Long],
@@ -42,32 +43,35 @@ extends Serializable{
     var runningScript = ""
 
     // running script to activate server
-    if (envControl.controller == 0){
+    if (envControl.controller == 0) {
       runningScript =
-        "/usr/local/ssspexample/cpp_native/build/bin/srv_UtilServerTest_BellmanFordGPU " + vertexSum.toString +
-          " " + EdgeCount.toString + " " + sourceList.length.toString + " " + pid.toString
+        "/usr/local/ssspexample/cpp_native/build/bin/srv_UtilServerTest_BellmanFordGPU " +
+          vertexSum.toString + " " + EdgeCount.toString + " " +
+          sourceList.length.toString + " " + pid.toString
 
     }
     else {
       runningScript =
-        "./cpp_native/build/bin/srv_UtilServerTest_BellmanFordGPU " + vertexSum.toString +
-          " " + EdgeCount.toString + " " + sourceList.length.toString + " " + pid.toString
+        "./cpp_native/build/bin/srv_UtilServerTest_BellmanFordGPU " +
+          vertexSum.toString + " " + EdgeCount.toString + " " +
+          sourceList.length.toString + " " + pid.toString
 
     }
 
     Process(runningScript).run()
 
     // initialize the source id array
-    val sourceId = new util.ArrayList[Long](sourceList.length+(sourceList.length>>1))
-    for(unit <- sourceList){
+    val sourceId = new util.ArrayList[Long](sourceList.length + (sourceList.length>>1))
+    for(unit <- sourceList) {
       sourceId.add(unit)
     }
 
     // if native method not success, it will run until finished
     var result = false
 
-    while(! result){
-      result = native.nativeEnvEdgeInit(filteredVertex, vertexSum, EdgeSrc, EdgeDst, EdgeAttr, sourceId, pid)
+    while(! result) {
+      result = native.nativeEnvEdgeInit(
+        filteredVertex, vertexSum, EdgeSrc, EdgeDst, EdgeAttr, sourceId, pid)
     }
   }
 
@@ -84,7 +88,7 @@ extends Serializable{
       vertexCount, edgeSize, sourceSize, pid,
       resultID, resultAttr)
 
-    val needCombine = if(underIndex <= 0) false else true
+    val needCombine = if (underIndex <= 0) false else true
     underIndex = math.abs(underIndex)
 
     val startNew = System.nanoTime()
@@ -101,12 +105,12 @@ extends Serializable{
   def GPUIterSkipCollect(vertexCount: Int):
   (ArrayBuffer[(VertexId, SPMapWithActive)], Boolean) = {
 
-    //pass vertices through JNI and get arrayBuffer back
+    // pass vertices through JNI and get arrayBuffer back
     var underIndex = native.nativeSkipStep(vertexSum,
       vertexCount, edgeSize, sourceSize, pid,
       resultID, resultAttr)
 
-    val needCombine = if(underIndex <= 0) false else true
+    val needCombine = if (underIndex <= 0) false else true
     underIndex = math.abs(underIndex)
 
     val startNew = System.nanoTime()
@@ -123,7 +127,7 @@ extends Serializable{
   def GPUFinalCollect(vertexCount: Int):
   ArrayBuffer[(VertexId, SPMapWithActive)] = {
 
-    //pass vertices through JNI and get arrayBuffer back
+    // pass vertices through JNI and get arrayBuffer back
     val underIndex = native.nativeStepFinal(vertexSum,
       vertexCount, edgeSize, sourceSize, pid,
       resultID, resultAttr)
@@ -139,7 +143,7 @@ extends Serializable{
   }
 
   // after executing, close the server and release the shared memory
-  def GPUShutdown():Boolean = {
+  def GPUShutdown(): Boolean = {
 
     native.nativeEnvClose(pid)
 
@@ -150,14 +154,16 @@ extends Serializable{
 
     val results = new ArrayBuffer[(VertexId, SPMapWithActive)]
 
-    for(i <- 0 until underIndex){
+    for(i <- 0 until underIndex) {
 
       // package the vertex as vertex-like format
       tempVertexSet = new VertexSet(resultID(i), activeness)
       var invalidDetector = 0.0
-      for(j <- sourceList.indices){
+      for(j <- sourceList.indices) {
         invalidDetector = resultAttr(i * sourceSize + j)
-        if(invalidDetector < Int.MaxValue) tempVertexSet.addAttr(sourceList(j), resultAttr(i * sourceSize + j))
+        if(invalidDetector < Int.MaxValue) {
+          tempVertexSet.addAttr(sourceList(j), resultAttr(i * sourceSize + j))
+        }
       }
 
       results.+=(tempVertexSet.TupleReturn())
@@ -166,4 +172,5 @@ extends Serializable{
     results
   }
 
+  // scalastyle:on println
 }

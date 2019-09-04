@@ -5,7 +5,7 @@ import org.apache.spark.graphx.{EdgeTriplet, Graph, Pregel, VertexId}
 
 import scala.collection.mutable.{ArrayBuffer, ListBuffer}
 
-class PregelSparkSSSP (graph: Graph[VertexId,Double],
+class PregelSparkSSSP (graph: Graph[VertexId, Double],
                        allSource: Broadcast[ArrayBuffer[VertexId]]) extends Serializable {
 
   // Define the vertex type in standard Pregel in Spark
@@ -40,11 +40,13 @@ class PregelSparkSSSP (graph: Graph[VertexId,Double],
   def sendMessage(edge: EdgeTriplet[SPMap, Double]):
   Iterator[(VertexId, SPMap)] = {
 
-    var result = new ListBuffer[(VertexId,SPMap)]()
-    for (element <- allSource.value){
+    var result = new ListBuffer[(VertexId, SPMap)]()
+    for (element <- allSource.value) {
       val oldAttr = edge.srcAttr.getOrElse(element, Double.PositiveInfinity)
       val newAttr = edge.dstAttr.getOrElse(element, Double.PositiveInfinity)
-      if (oldAttr < newAttr-edge.attr) result.+=((edge.dstId, makeMap(element -> (oldAttr+edge.attr))))
+      if (oldAttr < newAttr-edge.attr) {
+        result.+=((edge.dstId, makeMap(element -> (oldAttr + edge.attr))))
+      }
     }
     result.iterator
   }

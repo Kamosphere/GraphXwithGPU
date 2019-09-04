@@ -2,12 +2,7 @@ package edu.ustc.nodb.PregelGPU.algorithm.SSSP
 
 import java.util
 
-import edu.ustc.nodb.PregelGPU.algorithm.SPMapWithActive
-import edu.ustc.nodb.PregelGPU.envControl
 import org.apache.spark.graphx.VertexId
-
-import scala.collection.mutable.ArrayBuffer
-import scala.sys.process.Process
 
 private[SSSP] class GPUNative extends Serializable {
 
@@ -16,12 +11,12 @@ private[SSSP] class GPUNative extends Serializable {
 
   // native function to init the edge
   @native def nativeEnvEdgeInit(filteredVertex: Array[Long],
-                            vertexSum: Long,
-                            EdgeSrc: Array[VertexId],
-                            EdgeDst: Array[VertexId],
-                            EdgeAttr: Array[Double],
-                            sourceId: util.ArrayList[Long],
-                            pid:Int):
+                                vertexSum: Long,
+                                EdgeSrc: Array[VertexId],
+                                EdgeDst: Array[VertexId],
+                                EdgeAttr: Array[Double],
+                                sourceId: util.ArrayList[Long],
+                                pid: Int):
   Boolean
 
   // native function to execute algorithm
@@ -29,7 +24,7 @@ private[SSSP] class GPUNative extends Serializable {
                                    VertexID: Array[Long],
                                    VertexActive: Array[Boolean],
                                    VertexAttr: Array[Double],
-                                   vertexCount:Int,
+                                   vertexCount: Int,
                                    edgeCount: Int,
                                    markIdSize: Int,
                                    pid: Int,
@@ -39,17 +34,17 @@ private[SSSP] class GPUNative extends Serializable {
 
   // native function to execute algorithm while prev iter skipped
   @native def nativeSkipStep(vertexSum: Long,
-                            vertexCount:Int,
-                            edgeSize: Int,
-                            markIdSize: Int,
-                            pid: Int,
-                            resultID: Array[Long],
-                            resultAttr: Array[Double]):
+                             vertexCount: Int,
+                             edgeSize: Int,
+                             markIdSize: Int,
+                             pid: Int,
+                             resultID: Array[Long],
+                             resultAttr: Array[Double]):
   Int
 
   // native function to execute algorithm for final step
   @native def nativeStepFinal(vertexSum: Long,
-                              vertexCount:Int,
+                              vertexCount: Int,
                               edgeSize: Int,
                               markIdSize: Int,
                               pid: Int,
@@ -60,6 +55,5 @@ private[SSSP] class GPUNative extends Serializable {
   // native function to close server
   @native def nativeEnvClose(pid: Int):
   Boolean
-
 
 }

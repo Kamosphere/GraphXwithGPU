@@ -3,9 +3,9 @@ package edu.ustc.nodb.PregelGPU
 import edu.ustc.nodb.PregelGPU.algorithm.lambdaTemplate
 import edu.ustc.nodb.PregelGPU.plugin.GraphXModified
 import edu.ustc.nodb.PregelGPU.plugin.partitionStrategy.EdgePartition1DReverse
-import org.apache.spark.{SparkConf, TaskContext}
 import org.apache.spark.graphx._
 import org.apache.spark.rdd.RDD
+import org.apache.spark.{SparkConf, TaskContext}
 
 import scala.reflect.ClassTag
 
@@ -17,7 +17,8 @@ object PregelGPU{
   : Graph[VD, ED] = {
 
     // initiate the graph
-    val spGraph = graph.mapVertices ((vid, attr) => algorithm.lambda_initGraph(vid, attr)).partitionBy(EdgePartition1DReverse).cache()
+    val spGraph = graph.mapVertices ((vid, attr) =>
+      algorithm.lambda_initGraph(vid, attr)).partitionBy(EdgePartition1DReverse).cache()
 
     val startTimeB = System.nanoTime()
 
@@ -25,6 +26,7 @@ object PregelGPU{
 
     val endTimeB = System.nanoTime()
 
+    // scalastyle:off println
     println("Pre partition time: " + (endTimeB - startTimeB))
 
     val countOutDegree = g.outDegrees.collectAsMap()
@@ -37,12 +39,14 @@ object PregelGPU{
 
     var iterTimes = 0
 
-    var partitionSplit : collection.Map[Int,(Int, Int)] = g.triplets.mapPartitionsWithIndex((pid, Iter)=>{
-      algorithm.lambda_partitionSplit(pid, Iter)
-    }).collectAsMap()
+    var partitionSplit : collection.Map[Int, (Int, Int)] =
+      g.triplets.mapPartitionsWithIndex((pid, Iter) => {
+        algorithm.lambda_partitionSplit(pid, Iter)
+      }).collectAsMap()
 
     var modifiedSubGraph: RDD[(VertexId, VD)] = g.triplets.mapPartitionsWithIndex((pid, iter) =>
-      algorithm.lambda_ModifiedSubGraph_repartitionIter(pid, iter)(iterTimes, countOutDegree, partitionSplit, ifFilteredCounter))
+      algorithm.lambda_ModifiedSubGraph_repartitionIter(pid, iter)(
+        iterTimes, countOutDegree, partitionSplit, ifFilteredCounter))
 
     // get the vertex number and edge number in every partition
     // in order to allocate
@@ -62,7 +66,7 @@ object PregelGPU{
     val ifRepartition = false
 
     // loop
-    while(activeMessages > 0 && iterTimes < maxIterations){
+    while(activeMessages > 0 && iterTimes < maxIterations) {
 
       val startTime = System.nanoTime()
 
@@ -77,33 +81,32 @@ object PregelGPU{
         algorithm.lambda_JoinVerticesDefaultSecond(vAttr))
         .cache()
 
-      if(ifRepartition){
+      if(ifRepartition) {
 
-        partitionSplit = g.triplets.mapPartitionsWithIndex((pid, Iter)=>{
+        partitionSplit = g.triplets.mapPartitionsWithIndex((pid, Iter) => {
           algorithm.lambda_partitionSplit(pid, Iter)
         }).collectAsMap()
 
-        modifiedSubGraph = g.triplets.mapPartitionsWithIndex((pid, iter) =>{
-          algorithm.lambda_ModifiedSubGraph_repartitionIter(pid, iter)(iterTimes, countOutDegree, partitionSplit, ifFilteredCounter)
+        modifiedSubGraph = g.triplets.mapPartitionsWithIndex((pid, iter) => {
+          algorithm.lambda_ModifiedSubGraph_repartitionIter(pid, iter)(
+            iterTimes, countOutDegree, partitionSplit, ifFilteredCounter)
         })
       }
-      else{
-        if(afterCounter != beforeCounter){
-/*
-          modifiedSubGraph = g.triplets.mapPartitionsWithIndex((pid, iter) =>
-            algorithm.lambda_ModifiedSubGraph_MPBI_IterWithoutPartition(pid, iter)(iterTimes, partitionSplit, ifFilteredCounter))
-*/
+      else {
+        if (afterCounter != beforeCounter) {
           // run the main process
-
-          modifiedSubGraph = GraphXModified.msgExtract(g, Some(oldVertexModified, EdgeDirection.Either)).mapPartitionsWithIndex((pid, iter) =>
-            algorithm.lambda_ModifiedSubGraph_normalIter(pid, iter)(iterTimes, partitionSplit, ifFilteredCounter))
+          modifiedSubGraph = GraphXModified.msgExtract(g,
+            Some(oldVertexModified, EdgeDirection.Either))
+            .mapPartitionsWithIndex((pid, iter) =>
+              algorithm.lambda_ModifiedSubGraph_normalIter(pid, iter)(
+                iterTimes, partitionSplit, ifFilteredCounter))
 
         }
         // skip getting vertex information through graph
-        else{
-
+        else {
           modifiedSubGraph = g.triplets.mapPartitionsWithIndex((pid, iter) =>
-            algorithm.lambda_modifiedSubGraph_skipStep(pid, iter)(iterTimes, partitionSplit, ifFilteredCounter))
+            algorithm.lambda_modifiedSubGraph_skipStep(pid, iter)(
+              iterTimes, partitionSplit, ifFilteredCounter))
         }
       }
 
@@ -125,8 +128,9 @@ object PregelGPU{
       println("Whole iteration time: " + (endTime - startTime))
       println("-------------------------")
 
+      // scalastyle:on println
       oldVertexModified.unpersist(blocking = false)
-      if(afterCounter != beforeCounter){
+      if(afterCounter != beforeCounter) {
         prevG.unpersistVertices(blocking = false)
         prevG.edges.unpersist(blocking = false)
       }
@@ -143,7 +147,8 @@ object PregelGPU{
 
     // extract the remained data
     modifiedSubGraph = g.triplets.mapPartitionsWithIndex((pid, iter) =>
-      algorithm.lambda_modifiedSubGraph_collectAll(pid, iter)(iterTimes, partitionSplit, ifFilteredCounter))
+      algorithm.lambda_modifiedSubGraph_collectAll(pid, iter)(
+        iterTimes, partitionSplit, ifFilteredCounter))
 
     vertexModified = g.vertices.aggregateUsingIndex(modifiedSubGraph,
       algorithm.lambda_ReduceByKey).cache()
@@ -159,7 +164,8 @@ object PregelGPU{
   }
 
   // after running algorithm, close the server
-  def close[VD: ClassTag, ED: ClassTag](Graph: Graph[VD, ED], algorithm: lambdaTemplate[VD, ED]): Unit = {
+  def close[VD: ClassTag, ED: ClassTag]
+  (Graph: Graph[VD, ED], algorithm: lambdaTemplate[VD, ED]): Unit = {
 
     Graph.vertices.foreachPartition(g => {
       val pid = TaskContext.getPartitionId()

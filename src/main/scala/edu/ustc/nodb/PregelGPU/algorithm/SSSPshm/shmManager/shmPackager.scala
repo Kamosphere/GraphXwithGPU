@@ -1,6 +1,6 @@
 package edu.ustc.nodb.PregelGPU.algorithm.SSSPshm.shmManager
 
-abstract class shmPackager(maxSize: Int){
+abstract class shmPackager(maxSize: Int) {
 
   val shmNameArr : Array[String] = new Array[String](maxSize)
   val shmSizeArr : Array[Int] = new Array[Int](maxSize)

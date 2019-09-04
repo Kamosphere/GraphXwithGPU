@@ -2,7 +2,7 @@ package edu.ustc.nodb.PregelGPU.algorithm.SSSPshm
 
 import java.util
 
-import edu.ustc.nodb.PregelGPU.algorithm.SSSPshm.shmManager.shmNamePackager._
+import edu.ustc.nodb.PregelGPU.algorithm.SSSPshm.shmManager.shmNamePackager.{shmReaderPackager, shmWriterPackager}
 
 private[SSSPshm] class GPUNativeShm extends Serializable {
 
@@ -29,7 +29,7 @@ private[SSSPshm] class GPUNativeShm extends Serializable {
 
   // native function to execute algorithm while prev iter skipped
   @native def nativeSkipStep(vertexSum: Long,
-                             vertexCount:Int,
+                             vertexCount: Int,
                              edgeSize: Int,
                              markIdSize: Int,
                              pid: Int,
@@ -38,7 +38,7 @@ private[SSSPshm] class GPUNativeShm extends Serializable {
 
   // native function to execute algorithm for final step
   @native def nativeStepFinal(vertexSum: Long,
-                              vertexCount:Int,
+                              vertexCount: Int,
                               edgeSize: Int,
                               markIdSize: Int,
                               pid: Int,

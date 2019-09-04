@@ -15,20 +15,26 @@ object NeighborCollect {
   def sendMsg(e: EdgeTriplet[VMap, _]): Iterator[(VertexId, Map[VertexId, Int])] = {
     val srcMap = (e.dstAttr.keySet -- e.srcAttr.keySet).map { k => k -> (e.dstAttr(k) - 1) }.toMap
     val dstMap = (e.srcAttr.keySet -- e.dstAttr.keySet).map { k => k -> (e.srcAttr(k) - 1) }.toMap
-    if (srcMap.isEmpty && dstMap.isEmpty)
+    if (srcMap.isEmpty && dstMap.isEmpty) {
       Iterator.empty
-    else
+    }
+
+    else {
       Iterator((e.dstId, dstMap), (e.srcId, srcMap))
+    }
+
   }
 
-  def addMaps(spmap1: VMap, spmap2: VMap): VMap =
-    (spmap1.keySet ++ spmap2.keySet).map {
-      k => k -> math.min(spmap1.getOrElse(k, Int.MaxValue), spmap2.getOrElse(k, Int.MaxValue))
+  def addMaps(spMap1: VMap, spMap2: VMap): VMap =
+    (spMap1.keySet ++ spMap2.keySet).map {
+      k => k -> math.min(spMap1.getOrElse(k, Int.MaxValue), spMap2.getOrElse(k, Int.MaxValue))
     }.toMap
 
-  def run[VD: ClassTag, ED: ClassTag](g: Graph[VD, ED], jumps: Int, landMark: ArrayBuffer[VertexId]): collection.Map[VertexId, Map[VertexId, Int]] = {
+  def run[VD: ClassTag, ED: ClassTag]
+  (g: Graph[VD, ED], jumps: Int, landMark: ArrayBuffer[VertexId])
+  : collection.Map[VertexId, Map[VertexId, Int]] = {
     val newG = g.mapVertices((vid, _) => {
-      if(landMark.contains(vid)) Map[VertexId, Int](vid -> jumps)
+      if (landMark.contains(vid)) Map[VertexId, Int](vid -> jumps)
       else Map[VertexId, Int]()
     })
       .pregel(Map[VertexId, Int](), jumps, EdgeDirection.Either)(vProg, sendMsg, addMaps)

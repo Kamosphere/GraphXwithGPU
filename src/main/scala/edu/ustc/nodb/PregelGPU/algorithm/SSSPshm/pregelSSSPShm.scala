@@ -2,7 +2,7 @@ package edu.ustc.nodb.PregelGPU.algorithm.SSSPshm
 
 import java.util
 
-import edu.ustc.nodb.PregelGPU.algorithm.SSSPshm.shmManager.shmArrayWriterImpl.{shmArrayWriterBoolean, shmArrayWriterDouble, shmArrayWriterLong}
+import edu.ustc.nodb.PregelGPU.algorithm.SSSPshm.shmManager.shmArrayWriterImpl._
 import edu.ustc.nodb.PregelGPU.algorithm.{SPMapWithActive, lambdaTemplate}
 import edu.ustc.nodb.PregelGPU.plugin.partitionStrategy.EdgePartitionPreSearch
 import org.apache.spark.broadcast.Broadcast
@@ -17,24 +17,16 @@ class pregelSSSPShm(allSource: Broadcast[ArrayBuffer[VertexId]],
                     edgeSum: Long,
                     parts: Int) extends lambdaTemplate[SPMapWithActive, Double]{
 
-  override def repartition(g: Graph[SPMapWithActive, Double]): Graph[SPMapWithActive, Double] = {
+  // scalastyle:off println
+  override def repartition
+  (g: Graph[SPMapWithActive, Double]): Graph[SPMapWithActive, Double] = {
 
     val partitionMethod = new EdgePartitionPreSearch(g, allSource.value)
-    val afterG = partitionMethod.generateMappedGraph()
-    /*afterG.triplets.foreachPartition(v => {
-      val pid = TaskContext.getPartitionId()
-      var count = 0
-      while(v.hasNext){
-        val temp = v.next()
-        count = count + 1
-        println(temp.srcId + " to " + temp.dstId + " is in " + pid.toString)
-      }
-      println(count + " for after graph")
-    })*/
-    afterG
+    partitionMethod.generateMappedGraph()
   }
 
-  override def lambda_initGraph(vid: VertexId, attr: VertexId): SPMapWithActive = {
+  override def lambda_initGraph
+  (vid: VertexId, attr: VertexId): SPMapWithActive = {
 
     var partitionInit: mutable.LinkedHashMap[VertexId, Double] = mutable.LinkedHashMap()
     var ifSource = false
@@ -50,50 +42,53 @@ class pregelSSSPShm(allSource: Broadcast[ArrayBuffer[VertexId]],
     (ifSource, partitionInit)
   }
 
-  override def lambda_JoinVerticesDefaultFirst(vid: VertexId,
-                                               v1: SPMapWithActive,
-                                               v2: SPMapWithActive):
+  override def lambda_JoinVerticesDefaultFirst
+  (vid: VertexId,
+   v1: SPMapWithActive,
+   v2: SPMapWithActive):
   SPMapWithActive = {
 
     val b = v2._1
     val result : mutable.LinkedHashMap[Long, Double] = v1._2++v2._2.map{
-      case (k,r) => k->math.min(r,v1._2.getOrElse(k, Double.PositiveInfinity))
+      case (k, r) => k -> math.min(r, v1._2.getOrElse(k, Double.PositiveInfinity))
     }
-    (b,result)
+    (b, result)
   }
 
   override def lambda_JoinVerticesDefaultSecond(v1: SPMapWithActive):
-  SPMapWithActive = (false,v1._2)
+  SPMapWithActive = (false, v1._2)
 
-  override def lambda_ReduceByKey(v1: SPMapWithActive,
-                                  v2: SPMapWithActive):
+  override def lambda_ReduceByKey
+  (v1: SPMapWithActive,
+   v2: SPMapWithActive):
   SPMapWithActive = {
 
     val b = v1._1 | v2._1
     val result : mutable.LinkedHashMap[Long, Double] = v1._2++v2._2.map{
-      case (k,r) => k->math.min(r,v1._2.getOrElse(k, Double.PositiveInfinity))
+      case (k, r) => k -> math.min(r, v1._2.getOrElse(k, Double.PositiveInfinity))
     }
-    (b,result)
+    (b, result)
 
   }
 
-  override def lambda_partitionSplit(pid: Int,
-                                     iter: Iterator[EdgeTriplet[SPMapWithActive,Double]]):
+  override def lambda_partitionSplit
+  (pid: Int,
+   iter: Iterator[EdgeTriplet[SPMapWithActive, Double]]):
   Iterator[(Int, (Int, Int))] = {
 
     var EdgeNum = 0
     var VertexNum = 0
     val VertexNumList = new util.HashSet[Long]
-    var temp : EdgeTriplet[SPMapWithActive,Double] = null
+    var temp : EdgeTriplet[SPMapWithActive, Double] = null
 
-    while(iter.hasNext){
+    while(iter.hasNext) {
       temp = iter.next()
       EdgeNum = EdgeNum + 1
-      if(! VertexNumList.contains(temp.srcId)){
+      if(! VertexNumList.contains(temp.srcId)) {
         VertexNumList.add(temp.srcId)
         VertexNum = VertexNum + 1
       }
-      if(! VertexNumList.contains(temp.dstId)){
+      if(! VertexNumList.contains(temp.dstId)) {
         VertexNumList.add(temp.dstId)
         VertexNum = VertexNum + 1
       }
@@ -103,12 +98,13 @@ class pregelSSSPShm(allSource: Broadcast[ArrayBuffer[VertexId]],
 
   }
 
-  override def lambda_ModifiedSubGraph_repartitionIter(pid: Int,
-                                                       iter: Iterator[EdgeTriplet[SPMapWithActive,Double]])
-                                                      (iterTimes:Int,
-                                                           countOutDegree: collection.Map[VertexId, Int],
-                                                           partitionSplit: collection.Map[Int,(Int, Int)],
-                                                           counter: LongAccumulator):
+  override def lambda_ModifiedSubGraph_repartitionIter
+  (pid: Int,
+   iter: Iterator[EdgeTriplet[SPMapWithActive, Double]])
+  (iterTimes: Int,
+   countOutDegree: collection.Map[VertexId, Int],
+   partitionSplit: collection.Map[Int, (Int, Int)],
+   counter: LongAccumulator):
   Iterator[(VertexId, SPMapWithActive)] = {
 
     val startTimeA = System.nanoTime()
@@ -130,11 +126,11 @@ class pregelSSSPShm(allSource: Broadcast[ArrayBuffer[VertexId]],
     // used to remove the abundant vertices and record outDegree
     val VertexNumList = new mutable.HashMap[Long, Int]
 
-    var temp : EdgeTriplet[SPMapWithActive,Double] = null
+    var temp : EdgeTriplet[SPMapWithActive, Double] = null
     var VertexCount = 0
     var EdgeCount = 0
 
-    while(iter.hasNext){
+    while(iter.hasNext) {
       temp = iter.next()
 
       pEdgeSrcIDShm.shmArrayWriterSet(temp.srcId)
@@ -143,13 +139,13 @@ class pregelSSSPShm(allSource: Broadcast[ArrayBuffer[VertexId]],
 
       EdgeCount = EdgeCount + 1
 
-      if(! VertexNumList.contains(temp.srcId)){
+      if(! VertexNumList.contains(temp.srcId)) {
         pVertexIDShm.shmArrayWriterSet(temp.srcId)
         pVertexActiveShm.shmArrayWriterSet(temp.srcAttr._1)
         VertexNumList.put(temp.srcId, 1)
         // the order of sourceList in array is guarded by linkedHashMap
         var index = 0
-        for(part <- temp.srcAttr._2.values){
+        for(part <- temp.srcAttr._2.values) {
           pVertexAttrShm.shmArrayWriterSet(part)
           index = index + 1
         }
@@ -160,14 +156,14 @@ class pregelSSSPShm(allSource: Broadcast[ArrayBuffer[VertexId]],
         VertexNumList.update(temp.srcId, countTracker + 1)
       }
 
-      if(! VertexNumList.contains(temp.dstId)){
+      if(! VertexNumList.contains(temp.dstId)) {
         pVertexIDShm.shmArrayWriterSet(temp.dstId)
         pVertexActiveShm.shmArrayWriterSet(temp.dstAttr._1)
 
         VertexNumList.put(temp.dstId, 0)
         // the order of sourceList in array is guarded by linkedHashMap
         var index = 0
-        for(part <- temp.dstAttr._2.values){
+        for(part <- temp.dstAttr._2.values) {
           pVertexAttrShm.shmArrayWriterSet(part)
           index = index + 1
         }
@@ -176,8 +172,8 @@ class pregelSSSPShm(allSource: Broadcast[ArrayBuffer[VertexId]],
     }
 
     val filteredVertex = new ArrayBuffer[Long]
-    for(part <- VertexNumList){
-      if(countOutDegree.getOrElse(part._1, -1) == part._2){
+    for(part <- VertexNumList) {
+      if (countOutDegree.getOrElse(part._1, -1) == part._2) {
         filteredVertex.+=(part._1)
       }
     }
@@ -194,27 +190,30 @@ class pregelSSSPShm(allSource: Broadcast[ArrayBuffer[VertexId]],
       pEdgeDstIDShm.shmWriterClose(),
       pEdgeAttrShm.shmWriterClose())
 
-    val (results, needCombine)  = Process.GPUMsgExecute(
+    val (results, needCombine) = Process.GPUMsgExecute(
       pVertexIDShm.shmWriterClose(),
       pVertexActiveShm.shmWriterClose(),
       pVertexAttrShm.shmWriterClose(),
       VertexCount)
     val result = results.iterator
-    if(needCombine){
+    if(needCombine) {
       counter.add(1)
     }
 
     val endTimeB = System.nanoTime()
 
-    println("In iter 0 of part" + pid + ", Collecting data time: " + (endTimeA - startTimeA) + " Processing time: " + (endTimeB - startTimeB))
+    println("In iter 0 of part" + pid + ", Collecting data time: "
+      + (endTimeA - startTimeA) + " Processing time: "
+      + (endTimeB - startTimeB))
     result
   }
 
-  override def lambda_ModifiedSubGraph_normalIter(pid: Int,
-                                                  iter: Iterator[EdgeTriplet[SPMapWithActive,Double]])
-                                                 (iterTimes:Int,
-                                                                 partitionSplit: collection.Map[Int,(Int, Int)],
-                                                                 counter: LongAccumulator):
+  override def lambda_ModifiedSubGraph_normalIter
+  (pid: Int,
+   iter: Iterator[EdgeTriplet[SPMapWithActive, Double]])
+  (iterTimes: Int,
+   partitionSplit: collection.Map[Int, (Int, Int)],
+   counter: LongAccumulator):
   Iterator[(VertexId, SPMapWithActive)] = {
 
     val startTimeA = System.nanoTime()
@@ -234,17 +233,17 @@ class pregelSSSPShm(allSource: Broadcast[ArrayBuffer[VertexId]],
     // used to remove the abundant vertices
     val VertexNumList = new util.HashSet[Long](preVertexLength)
 
-    var temp : EdgeTriplet[SPMapWithActive,Double] = null
+    var temp : EdgeTriplet[SPMapWithActive, Double] = null
     var VertexCount = 0
     var EdgeCount = 0
 
-    while(iter.hasNext){
+    while(iter.hasNext) {
       temp = iter.next()
 
-      if(temp.srcAttr._1){
+      if(temp.srcAttr._1) {
         EdgeCount = EdgeCount + 1
 
-        if(! VertexNumList.contains(temp.srcId)){
+        if(! VertexNumList.contains(temp.srcId)) {
 
           pVertexIDShm.shmArrayWriterSet(temp.srcId)
           pVertexActiveShm.shmArrayWriterSet(temp.srcAttr._1)
@@ -252,14 +251,14 @@ class pregelSSSPShm(allSource: Broadcast[ArrayBuffer[VertexId]],
           VertexNumList.add(temp.srcId)
           // the order of sourceList in array is guarded by linkedHashMap
           var index = 0
-          for(part <- temp.srcAttr._2.values){
+          for(part <- temp.srcAttr._2.values) {
 
             pVertexAttrShm.shmArrayWriterSet(part)
             index = index + 1
           }
           VertexCount = VertexCount + 1
         }
-        if(! VertexNumList.contains(temp.dstId)){
+        if(! VertexNumList.contains(temp.dstId)) {
 
           pVertexIDShm.shmArrayWriterSet(temp.dstId)
           pVertexActiveShm.shmArrayWriterSet(temp.dstAttr._1)
@@ -267,7 +266,7 @@ class pregelSSSPShm(allSource: Broadcast[ArrayBuffer[VertexId]],
           VertexNumList.add(temp.dstId)
           // the order of sourceList in array is guarded by linkedHashMap
           var index = 0
-          for(part <- temp.dstAttr._2.values){
+          for(part <- temp.dstAttr._2.values) {
 
             pVertexAttrShm.shmArrayWriterSet(part)
 
@@ -288,7 +287,7 @@ class pregelSSSPShm(allSource: Broadcast[ArrayBuffer[VertexId]],
       pVertexAttrShm.shmWriterClose(),
       VertexCount)
 
-    if(needCombine){
+    if(needCombine) {
       counter.add(1)
     }
 
@@ -296,15 +295,18 @@ class pregelSSSPShm(allSource: Broadcast[ArrayBuffer[VertexId]],
 
     val endTimeB = System.nanoTime()
 
-    println("In iter "+ iterTimes + " of part" + pid + ", Collecting data time: " + (endTimeA - startTimeA) + " Processing time: " + (endTimeB - startTimeB))
+    println("In iter " + iterTimes + " of part" + pid + ", Collecting data time: "
+      + (endTimeA - startTimeA) + " Processing time: "
+      + (endTimeB - startTimeB))
     result
   }
 
-  override def lambda_modifiedSubGraph_skipStep(pid: Int,
-                                                iter: Iterator[EdgeTriplet[SPMapWithActive, Double]])
-                                               (iterTimes:Int,
-                                                     partitionSplit: collection.Map[Int,(Int, Int)],
-                                                     counter: LongAccumulator):
+  override def lambda_modifiedSubGraph_skipStep
+  (pid: Int,
+   iter: Iterator[EdgeTriplet[SPMapWithActive, Double]])
+  (iterTimes: Int,
+   partitionSplit: collection.Map[Int, (Int, Int)],
+   counter: LongAccumulator):
   Iterator[(VertexId, SPMapWithActive)] = {
 
     val preParameter = partitionSplit.get(pid)
@@ -322,11 +324,12 @@ class pregelSSSPShm(allSource: Broadcast[ArrayBuffer[VertexId]],
     result
   }
 
-  override def lambda_modifiedSubGraph_collectAll(pid: Int,
-                                                  iter: Iterator[EdgeTriplet[SPMapWithActive, Double]])
-                                                 (iterTimes:Int,
-                                                partitionSplit: collection.Map[Int,(Int, Int)],
-                                                counter: LongAccumulator):
+  override def lambda_modifiedSubGraph_collectAll
+  (pid: Int,
+   iter: Iterator[EdgeTriplet[SPMapWithActive, Double]])
+  (iterTimes: Int,
+   partitionSplit: collection.Map[Int, (Int, Int)],
+   counter: LongAccumulator):
   Iterator[(VertexId, SPMapWithActive)] = {
 
     val preParameter = partitionSplit.get(pid)
@@ -346,9 +349,9 @@ class pregelSSSPShm(allSource: Broadcast[ArrayBuffer[VertexId]],
     val Process = new GPUControllerShm(pid)
     var envInit : Boolean = false
 
-    while(! envInit){
+    while(! envInit) {
       envInit = Process.GPUShutdown(1)
     }
   }
-
+  // scalastyle:on println
 }

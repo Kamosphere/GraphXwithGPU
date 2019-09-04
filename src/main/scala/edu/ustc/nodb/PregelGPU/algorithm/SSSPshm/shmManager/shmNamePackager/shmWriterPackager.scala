@@ -4,7 +4,7 @@ import java.nio.file.{Files, Paths}
 
 import edu.ustc.nodb.PregelGPU.algorithm.SSSPshm.shmManager.shmPackager
 
-class shmWriterPackager(maxSize: Int) extends shmPackager(maxSize){
+class shmWriterPackager(maxSize: Int) extends shmPackager(maxSize) {
 
   def addName(shmName: String, counter: Int): Boolean = {
 
@@ -27,7 +27,7 @@ class shmWriterPackager(maxSize: Int) extends shmPackager(maxSize){
 
   def getNameByUnder(underScore: Int): String = {
 
-    if(underScore >= maxSize) None
+    if (underScore >= maxSize) None
 
     shmNameArr(underScore)
 
@@ -35,7 +35,7 @@ class shmWriterPackager(maxSize: Int) extends shmPackager(maxSize){
 
   def getSizeByUnder(underScore: Int): Int = {
 
-    if(underScore >= maxSize) None
+    if (underScore >= maxSize) None
 
     shmSizeArr(underScore)
 

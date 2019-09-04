@@ -11,7 +11,7 @@ import scala.io.StdIn
 object SSSPTest{
 
   def main(args: Array[String]) {
-
+    // scalastyle:off println
     // environment setting
     val conf = new SparkConf().setAppName("Pregel_SSSP").setMaster("local[4]")
     val sc = new SparkContext(conf)
@@ -19,18 +19,18 @@ object SSSPTest{
 
     // part the graph shall be divided
     var parts = Some(args(0).toInt)
-    if(parts.isEmpty) parts =Some(4)
+    if(parts.isEmpty) parts = Some(4)
 
     // load graph from file
     var sourceFile = ""
-    if(envControl.controller == 0){
+    if(envControl.controller == 0) {
       sourceFile = "/usr/local/ssspexample/testGraph.txt"
     }
     else sourceFile = "testGraph.txt"
 
     val graph = graphGenerator.readFile(sc, sourceFile)(parts.get)
 
-    //running two versions of SSSP
+    // running two versions of SSSP
 
     println("-------------------------")
 
@@ -46,7 +46,7 @@ object SSSPTest{
     val ssspTest = new PregelSparkSSSP(graph, allSourceList)
     val ssspResult = ssspTest.run()
     // val d = ssspResult.vertices.count()
-    println(ssspResult.vertices.collect.mkString("\n"))
+    println(ssspResult.vertices.collect().mkString("\n"))
     val endNormal = System.nanoTime()
 
     println("-------------------------")
@@ -55,7 +55,7 @@ object SSSPTest{
     val ssspAlgo = new pregelSSSPShm(allSourceList, vertexSum, edgeSum, parts.get)
     val ssspGPUResult = PregelGPU.run(graph)(ssspAlgo)
     // val q = ssspGPUResult.vertices.count()
-    println(ssspGPUResult.vertices.collect.mkString("\n"))
+    println(ssspGPUResult.vertices.collect().mkString("\n"))
     val endNew = System.nanoTime()
 
     println("-------------------------")
@@ -67,6 +67,6 @@ object SSSPTest{
 
     val k = StdIn.readInt()
     println(k)
-
+    // scalastyle:on println
   }
 }

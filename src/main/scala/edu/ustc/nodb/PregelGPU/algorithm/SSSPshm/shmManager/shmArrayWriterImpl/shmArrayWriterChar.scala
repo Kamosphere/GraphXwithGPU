@@ -3,7 +3,7 @@ package edu.ustc.nodb.PregelGPU.algorithm.SSSPshm.shmManager.shmArrayWriterImpl
 import edu.ustc.nodb.PregelGPU.algorithm.SSSPshm.shmManager.shmArrayWriter
 
 class shmArrayWriterChar(preAllocateSize: Int, fullName: String)
-  extends shmArrayWriter(preAllocateSize){
+  extends shmArrayWriter(preAllocateSize) {
 
   def this(pid: Int, preAllocateSize: Int, identifier: String) = {
     this(preAllocateSize, pid + "Char" + identifier)

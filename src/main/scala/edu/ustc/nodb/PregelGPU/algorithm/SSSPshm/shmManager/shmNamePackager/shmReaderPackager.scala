@@ -4,10 +4,9 @@ import java.nio.file.{Files, Paths}
 
 import edu.ustc.nodb.PregelGPU.algorithm.SSSPshm.shmManager.shmPackager
 
-class shmReaderPackager(maxSize: Int) extends shmPackager(maxSize){
+class shmReaderPackager(maxSize: Int) extends shmPackager(maxSize) {
 
   def addName(shmName: String, counter: Int): Boolean = {
-    
     val pathExist = Files.exists(Paths.get("/dev/shm/" + shmName))
 
     if (! pathExist) false
@@ -27,7 +26,7 @@ class shmReaderPackager(maxSize: Int) extends shmPackager(maxSize){
 
   def getNameByUnder(underScore: Int): String = {
 
-    if(underScore >= maxSize) None
+    if (underScore >= maxSize) None
 
     shmNameArr(underScore)
 
@@ -35,7 +34,7 @@ class shmReaderPackager(maxSize: Int) extends shmPackager(maxSize){
 
   def getSizeByUnder(underScore: Int): Int = {
 
-    if(underScore >= maxSize) None
+    if (underScore >= maxSize) None
 
     shmSizeArr(underScore)
 

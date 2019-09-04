@@ -15,10 +15,11 @@ import scala.sys.process.Process
 class GPUControllerShm(vertexSum: Long,
                        edgeCount: Int,
                        sourceList: ArrayBuffer[VertexId],
-                       pid :Int)
+                       pid: Int)
 
-extends Serializable{
+  extends Serializable{
 
+  // scalastyle:off println
   def this(pid: Int) = this(0, 0, new ArrayBuffer[VertexId], pid)
 
   // native interface
@@ -45,24 +46,26 @@ extends Serializable{
     var runningScript = ""
 
     // running script to activate server
-    if (envControl.controller == 0){
+    if (envControl.controller == 0) {
       runningScript =
-        "/usr/local/ssspexample/cpp_native/build/bin/srv_UtilServerTest_BellmanFordGPU " + vertexSum.toString +
-          " " + EdgeCount.toString + " " + sourceList.length.toString + " " + pid.toString
+        "/usr/local/ssspexample/cpp_native/build/bin/srv_UtilServerTest_BellmanFordGPU " +
+          vertexSum.toString + " " + EdgeCount.toString + " " +
+          sourceList.length.toString + " " + pid.toString
 
     }
     else {
       runningScript =
-        "./cpp_native/build/bin/srv_UtilServerTest_BellmanFordGPU " + vertexSum.toString +
-          " " + EdgeCount.toString + " " + sourceList.length.toString + " " + pid.toString
+        "./cpp_native/build/bin/srv_UtilServerTest_BellmanFordGPU " +
+          vertexSum.toString + " " + EdgeCount.toString + " " +
+          sourceList.length.toString + " " + pid.toString
 
     }
 
     Process(runningScript).run()
 
     // initialize the source id array
-    val sourceId = new util.ArrayList[Long](sourceList.length+(sourceList.length>>1))
-    for(unit <- sourceList){
+    val sourceId = new util.ArrayList[Long](sourceList.length + (sourceList.length>>1))
+    for(unit <- sourceList) {
       sourceId.add(unit)
     }
 
@@ -75,7 +78,7 @@ extends Serializable{
     shmReader.addName(EdgeDst, edgeCount)
     shmReader.addName(EdgeAttr, edgeCount)
 
-    while(! result){
+    while(! result) {
       result = native.nativeEnvEdgeInit(filteredVertex, vertexSum, sourceId, pid, shmReader)
     }
   }
@@ -102,7 +105,7 @@ extends Serializable{
       shmReader, shmWriter,
       vertexCount, edgeCount, sourceSize, pid)
 
-    val needCombine = if(underIndex <= 0) false else true
+    val needCombine = if (underIndex <= 0) false else true
     underIndex = math.abs(underIndex)
 
     // read files in writer list ( already written in c++ )
@@ -135,7 +138,7 @@ extends Serializable{
       vertexCount, edgeCount, sourceSize, pid,
       shmWriter)
 
-    val needCombine = if(underIndex <= 0) false else true
+    val needCombine = if (underIndex <= 0) false else true
     underIndex = math.abs(underIndex)
 
     val resultIDReader = new shmArrayReaderLong(
@@ -189,19 +192,18 @@ extends Serializable{
   def GPUShutdown(runningStep: Int): Boolean = {
 
     // 0 for the first iter, other for the times of iter
-    if(runningStep == 0){
+    if (runningStep == 0) {
 
     }
-    else{
-
+    else {
       // remove all shm files in file way
       val k = Files.newDirectoryStream( Paths.get("/dev/shm/") ).iterator()
       var pathTemp: Path = null
-      while(k.hasNext){
-          pathTemp = k.next()
-          Files.deleteIfExists(pathTemp)
+      while(k.hasNext) {
+        pathTemp = k.next()
+        Files.deleteIfExists(pathTemp)
 
-        }
+      }
     }
     native.nativeEnvClose(pid)
 
@@ -213,14 +215,16 @@ extends Serializable{
 
     val results = new ArrayBuffer[(VertexId, SPMapWithActive)]
 
-    for(i <- 0 until underIndex){
+    for(i <- 0 until underIndex) {
 
       // package the vertex as vertex-like format
       tempVertexSet = new VertexSet(resultID(i), activeness)
       var invalidDetector = 0.0
-      for(j <- sourceList.indices){
+      for(j <- sourceList.indices) {
         invalidDetector = resultAttr(i * sourceSize + j)
-        if(invalidDetector < Int.MaxValue) tempVertexSet.addAttr(sourceList(j), resultAttr(i * sourceSize + j))
+        if(invalidDetector < Int.MaxValue) {
+          tempVertexSet.addAttr(sourceList(j), resultAttr(i * sourceSize + j))
+        }
       }
 
       results.+=(tempVertexSet.TupleReturn())
@@ -229,4 +233,5 @@ extends Serializable{
     results
   }
 
+  // scalastyle:on println
 }

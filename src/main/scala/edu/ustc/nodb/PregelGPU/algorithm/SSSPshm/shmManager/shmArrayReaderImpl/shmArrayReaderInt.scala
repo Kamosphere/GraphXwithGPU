@@ -3,7 +3,7 @@ package edu.ustc.nodb.PregelGPU.algorithm.SSSPshm.shmManager.shmArrayReaderImpl
 import edu.ustc.nodb.PregelGPU.algorithm.SSSPshm.shmManager.shmArrayReader
 
 class shmArrayReaderInt(preAllocateSize: Int, fullName: String)
-  extends shmArrayReader(preAllocateSize){
+  extends shmArrayReader(preAllocateSize) {
 
   def this(pid: Int, preAllocateSize: Int, identifier: String) = {
     this(preAllocateSize, pid + "Int" + identifier)
