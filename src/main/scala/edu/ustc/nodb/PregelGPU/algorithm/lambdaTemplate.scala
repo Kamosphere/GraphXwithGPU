@@ -5,52 +5,63 @@ import org.apache.spark.util.LongAccumulator
 
 trait lambdaTemplate[VD, ED] extends Serializable {
 
-  def repartition(g: Graph[VD, ED]) : Graph[VD, ED]
+  def repartition
+  (g: Graph[(Boolean, VD), ED]):
+  Graph[(Boolean, VD), ED]
 
-  def lambda_initGraph(v1: VertexId, v2: VertexId) : VD
+  def lambda_initGraph
+  (v1: VertexId,
+   v2: VertexId):
+  (Boolean, VD)
 
-  def lambda_JoinVerticesDefaultFirst(vid: VertexId, v1: VD, v2: VD): VD
+  def lambda_JoinVerticesDefault
+  (vid: VertexId,
+   v1: (Boolean, VD),
+   v2: (Boolean, VD)):
+  (Boolean, VD)
 
-  def lambda_JoinVerticesDefaultSecond(v1: VD): VD
+  def lambda_ReduceByKey
+  (v1: (Boolean, VD),
+   v2: (Boolean, VD)):
+  (Boolean, VD)
 
-  def lambda_ReduceByKey(v1: VD,
-                         v2: VD): VD
-
-  def lambda_partitionSplit(pid: Int,
-                            iter: Iterator[EdgeTriplet[VD, ED]]):
+  def lambda_partitionSplit
+  (pid: Int,
+   iter: Iterator[EdgeTriplet[(Boolean, VD), ED]]):
   Iterator[(Int, (Int, Int))]
 
   def lambda_ModifiedSubGraph_repartitionIter
-  (pid: Int, iter: Iterator[EdgeTriplet[VD, ED]])
+  (pid: Int, iter: Iterator[EdgeTriplet[(Boolean, VD), ED]])
   (iterTimes: Int,
    countOutDegree: collection.Map[VertexId, Int],
    partitionSplit: collection.Map[Int, (Int, Int)],
    counter: LongAccumulator):
-  Iterator[(VertexId, VD)]
+  Iterator[(VertexId, (Boolean, VD))]
 
   def lambda_ModifiedSubGraph_normalIter
-  (pid: Int, iter: Iterator[EdgeTriplet[VD, ED]])
+  (pid: Int, iter: Iterator[EdgeTriplet[(Boolean, VD), ED]])
   (iterTimes: Int,
    partitionSplit: collection.Map[Int, (Int, Int)],
    counter: LongAccumulator):
-  Iterator[(VertexId, VD)]
+  Iterator[(VertexId, (Boolean, VD))]
 
   def lambda_modifiedSubGraph_skipStep
-  (pid: Int, iter: Iterator[EdgeTriplet[VD, ED]])
+  (pid: Int, iter: Iterator[EdgeTriplet[(Boolean, VD), ED]])
   (iterTimes: Int,
    partitionSplit: collection.Map[Int, (Int, Int)],
    counter: LongAccumulator):
-  Iterator[(VertexId, VD)]
+  Iterator[(VertexId, (Boolean, VD))]
 
   def lambda_modifiedSubGraph_collectAll
-  (pid: Int, iter: Iterator[EdgeTriplet[VD, ED]])
+  (pid: Int, iter: Iterator[EdgeTriplet[(Boolean, VD), ED]])
   (iterTimes: Int,
    partitionSplit: collection.Map[Int, (Int, Int)],
    counter: LongAccumulator):
-  Iterator[(VertexId, VD)]
+  Iterator[(VertexId, (Boolean, VD))]
 
   def lambda_shutDown
-  (pid: Int, iter: Iterator[(VertexId, VD)]):
+  (pid: Int,
+   iter: Iterator[(VertexId, (Boolean, VD))]):
   Unit
 
 }

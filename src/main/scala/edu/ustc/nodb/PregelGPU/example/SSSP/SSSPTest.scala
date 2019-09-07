@@ -10,8 +10,10 @@ import scala.io.StdIn
 
 object SSSPTest{
 
+  // scalastyle:on println
+
   def main(args: Array[String]) {
-    // scalastyle:off println
+
     // environment setting
     val conf = new SparkConf().setAppName("Pregel_SSSP").setMaster("local[4]")
     val sc = new SparkContext(conf)
@@ -67,6 +69,8 @@ object SSSPTest{
 
     val k = StdIn.readInt()
     println(k)
-    // scalastyle:on println
+
   }
+
+  // scalastyle:on println
 }

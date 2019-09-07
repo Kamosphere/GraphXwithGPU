@@ -9,7 +9,9 @@ import scala.collection.mutable.ListBuffer
 import scala.util.Random
 
 object graphGenerator {
+
   // scalastyle:off println
+
   // generate log graph
   def logNormalGraph(sc: SparkContext, numbersVertex: Int): Graph[Long, Double] = {
 
@@ -55,5 +57,6 @@ object graphGenerator {
 
     graph
   }
+
   // scalastyle:on println
 }

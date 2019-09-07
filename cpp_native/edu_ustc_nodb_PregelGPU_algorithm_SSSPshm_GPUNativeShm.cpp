@@ -167,7 +167,6 @@ JNIEXPORT jboolean JNICALL Java_edu_ustc_nodb_PregelGPU_algorithm_SSSPshm_GPUNat
 
     }
 
-
     initProber detector = initProber(partitionID);
     bool status = detector.run();
     if(! status) return false;
@@ -211,8 +210,8 @@ JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_algorithm_SSSPshm_GPUNativeS
 
     //-----------------------------
 
-    auto startTimeAll = std::chrono::high_resolution_clock::now();
-    auto startTimeA = std::chrono::high_resolution_clock::now();
+    //auto startTimeAll = std::chrono::high_resolution_clock::now();
+    //auto startTimeA = std::chrono::high_resolution_clock::now();
 
     int vertexAllSum = static_cast<int>(vertexSum);
     int partitionID = static_cast<int>(pid);
@@ -290,8 +289,8 @@ JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_algorithm_SSSPshm_GPUNativeS
         vertices.at(jVertexId_get).isActive = jVertexActive_get;
 
     }
-
 /*
+
     // test for multithreading environment
 
     std::string outputT = std::string();
@@ -308,12 +307,14 @@ JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_algorithm_SSSPshm_GPUNativeS
 
     outputT.clear();
     // test end
+
 */
+/*
     std::chrono::nanoseconds durationA = std::chrono::high_resolution_clock::now() - startTimeA;
     auto startTime = std::chrono::high_resolution_clock::now();
 
     // execute sssp using GPU in server-client mode
-
+*/
     chk = execute.update(vValues, &vertices[0]);
 
     if(chk == -1){
@@ -321,11 +322,11 @@ JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_algorithm_SSSPshm_GPUNativeS
     }
 
     execute.request();
-
+/*
     std::chrono::nanoseconds duration = std::chrono::high_resolution_clock::now() - startTime;
 
     auto startTimeB = std::chrono::high_resolution_clock::now();
-
+*/
     vector<long> cPlusReturnId = vector<long>();
     vector<double> cPlusReturnAttr = vector<double>();
 
@@ -373,7 +374,7 @@ JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_algorithm_SSSPshm_GPUNativeS
     if(! ifReturnAttr){
         throwIllegalArgument(env, "Cannot write back identifier");
     }
-
+/*
     std::chrono::nanoseconds durationB = std::chrono::high_resolution_clock::now() - startTime;
 
     std::chrono::nanoseconds durationAll = std::chrono::high_resolution_clock::now() - startTimeAll;
@@ -383,7 +384,7 @@ JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_algorithm_SSSPshm_GPUNativeS
               + to_string(durationAll.count());
 
     cout<<output<<endl;
-
+*/
     if(allGained){
         return static_cast<int>(0-cPlusReturnId.size());
     }
@@ -397,7 +398,7 @@ JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_algorithm_SSSPshm_GPUNativeS
         (JNIEnv * env, jobject superClass,
                 jlong vertexSum, jint vertexLen, jint edgeLen, jint markIdLen, jint pid, jobject shmWriter){
 
-    auto startTimeB = std::chrono::high_resolution_clock::now();
+    //auto startTimeB = std::chrono::high_resolution_clock::now();
 
     jclass writerClass = env->GetObjectClass(shmWriter);
     jmethodID addWriterName = env->GetMethodID(writerClass, "addName", "(Ljava/lang/String;I)Z");
@@ -463,14 +464,14 @@ JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_algorithm_SSSPshm_GPUNativeS
     if(! ifReturnAttr){
         throwIllegalArgument(env, "Cannot write back identifier");
     }
-
+/*
     std::chrono::nanoseconds durationB = std::chrono::high_resolution_clock::now() - startTimeB;
 
     std::string output = std::string();
     output += "Time of partition " + to_string(pid) + " in c++ for skipping: " + to_string(durationB.count());
 
     cout<<output<<endl;
-
+*/
     if(allGained){
         return static_cast<int>(0-cPlusReturnId.size());
     }
@@ -483,7 +484,7 @@ JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_algorithm_SSSPshm_GPUNativeS
         (JNIEnv * env, jobject superClass,
                 jlong vertexSum, jint vertexLen, jint edgeLen, jint markIdLen, jint pid, jobject shmWriter) {
 
-    auto startTimeB = std::chrono::high_resolution_clock::now();
+    //auto startTimeB = std::chrono::high_resolution_clock::now();
 
     jclass writerClass = env->GetObjectClass(shmWriter);
     jmethodID addWriterName = env->GetMethodID(writerClass, "addName", "(Ljava/lang/String;I)Z");
@@ -541,14 +542,14 @@ JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_algorithm_SSSPshm_GPUNativeS
     if(! ifReturnAttr){
         throwIllegalArgument(env, "Cannot write back identifier");
     }
-
+/*
     std::chrono::nanoseconds durationB = std::chrono::high_resolution_clock::now() - startTimeB;
 
     std::string output = std::string();
     output += "Time of partition " + to_string(pid) + " in c++ for all merging: " + to_string(durationB.count());
 
     cout<<output<<endl;
-
+*/
     return static_cast<int>(cPlusReturnId.size());
 
 }

@@ -22,7 +22,7 @@ class VertexSet (vid: Long,
 
   // pair of data structure, used in JNI
   def TupleReturn():
-  (Long, SPMapWithActive) = {
+  (Long, (Boolean, SPMapWithActive)) = {
     (vid, (activeness, attr))
   }
 

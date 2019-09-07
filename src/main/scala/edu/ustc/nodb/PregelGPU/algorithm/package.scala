@@ -7,8 +7,7 @@ import scala.collection.mutable
 package object algorithm {
 
   // Define the vertex attribute in GPU-based SSSP project
-  // Boolean stands for the activeness of Vertex
   // mutable.LinkedHashMap stored the pairs of nearest distance from landmark in order
-  type SPMapWithActive = (Boolean, mutable.LinkedHashMap[VertexId, Double])
+  type SPMapWithActive = mutable.LinkedHashMap[VertexId, Double]
 
 }

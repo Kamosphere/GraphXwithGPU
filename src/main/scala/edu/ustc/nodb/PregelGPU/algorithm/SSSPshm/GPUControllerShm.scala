@@ -20,6 +20,7 @@ class GPUControllerShm(vertexSum: Long,
   extends Serializable{
 
   // scalastyle:off println
+
   def this(pid: Int) = this(0, 0, new ArrayBuffer[VertexId], pid)
 
   // native interface
@@ -88,7 +89,7 @@ class GPUControllerShm(vertexSum: Long,
                     VertexActive: String,
                     VertexAttr: String,
                     vertexCount: Int):
-  (ArrayBuffer[(VertexId, SPMapWithActive)], Boolean) = {
+  (ArrayBuffer[(VertexId, (Boolean, SPMapWithActive))], Boolean) = {
 
     // create reader list to get input array in shm
     val shmReader = new shmReaderPackager(3)
@@ -117,19 +118,19 @@ class GPUControllerShm(vertexSum: Long,
     resultID = resultIDReader.shmArrayReaderGet()
     resultAttr = resultAttrReader.shmArrayReaderGet()
 
-    val startNew = System.nanoTime()
+    //val startNew = System.nanoTime()
 
     val results = vertexMsgPackage(underIndex, activeness = true)
 
-    val endNew = System.nanoTime()
-    println("Constructing returned arrayBuffer time: " + (endNew - startNew))
+    //val endNew = System.nanoTime()
+    //println("Constructing returned arrayBuffer time: " + (endNew - startNew))
     (results, needCombine)
 
   }
 
   // execute algorithm while prev iter skipped
   def GPUIterSkipCollect(vertexCount: Int):
-  (ArrayBuffer[(VertexId, SPMapWithActive)], Boolean) = {
+  (ArrayBuffer[(VertexId, (Boolean, SPMapWithActive))], Boolean) = {
 
     val shmWriter = new shmWriterPackager(2)
 
@@ -149,19 +150,19 @@ class GPUControllerShm(vertexSum: Long,
     resultID = resultIDReader.shmArrayReaderGet()
     resultAttr = resultAttrReader.shmArrayReaderGet()
 
-    val startNew = System.nanoTime()
+    //val startNew = System.nanoTime()
 
     val results = vertexMsgPackage(underIndex, activeness = true)
 
-    val endNew = System.nanoTime()
-    println("Constructing returned skipped arrayBuffer time: " + (endNew - startNew))
+    //val endNew = System.nanoTime()
+    //println("Constructing returned skipped arrayBuffer time: " + (endNew - startNew))
     (results, needCombine)
 
   }
 
   // execute algorithm in final step
   def GPUFinalCollect(vertexCount: Int):
-  ArrayBuffer[(VertexId, SPMapWithActive)] = {
+  ArrayBuffer[(VertexId, (Boolean, SPMapWithActive))] = {
 
     val shmWriter = new shmWriterPackager(2)
 
@@ -178,12 +179,12 @@ class GPUControllerShm(vertexSum: Long,
     resultID = resultIDReader.shmArrayReaderGet()
     resultAttr = resultAttrReader.shmArrayReaderGet()
 
-    val startNew = System.nanoTime()
+    //val startNew = System.nanoTime()
 
     val results = vertexMsgPackage(underIndex, activeness = false)
 
-    val endNew = System.nanoTime()
-    println("Constructing remained arrayBuffer time: " + (endNew - startNew))
+    //val endNew = System.nanoTime()
+    //println("Constructing remained arrayBuffer time: " + (endNew - startNew))
 
     results
   }
@@ -211,9 +212,9 @@ class GPUControllerShm(vertexSum: Long,
 
   // package the returned array into iterable data structure
   def vertexMsgPackage(underIndex: Int, activeness: Boolean):
-  ArrayBuffer[(VertexId, SPMapWithActive)] = {
+  ArrayBuffer[(VertexId, (Boolean, SPMapWithActive))] = {
 
-    val results = new ArrayBuffer[(VertexId, SPMapWithActive)]
+    val results = new ArrayBuffer[(VertexId, (Boolean, SPMapWithActive))]
 
     for(i <- 0 until underIndex) {
 

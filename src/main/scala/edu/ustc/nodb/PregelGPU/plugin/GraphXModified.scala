@@ -10,7 +10,7 @@ object GraphXModified {
 
   // advanced version of joinVertices
   // for data in graph : do mapFunc or defaultFunc
-  def joinVerticesOrModify[U: ClassTag, VD: ClassTag, ED: ClassTag]
+  def joinVerticesOrDeactivate[U: ClassTag, VD: ClassTag, ED: ClassTag]
   (graph: Graph[VD, ED],
    table: RDD[(VertexId, U)])
   (mapFunc: (VertexId, VD, U) => VD)

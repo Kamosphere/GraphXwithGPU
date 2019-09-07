@@ -2,7 +2,7 @@ package edu.ustc.nodb.PregelGPU
 
 import edu.ustc.nodb.PregelGPU.algorithm.lambdaTemplate
 import edu.ustc.nodb.PregelGPU.plugin.GraphXModified
-import edu.ustc.nodb.PregelGPU.plugin.partitionStrategy.EdgePartition1DReverse
+import edu.ustc.nodb.PregelGPU.plugin.partitionStrategy.{EdgePartition1DReverse, EdgePartitionPreSearch}
 import org.apache.spark.graphx._
 import org.apache.spark.rdd.RDD
 import org.apache.spark.{SparkConf, TaskContext}
@@ -11,24 +11,23 @@ import scala.reflect.ClassTag
 
 object PregelGPU{
 
+  // scalastyle:off println
+
   def run[VD: ClassTag, ED: ClassTag](graph: Graph[VertexId, ED],
                                       maxIterations: Int = Int.MaxValue)
                                      (algorithm: lambdaTemplate[VD, ED])
-  : Graph[VD, ED] = {
+  : Graph[(Boolean, VD), ED] = {
 
     // initiate the graph
     val spGraph = graph.mapVertices ((vid, attr) =>
       algorithm.lambda_initGraph(vid, attr)).partitionBy(EdgePartition1DReverse).cache()
 
-    val startTimeB = System.nanoTime()
-
+    val startTime = System.nanoTime()
+    // var g = algorithm.repartition(spGraph)
     var g = spGraph
+    val endTime = System.nanoTime()
 
-    val endTimeB = System.nanoTime()
-
-    // scalastyle:off println
-    println("Pre partition time: " + (endTimeB - startTimeB))
-
+    println("prePartition Time : " + (endTime - startTime))
     val countOutDegree = g.outDegrees.collectAsMap()
 
     val sc = org.apache.spark.SparkContext.getOrCreate()
@@ -44,7 +43,7 @@ object PregelGPU{
         algorithm.lambda_partitionSplit(pid, Iter)
       }).collectAsMap()
 
-    var modifiedSubGraph: RDD[(VertexId, VD)] = g.triplets.mapPartitionsWithIndex((pid, iter) =>
+    var modifiedSubGraph: RDD[(VertexId, (Boolean, VD))] = g.triplets.mapPartitionsWithIndex((pid, iter) =>
       algorithm.lambda_ModifiedSubGraph_repartitionIter(pid, iter)(
         iterTimes, countOutDegree, partitionSplit, ifFilteredCounter))
 
@@ -61,7 +60,7 @@ object PregelGPU{
     var afterCounter = ifFilteredCounter.value
 
     iterTimes = 1
-    var prevG : Graph[VD, ED] = null
+    var prevG : Graph[(Boolean, VD), ED] = null
 
     val ifRepartition = false
 
@@ -76,9 +75,9 @@ object PregelGPU{
       val tempBeforeCounter = ifFilteredCounter.sum
 
       // merge the messages into graph
-      g = GraphXModified.joinVerticesOrModify(g, vertexModified)((vid, v1, v2) =>
-        algorithm.lambda_JoinVerticesDefaultFirst(vid, v1, v2))(vAttr =>
-        algorithm.lambda_JoinVerticesDefaultSecond(vAttr))
+      g = GraphXModified.joinVerticesOrDeactivate(g, vertexModified)((vid, v1, v2) =>
+        algorithm.lambda_JoinVerticesDefault(vid, v1, v2))(vAttr =>
+        (false, vAttr._2))
         .cache()
 
       if(ifRepartition) {
@@ -125,10 +124,10 @@ object PregelGPU{
 
       val endTime = System.nanoTime()
 
-      println("Whole iteration time: " + (endTime - startTime))
+      println("Whole iteration time: " + (endTime - startTime) +
+        ", next iter active node amount: " + activeMessages)
       println("-------------------------")
 
-      // scalastyle:on println
       oldVertexModified.unpersist(blocking = false)
       if(afterCounter != beforeCounter) {
         prevG.unpersistVertices(blocking = false)
@@ -137,12 +136,11 @@ object PregelGPU{
       beforeCounter = tempBeforeCounter
       afterCounter = ifFilteredCounter.sum
 
-
     }
 
-    g = GraphXModified.joinVerticesOrModify(g, vertexModified)((vid, v1, v2) =>
-      algorithm.lambda_JoinVerticesDefaultFirst(vid, v1, v2))(vAttr =>
-      algorithm.lambda_JoinVerticesDefaultSecond(vAttr))
+    g = GraphXModified.joinVerticesOrDeactivate(g, vertexModified)((vid, v1, v2) =>
+      algorithm.lambda_JoinVerticesDefault(vid, v1, v2))(vAttr =>
+      (false, vAttr._2))
       .cache()
 
     // extract the remained data
@@ -154,9 +152,9 @@ object PregelGPU{
       algorithm.lambda_ReduceByKey).cache()
 
     // the final combine
-    g = GraphXModified.joinVerticesOrModify(g, vertexModified)((vid, v1, v2) =>
-      algorithm.lambda_JoinVerticesDefaultFirst(vid, v1, v2))(vAttr =>
-      algorithm.lambda_JoinVerticesDefaultSecond(vAttr))
+    g = GraphXModified.joinVerticesOrDeactivate(g, vertexModified)((vid, v1, v2) =>
+      algorithm.lambda_JoinVerticesDefault(vid, v1, v2))(vAttr =>
+      (false, vAttr._2))
       .cache()
     vertexModified.unpersist(blocking = false)
     g
@@ -165,11 +163,13 @@ object PregelGPU{
 
   // after running algorithm, close the server
   def close[VD: ClassTag, ED: ClassTag]
-  (Graph: Graph[VD, ED], algorithm: lambdaTemplate[VD, ED]): Unit = {
+  (Graph: Graph[(Boolean, VD), ED], algorithm: lambdaTemplate[VD, ED]): Unit = {
 
     Graph.vertices.foreachPartition(g => {
       val pid = TaskContext.getPartitionId()
       algorithm.lambda_shutDown(pid, g)
     })
   }
+
+  // scalastyle:on println
 }
