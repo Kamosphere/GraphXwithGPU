@@ -2,7 +2,7 @@ package edu.ustc.nodb.PregelGPU.algorithm.SSSP
 
 import java.util
 
-import edu.ustc.nodb.PregelGPU.algorithm.SPMapWithActive
+import edu.ustc.nodb.PregelGPU.algorithm.SPMap
 import edu.ustc.nodb.PregelGPU.envControl
 import org.apache.spark.graphx.VertexId
 
@@ -30,7 +30,7 @@ class GPUController(vertexSum: Long,
 
   var tempVertexSet : VertexSet = _
 
-  System.loadLibrary("PregelGPU")
+  System.loadLibrary("SSSPGPU")
 
   // before executing, run the server first
   def GPUEnvEdgeInit(filteredVertex: Array[Long],
@@ -81,7 +81,7 @@ class GPUController(vertexSum: Long,
                     VertexActive: Array[Boolean],
                     VertexAttr: Array[Double],
                     vertexCount: Int):
-  (ArrayBuffer[(VertexId, (Boolean, SPMapWithActive))], Boolean) = {
+  (ArrayBuffer[(VertexId, (Boolean, SPMap))], Boolean) = {
 
     // pass vertices through JNI and get result array back
     var underIndex = native.nativeStepMsgExecute(vertexSum,
@@ -104,7 +104,7 @@ class GPUController(vertexSum: Long,
 
   // execute algorithm while prev iter skipped
   def GPUIterSkipCollect(vertexCount: Int):
-  (ArrayBuffer[(VertexId, (Boolean, SPMapWithActive))], Boolean) = {
+  (ArrayBuffer[(VertexId, (Boolean, SPMap))], Boolean) = {
 
     // pass vertices through JNI and get arrayBuffer back
     var underIndex = native.nativeSkipStep(vertexSum,
@@ -126,7 +126,7 @@ class GPUController(vertexSum: Long,
 
   // execute algorithm in final step
   def GPUFinalCollect(vertexCount: Int):
-  ArrayBuffer[(VertexId, (Boolean, SPMapWithActive))] = {
+  ArrayBuffer[(VertexId, (Boolean, SPMap))] = {
 
     // pass vertices through JNI and get arrayBuffer back
     val underIndex = native.nativeStepFinal(vertexSum,
@@ -151,9 +151,9 @@ class GPUController(vertexSum: Long,
   }
 
   def vertexMsgPackage(underIndex: Int, activeness: Boolean):
-  ArrayBuffer[(VertexId, (Boolean, SPMapWithActive))] = {
+  ArrayBuffer[(VertexId, (Boolean, SPMap))] = {
 
-    val results = new ArrayBuffer[(VertexId, (Boolean, SPMapWithActive))]
+    val results = new ArrayBuffer[(VertexId, (Boolean, SPMap))]
 
     for(i <- 0 until underIndex) {
 

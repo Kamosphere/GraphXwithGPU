@@ -41,21 +41,30 @@ ELSE()
 endif()
 
 
-add_library(PregelGPU SHARED
+add_library(SSSPGPU SHARED
         edu_ustc_nodb_PregelGPU_algorithm_SSSP_GPUNative.h
         edu_ustc_nodb_PregelGPU_algorithm_SSSP_GPUNative.cpp)
 
-target_link_libraries(PregelGPU
+target_link_libraries(SSSPGPU
         srv_UtilClient
         initProber
         JNIPlugin)
 
-add_library(PregelGPUShm SHARED
+add_library(SSSPGPUShm SHARED
         edu_ustc_nodb_PregelGPU_algorithm_SSSPshm_GPUNativeShm.h
         edu_ustc_nodb_PregelGPU_algorithm_SSSPshm_GPUNativeShm.cpp)
 
-target_link_libraries(PregelGPUShm
+target_link_libraries(SSSPGPUShm
         srv_UtilClient
         initProber
         JNIPlugin
         rt)
+
+#add_library(LPACPU SHARED
+#        edu_ustc_nodb_PregelGPU_algorithm_labelPropagation_GPUNative.h
+#        edu_ustc_nodb_PregelGPU_algorithm_labelPropagation_GPUNative.cpp)
+
+#target_link_libraries(LPACPU
+#        srv_UtilClient
+#        initProber
+#        JNIPlugin)

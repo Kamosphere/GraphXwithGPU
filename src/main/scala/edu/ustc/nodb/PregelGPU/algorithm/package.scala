@@ -8,6 +8,8 @@ package object algorithm {
 
   // Define the vertex attribute in GPU-based SSSP project
   // mutable.LinkedHashMap stored the pairs of nearest distance from landmark in order
-  type SPMapWithActive = mutable.LinkedHashMap[VertexId, Double]
+  type SPMap = mutable.LinkedHashMap[VertexId, Double]
+
+  type LPAPair = mutable.HashMap[VertexId, Int]
 
 }

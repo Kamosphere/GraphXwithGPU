@@ -266,8 +266,8 @@ JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_algorithm_SSSP_GPUNative_nat
 }
 
 JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_algorithm_SSSP_GPUNative_nativeSkipStep
-        (JNIEnv * env, jobject superClass,
-                jlong vertexSum, jint vertexLen, jint edgeLen, jint markIdLen, jint pid, jlongArray returnId, jdoubleArray returnAttr){
+(JNIEnv * env, jobject superClass,
+        jlong vertexSum, jint vertexLen, jint edgeLen, jint markIdLen, jint pid, jlongArray returnId, jdoubleArray returnAttr){
 
     auto startTimeB = std::chrono::high_resolution_clock::now();
 
@@ -327,8 +327,8 @@ JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_algorithm_SSSP_GPUNative_nat
 }
 
 JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_algorithm_SSSP_GPUNative_nativeStepFinal
-        (JNIEnv * env, jobject superClass,
-                jlong vertexSum, jint vertexLen, jint edgeLen, jint markIdLen, jint pid, jlongArray returnId, jdoubleArray returnAttr) {
+(JNIEnv * env, jobject superClass,
+        jlong vertexSum, jint vertexLen, jint edgeLen, jint markIdLen, jint pid, jlongArray returnId, jdoubleArray returnAttr) {
 
     auto startTimeB = std::chrono::high_resolution_clock::now();
 
@@ -377,7 +377,8 @@ JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_algorithm_SSSP_GPUNative_nat
 // server shutdown
 
 JNIEXPORT jboolean JNICALL Java_edu_ustc_nodb_PregelGPU_algorithm_SSSP_GPUNative_nativeEnvClose
-  (JNIEnv * env, jobject superClass, jint pid){
+(JNIEnv * env, jobject superClass, jint pid){
+
     UtilClient<double, double> control = UtilClient<double, double>(0, 0, 0, pid);
 
     int chk = control.connect();

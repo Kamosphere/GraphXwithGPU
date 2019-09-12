@@ -1,6 +1,6 @@
 package edu.ustc.nodb.PregelGPU.algorithm.SSSPshm
 
-import edu.ustc.nodb.PregelGPU.algorithm.SPMapWithActive
+import edu.ustc.nodb.PregelGPU.algorithm.SPMap
 
 import scala.collection.mutable
 
@@ -22,7 +22,7 @@ class VertexSet (vid: Long,
 
   // pair of data structure, used in JNI
   def TupleReturn():
-  (Long, (Boolean, SPMapWithActive)) = {
+  (Long, (Boolean, SPMap)) = {
     (vid, (activeness, attr))
   }
 
