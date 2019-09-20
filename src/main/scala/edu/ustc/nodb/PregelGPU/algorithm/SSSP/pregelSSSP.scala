@@ -3,6 +3,7 @@ package edu.ustc.nodb.PregelGPU.algorithm.SSSP
 import java.util
 
 import edu.ustc.nodb.PregelGPU.algorithm.{SPMap, lambdaTemplate}
+import edu.ustc.nodb.PregelGPU.envControl
 import edu.ustc.nodb.PregelGPU.plugin.partitionStrategy.EdgePartitionPreSearch
 import org.apache.spark.broadcast.Broadcast
 import org.apache.spark.graphx.{EdgeTriplet, Graph, VertexId}
@@ -17,6 +18,7 @@ class pregelSSSP (allSource: Broadcast[ArrayBuffer[VertexId]],
                   parts: Int) extends lambdaTemplate[SPMap, Double]{
 
   // scalastyle:off println
+  val skipRunning : Boolean = envControl.runningInSkip
 
   override def repartition
   (g: Graph[(Boolean, SPMap), Double]):
@@ -179,7 +181,7 @@ class pregelSSSP (allSource: Broadcast[ArrayBuffer[VertexId]],
     val startTimeB = System.nanoTime()
 
     val Process = new GPUController(vertexSum, EdgeCount, sourceList, pid)
-    Process.GPUEnvEdgeInit(filteredVertex.toArray, EdgeCount,
+    Process.GPUEnvEdgeInit(filteredVertex.toArray,
       pEdgeSrcIDTemp, pEdgeDstIDTemp, pEdgeAttrTemp)
 
     val (results, needCombine) = Process.GPUMsgExecute(
@@ -227,7 +229,7 @@ class pregelSSSP (allSource: Broadcast[ArrayBuffer[VertexId]],
     while(iter.hasNext) {
       temp = iter.next()
 
-      if(temp.srcAttr._1) {
+      def copyBehavior(): Unit ={
         EdgeCount = EdgeCount + 1
 
         if(! VertexNumList.contains(temp.srcId)) {
@@ -255,7 +257,23 @@ class pregelSSSP (allSource: Broadcast[ArrayBuffer[VertexId]],
           VertexCount = VertexCount + 1
         }
       }
+
+      // If skipping vertices info transport is open, then some node supposed to be deactivated
+      // might be activated improperly, for the vertex itself dont know if it will be activated
+      // in the previous iter, so that it cannot decide if the vertex info should be preserved
+      // or discarded in the next iter, which lead to the wrong active vertices and excessive iter
+      //
+      // Will not happen if skipping vertices info transport is close
+      if(skipRunning){
+        copyBehavior()
+      }
+      else{
+        if(temp.srcAttr._1){
+          copyBehavior()
+        }
+      }
     }
+
     val endTimeA = System.nanoTime()
 
     val startTimeB = System.nanoTime()

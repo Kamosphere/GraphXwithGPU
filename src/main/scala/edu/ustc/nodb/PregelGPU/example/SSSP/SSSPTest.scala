@@ -26,9 +26,9 @@ object SSSPTest{
     // load graph from file
     var sourceFile = ""
     if(envControl.controller == 0) {
-      sourceFile = "/usr/local/ssspexample/testGraph.txt"
+      sourceFile = "/usr/local/ssspexample/testGraphDivide.txt"
     }
-    else sourceFile = "testGraph.txt"
+    else sourceFile = "testGraphDivide.txt"
 
     val graph = graphGenerator.readFile(sc, sourceFile)(parts.get)
 
@@ -36,13 +36,15 @@ object SSSPTest{
 
     println("-------------------------")
 
-    val sourceList = ArrayBuffer(1L, 2L, 4L, 7L).distinct.sorted
+    val sourceList = ArrayBuffer(1L, 112L, 224L, 337L).distinct.sorted
 
     val allSourceList = sc.broadcast(sourceList)
 
     // the quantity of vertices in the whole graph
     val vertexSum = graph.vertices.count()
     val edgeSum = graph.edges.count()
+
+    envControl.skippingPartSize = (vertexSum / parts.get).toInt
 
     val startNormal = System.nanoTime()
     val ssspTest = new PregelSparkSSSP(graph, allSourceList)

@@ -35,37 +35,44 @@ class GPUControllerShm(vertexSum: Long,
 
   System.loadLibrary("SSSPGPUShm")
 
-  // before executing, run the server first
-  def GPUEnvEdgeInit(filteredVertex: Array[Long],
-                     EdgeCount: Int,
-                     EdgeSrc: String,
-                     EdgeDst: String,
-                     EdgeAttr: String):
+  def GPUServerActive():
   Unit = {
 
-    GPUShutdown(0)
     var runningScript = ""
 
     // running script to activate server
     if (envControl.controller == 0) {
       runningScript =
         "/usr/local/ssspexample/cpp_native/build/bin/srv_UtilServerTest_BellmanFordGPU " +
-          vertexSum.toString + " " + EdgeCount.toString + " " +
+          vertexSum.toString + " " + edgeCount.toString + " " +
           sourceList.length.toString + " " + pid.toString
 
     }
     else {
       runningScript =
         "./cpp_native/build/bin/srv_UtilServerTest_BellmanFordGPU " +
-          vertexSum.toString + " " + EdgeCount.toString + " " +
+          vertexSum.toString + " " + edgeCount.toString + " " +
           sourceList.length.toString + " " + pid.toString
 
     }
 
     Process(runningScript).run()
 
+  }
+
+  // before executing, run the server first
+  def GPUEnvEdgeInit(filteredVertex: Array[Long],
+                     EdgeSrc: String,
+                     EdgeDst: String,
+                     EdgeAttr: String):
+  Unit = {
+
+    GPUShutdown(0)
+
+    GPUServerActive()
+
     // initialize the source id array
-    val sourceId = new util.ArrayList[Long](sourceList.length + (sourceList.length>>1))
+    val sourceId = new util.ArrayList[Long](sourceList.length + (sourceList.length >> 1))
     for(unit <- sourceList) {
       sourceId.add(unit)
     }

@@ -2,7 +2,7 @@ package edu.ustc.nodb.PregelGPU
 
 import edu.ustc.nodb.PregelGPU.algorithm.lambdaTemplate
 import edu.ustc.nodb.PregelGPU.plugin.GraphXModified
-import edu.ustc.nodb.PregelGPU.plugin.partitionStrategy.{EdgePartition1DReverse, EdgePartitionPreSearch}
+import edu.ustc.nodb.PregelGPU.plugin.partitionStrategy.{EdgePartition1DReverse, EdgePartitionNumHookedTest, EdgePartitionPreSearch}
 import org.apache.spark.graphx._
 import org.apache.spark.rdd.RDD
 import org.apache.spark.{SparkConf, TaskContext}
@@ -20,7 +20,7 @@ object PregelGPU{
 
     // initiate the graph
     val spGraph = graph.mapVertices ((vid, attr) =>
-      algorithm.lambda_initGraph(vid, attr)).partitionBy(EdgePartition1DReverse).cache()
+      algorithm.lambda_initGraph(vid, attr)).partitionBy(EdgePartitionNumHookedTest).cache()
 
     val startTime = System.nanoTime()
     // var g = algorithm.repartition(spGraph)
@@ -92,8 +92,30 @@ object PregelGPU{
         })
       }
       else {
-        if (afterCounter != beforeCounter) {
-          // run the main process
+
+        if(envControl.runningInSkip){
+
+          if (afterCounter != beforeCounter) {
+            // run the main process
+            modifiedSubGraph = GraphXModified.msgExtract(g,
+              Some(oldVertexModified, EdgeDirection.Either))
+              .mapPartitionsWithIndex((pid, iter) =>
+                algorithm.lambda_ModifiedSubGraph_normalIter(pid, iter)(
+                  iterTimes, partitionSplit, ifFilteredCounter))
+
+          }
+          // skip getting vertex information through graph
+          else {
+
+            modifiedSubGraph = g.triplets.mapPartitionsWithIndex((pid, iter) =>
+              algorithm.lambda_modifiedSubGraph_skipStep(pid, iter)(
+                iterTimes, partitionSplit, ifFilteredCounter))
+          }
+
+        }
+
+        else{
+
           modifiedSubGraph = GraphXModified.msgExtract(g,
             Some(oldVertexModified, EdgeDirection.Either))
             .mapPartitionsWithIndex((pid, iter) =>
@@ -101,17 +123,29 @@ object PregelGPU{
                 iterTimes, partitionSplit, ifFilteredCounter))
 
         }
-        // skip getting vertex information through graph
-        else {
-          modifiedSubGraph = g.triplets.mapPartitionsWithIndex((pid, iter) =>
-            algorithm.lambda_modifiedSubGraph_skipStep(pid, iter)(
-              iterTimes, partitionSplit, ifFilteredCounter))
-        }
       }
 
       // distribute the vertex messages into partitions
       vertexModified = g.vertices.aggregateUsingIndex(modifiedSubGraph,
         algorithm.lambda_ReduceByKey).cache()
+
+      /*
+      vertexModified.foreachPartition(i =>{
+        val pid = TaskContext.getPartitionId()
+        var chars = ""
+        var count = 0
+        var temp : (VertexId, (Boolean, VD)) = null
+
+        while(i.hasNext){
+          temp = i.next()
+          chars = chars + " " + temp._1 + " "
+          count = count + 1
+        }
+
+        println("In iter " + iterTimes + " of part" + pid + ", next active vertex count: "
+          + count + " and they are: " + chars)
+      })
+      */
 
       iterTimes = iterTimes + 1
 

@@ -4,6 +4,7 @@ import java.util
 
 import edu.ustc.nodb.PregelGPU.algorithm.SSSPshm.shmManager.shmArrayWriterImpl._
 import edu.ustc.nodb.PregelGPU.algorithm.{SPMap, lambdaTemplate}
+import edu.ustc.nodb.PregelGPU.envControl
 import edu.ustc.nodb.PregelGPU.plugin.partitionStrategy.EdgePartitionPreSearch
 import org.apache.spark.broadcast.Broadcast
 import org.apache.spark.graphx.{EdgeTriplet, Graph, VertexId}
@@ -18,6 +19,7 @@ class pregelSSSPShm(allSource: Broadcast[ArrayBuffer[VertexId]],
                     parts: Int) extends lambdaTemplate[SPMap, Double]{
 
   // scalastyle:off println
+  val skipRunning : Boolean = envControl.runningInSkip
 
   override def repartition
   (g: Graph[(Boolean, SPMap), Double]):
@@ -178,11 +180,9 @@ class pregelSSSPShm(allSource: Broadcast[ArrayBuffer[VertexId]],
       }
     }
 
-
     val Process = new GPUControllerShm(vertexSum, EdgeCount, sourceList, pid)
 
     Process.GPUEnvEdgeInit(filteredVertex.toArray,
-      EdgeCount,
       pEdgeSrcIDShm.shmWriterClose(),
       pEdgeDstIDShm.shmWriterClose(),
       pEdgeAttrShm.shmWriterClose())
@@ -235,9 +235,11 @@ class pregelSSSPShm(allSource: Broadcast[ArrayBuffer[VertexId]],
     var EdgeCount = 0
 
     while(iter.hasNext) {
+
       temp = iter.next()
 
-      if(temp.srcAttr._1) {
+      def copyBehavior(): Unit ={
+
         EdgeCount = EdgeCount + 1
 
         if(! VertexNumList.contains(temp.srcId)) {
@@ -272,6 +274,22 @@ class pregelSSSPShm(allSource: Broadcast[ArrayBuffer[VertexId]],
           VertexCount = VertexCount + 1
         }
       }
+
+      // If skipping vertices info transport is open, then some node supposed to be deactivated
+      // might be activated improperly, for the vertex itself dont know if it will be activated
+      // in the previous iter, so that it cannot decide if the vertex info should be preserved
+      // or discarded in the next iter, which lead to the wrong active vertices and excessive iter
+      //
+      // Will not happen if skipping vertices info transport is close
+      if(skipRunning){
+        copyBehavior()
+      }
+      else{
+        if(temp.srcAttr._1){
+          copyBehavior()
+        }
+      }
+
     }
 
     val Process = new GPUControllerShm(vertexSum, preEdgeLength, sourceList, pid)

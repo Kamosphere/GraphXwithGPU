@@ -16,6 +16,7 @@
 #include <map>
 #include <iostream>
 #include <string>
+#include <fstream>
 
 #include <jni.h>
 

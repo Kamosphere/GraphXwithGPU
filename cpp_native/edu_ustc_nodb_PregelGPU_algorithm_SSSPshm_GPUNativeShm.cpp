@@ -9,6 +9,7 @@
 #include <cstring>
 #include <dirent.h>
 #include <zconf.h>
+#include <algorithm>
 
 using namespace std;
 
@@ -21,7 +22,7 @@ int openShm(const string &filename, int counter, T* &Arr)
     int chk = shm_open(filename.c_str(), O_RDWR, 0664);
 
     if(chk == -1) {
-        cout<<errno<<endl;
+        cout << errno << endl;
         return -1;
     }
 
@@ -42,7 +43,7 @@ int writeShm(const string &filename, vector<T> &Arr)
     int chk = shm_open(filename.c_str(), O_RDWR | O_CREAT, 0664);
 
     if(chk == -1) {
-        cout<<errno<<endl;
+        cout << errno << endl;
         return -1;
     }
 
@@ -50,7 +51,7 @@ int writeShm(const string &filename, vector<T> &Arr)
 
     int ft = ftruncate(chk, counterSize);
     if(ft == -1) {
-        cout<<errno<<endl;
+        cout << errno << endl;
         return -1;
     }
 
@@ -289,37 +290,42 @@ JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_algorithm_SSSPshm_GPUNativeS
         vertices.at(jVertexId_get).isActive = jVertexActive_get;
 
     }
-/*
 
-    // test for multithreading environment
+    chk = execute.update(vValues, &vertices[0]);
 
-    std::string outputT = std::string();
-
-    for(int i = 0;i < vertexAllSum; i++){
-        outputT += to_string(i) + ": {";
-        for(int j = 0;j < lenMarkID; j++){
-            outputT += " [" + to_string(execute.initVSet[j])+": "+to_string(execute.mValues[i * lenMarkID + j]) + "] ";
-        }
-        outputT += "}";
+    if(chk == -1){
+        throwIllegalArgument(env, "Cannot update with server correctly");
     }
 
-    cout<<outputT<<endl;
+    /*
+    // test for multithreading environment
 
-    outputT.clear();
+    std::ofstream Gout("testGraph100Log" + to_string(pid) + ".txt", fstream::out | fstream::app);
+
+    Gout<<"-----------------Before-----------------"<<endl;
+
+    for(int i = 0;i < vertexAllSum; i++){
+        std::string outputT = "In partition " + to_string(pid) + " , ";
+        outputT += to_string(i) + " active status: " + to_string(execute.vSet[i].isActive) + " : {";
+        for(int j = 0;j < lenMarkID; j++){
+            outputT += " [ " + to_string(execute.initVSet[j])+" : "+to_string(execute.vValues[i * lenMarkID + j]) + " ] ";
+        }
+        outputT += " } ";
+        if(i == 100){
+            Gout<<outputT<<endl;
+        }
+    }
+
+    Gout<<"-----------------Before-----------------"<<endl;
+
     // test end
-
-*/
+    */
 /*
     std::chrono::nanoseconds durationA = std::chrono::high_resolution_clock::now() - startTimeA;
     auto startTime = std::chrono::high_resolution_clock::now();
 
     // execute sssp using GPU in server-client mode
 */
-    chk = execute.update(vValues, &vertices[0]);
-
-    if(chk == -1){
-        throwIllegalArgument(env, "Cannot update with server correctly");
-    }
 
     execute.request();
 /*
@@ -338,7 +344,6 @@ JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_algorithm_SSSPshm_GPUNativeS
             for (int j = 0; j < lenMarkID; j++) {
                 cPlusReturnAttr.emplace_back(execute.vValues[i * lenMarkID + j]);
             }
-
             // detect if the vertex is filtered
             if(! execute.filteredV[i]){
                 allGained = false;
@@ -430,7 +435,6 @@ JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_algorithm_SSSPshm_GPUNativeS
             for (int j = 0; j < lenMarkID; j++) {
                 cPlusReturnAttr.emplace_back(execute.vValues[i * lenMarkID + j]);
             }
-
             // detect if the vertex is filtered
             if(! execute.filteredV[i]){
                 allGained = false;

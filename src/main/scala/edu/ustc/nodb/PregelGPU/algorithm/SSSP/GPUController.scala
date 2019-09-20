@@ -10,7 +10,7 @@ import scala.collection.mutable.ArrayBuffer
 import scala.sys.process.Process
 
 class GPUController(vertexSum: Long,
-                    edgeSize: Int,
+                    edgeCount: Int,
                     sourceList: ArrayBuffer[VertexId],
                     pid: Int)
 
@@ -32,37 +32,43 @@ class GPUController(vertexSum: Long,
 
   System.loadLibrary("SSSPGPU")
 
-  // before executing, run the server first
-  def GPUEnvEdgeInit(filteredVertex: Array[Long],
-                     EdgeCount: Int,
-                     EdgeSrc: Array[VertexId],
-                     EdgeDst: Array[VertexId],
-                     EdgeAttr: Array[Double]):
+  def GPUServerActive():
   Unit = {
 
-    GPUShutdown()
     var runningScript = ""
 
     // running script to activate server
     if (envControl.controller == 0) {
       runningScript =
         "/usr/local/ssspexample/cpp_native/build/bin/srv_UtilServerTest_BellmanFordGPU " +
-          vertexSum.toString + " " + EdgeCount.toString + " " +
+          vertexSum.toString + " " + edgeCount.toString + " " +
           sourceList.length.toString + " " + pid.toString
 
     }
     else {
       runningScript =
         "./cpp_native/build/bin/srv_UtilServerTest_BellmanFordGPU " +
-          vertexSum.toString + " " + EdgeCount.toString + " " +
+          vertexSum.toString + " " + edgeCount.toString + " " +
           sourceList.length.toString + " " + pid.toString
 
     }
 
     Process(runningScript).run()
+  }
+
+  // before executing, run the server first
+  def GPUEnvEdgeInit(filteredVertex: Array[Long],
+                     EdgeSrc: Array[VertexId],
+                     EdgeDst: Array[VertexId],
+                     EdgeAttr: Array[Double]):
+  Unit = {
+
+    GPUShutdown()
+
+    GPUServerActive()
 
     // initialize the source id array
-    val sourceId = new util.ArrayList[Long](sourceList.length + (sourceList.length>>1))
+    val sourceId = new util.ArrayList[Long](sourceList.length + (sourceList.length >> 1))
     for(unit <- sourceList) {
       sourceId.add(unit)
     }
@@ -86,7 +92,7 @@ class GPUController(vertexSum: Long,
     // pass vertices through JNI and get result array back
     var underIndex = native.nativeStepMsgExecute(vertexSum,
       VertexID, VertexActive, VertexAttr,
-      vertexCount, edgeSize, sourceSize, pid,
+      vertexCount, edgeCount, sourceSize, pid,
       resultID, resultAttr)
 
     val needCombine = if (underIndex <= 0) false else true
@@ -108,7 +114,7 @@ class GPUController(vertexSum: Long,
 
     // pass vertices through JNI and get arrayBuffer back
     var underIndex = native.nativeSkipStep(vertexSum,
-      vertexCount, edgeSize, sourceSize, pid,
+      vertexCount, edgeCount, sourceSize, pid,
       resultID, resultAttr)
 
     val needCombine = if (underIndex <= 0) false else true
@@ -130,7 +136,7 @@ class GPUController(vertexSum: Long,
 
     // pass vertices through JNI and get arrayBuffer back
     val underIndex = native.nativeStepFinal(vertexSum,
-      vertexCount, edgeSize, sourceSize, pid,
+      vertexCount, edgeCount, sourceSize, pid,
       resultID, resultAttr)
 
     val startNew = System.nanoTime()
