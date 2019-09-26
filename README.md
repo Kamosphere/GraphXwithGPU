@@ -12,7 +12,11 @@ Also, you still need a cmake with version newer than 3.9 to compile it easily, b
 
 CUDA is needed for GPU version
 
-Spark 2.4.3 and Scala 2.11.12 is recommanded for compability. 
+Scala 2.11.12 is recommended for capability.
+
+Please use spark 2.4.5-USTC-NODB version in order to support some function 
+
+see more information at https://github.com/Kamosphere/spark
 
 ## Config
 
@@ -27,7 +31,7 @@ Take ShortestPath algorithm for example:
 
 After compiling cpp code, deploy the jar file and cpp code and run like this:
 
- spark-submit --class edu.ustc.nodb.PregelGPU.Example.SSSP.SSSPTest \
+ spark-submit --class edu.ustc.nodb.PregelGPU.example.SSSP.{SSSPGPUTest, SSSPSparkTest} \
  --master "(master-url)" \
  --conf "(other config)" \
  --driver-library-path="(cpp code path)" \
@@ -40,5 +44,3 @@ see more information at https://github.com/thoh-testarossa/Graph_Algo
 ## Todo List
 
 Executing cost reduce
-
-Skipping useless steps
