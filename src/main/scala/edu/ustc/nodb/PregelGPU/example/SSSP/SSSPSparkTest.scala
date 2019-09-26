@@ -8,7 +8,7 @@ import org.apache.spark.{SparkConf, SparkContext}
 import scala.collection.mutable.ArrayBuffer
 import scala.io.StdIn
 
-object SSSPTest{
+object SSSPSparkTest{
 
   // scalastyle:on println
 
@@ -26,9 +26,9 @@ object SSSPTest{
     // load graph from file
     var sourceFile = ""
     if(envControl.controller == 0) {
-      sourceFile = "/usr/local/ssspexample/testGraphDivide.txt"
+      sourceFile = "/usr/local/ssspexample/testGraph.txt"
     }
-    else sourceFile = "testGraphDivide.txt"
+    else sourceFile = "testGraph.txt"
 
     val graph = graphGenerator.readFile(sc, sourceFile)(parts.get)
 
@@ -36,7 +36,7 @@ object SSSPTest{
 
     println("-------------------------")
 
-    val sourceList = ArrayBuffer(1L, 112L, 224L, 337L).distinct.sorted
+    val sourceList = ArrayBuffer(1L, 2L, 4L, 7L).distinct.sorted
 
     val allSourceList = sc.broadcast(sourceList)
 
@@ -50,29 +50,15 @@ object SSSPTest{
     val ssspTest = new PregelSparkSSSP(graph, allSourceList)
     val ssspResult = ssspTest.run()
     // val d = ssspResult.vertices.count()
-    println(ssspResult.vertices.collect().mkString("\n"))
     val endNormal = System.nanoTime()
-
-    println("-------------------------")
-
-    val startNew = System.nanoTime()
-    val ssspAlgo = new pregelSSSPShm(allSourceList, vertexSum, edgeSum, parts.get)
-    val ssspGPUResult = PregelGPU.run(graph)(ssspAlgo)
-    // val q = ssspGPUResult.vertices.count()
-    println(ssspGPUResult.vertices.collect().mkString("\n"))
-    val endNew = System.nanoTime()
+    println(ssspResult.vertices.collect().mkString("\n"))
 
     println("-------------------------")
 
     println(endNormal - startNormal)
-    println(endNew - startNew)
-
-    PregelGPU.close(ssspGPUResult, ssspAlgo)
-
-    val k = StdIn.readInt()
-    println(k)
 
   }
 
   // scalastyle:on println
 }
+

@@ -1,7 +1,10 @@
 package edu.ustc.nodb.PregelGPU
 
+import java.io.{File, PrintWriter}
+
 import edu.ustc.nodb.PregelGPU.algorithm.lambdaTemplate
 import edu.ustc.nodb.PregelGPU.plugin.GraphXModified
+import edu.ustc.nodb.PregelGPU.plugin.checkPointer.{PeriodicGraphCheckpointer, PeriodicRDDCheckpointer}
 import edu.ustc.nodb.PregelGPU.plugin.partitionStrategy.{EdgePartition1DReverse, EdgePartitionNumHookedTest, EdgePartitionPreSearch}
 import org.apache.spark.graphx._
 import org.apache.spark.rdd.RDD
@@ -18,13 +21,18 @@ object PregelGPU{
                                      (algorithm: lambdaTemplate[VD, ED])
   : Graph[(Boolean, VD), ED] = {
 
-    // initiate the graph
-    val spGraph = graph.mapVertices ((vid, attr) =>
-      algorithm.lambda_initGraph(vid, attr)).partitionBy(EdgePartitionNumHookedTest).cache()
+    val checkpointInterval = graph.vertices.sparkContext.getConf
+      .getInt("spark.graphx.pregel.checkpointInterval", -1)
 
     val startTime = System.nanoTime()
+    // initiate the graph
+    val spGraph = graph.mapVertices ((vid, attr) =>
+      algorithm.lambda_initGraph(vid, attr))
     // var g = algorithm.repartition(spGraph)
     var g = spGraph
+    val graphCheckpointer = new PeriodicGraphCheckpointer[(Boolean, VD), ED](
+      checkpointInterval, graph.vertices.sparkContext)
+    graphCheckpointer.update(g)
     val endTime = System.nanoTime()
 
     println("prePartition Time : " + (endTime - startTime))
@@ -52,7 +60,11 @@ object PregelGPU{
 
     // distribute the vertex messages by partition
     var vertexModified = g.vertices.aggregateUsingIndex(modifiedSubGraph,
-      algorithm.lambda_ReduceByKey).cache()
+      algorithm.lambda_ReduceByKey)
+
+    val messageCheckpointer = new PeriodicRDDCheckpointer[(VertexId, (Boolean, VD))](
+      checkpointInterval, graph.vertices.sparkContext)
+    messageCheckpointer.update(vertexModified.asInstanceOf[RDD[(VertexId, (Boolean, VD))]])
 
     // get the amount of active vertices
     var activeMessages = vertexModified.count()
@@ -78,7 +90,7 @@ object PregelGPU{
       g = GraphXModified.joinVerticesOrDeactivate(g, vertexModified)((vid, v1, v2) =>
         algorithm.lambda_JoinVerticesDefault(vid, v1, v2))(vAttr =>
         (false, vAttr._2))
-        .cache()
+      graphCheckpointer.update(g)
 
       if(ifRepartition) {
 
@@ -93,6 +105,42 @@ object PregelGPU{
       }
       else {
 
+        g.triplets.foreachPartition(iter => {
+          val pid = TaskContext.getPartitionId()
+          var temp : EdgeTriplet[(Boolean, VD),ED]  = null
+
+          val writer = new PrintWriter(new File("/home/liqi/IdeaProjects/GraphXwithGPU/logGPU/" +
+            "testGPUEdgeLog_pid" + pid + "_iter" + iterTimes + ".txt"))
+          while(iter.hasNext){
+            temp = iter.next()
+            var chars = ""
+            chars = chars + " " + temp.srcId + " : " + temp.srcAttr._1 + " :: " + temp.srcAttr._2
+            chars = chars + " -> " + temp.dstId + " : " + temp.dstAttr._1 + " :: " + temp.dstAttr._2
+            chars = chars + " Edge attr: " + temp.attr
+            writer.write("In iter " + iterTimes + " of part" + pid + " , edge data: "
+              + chars + '\n')
+
+          }
+          writer.close()
+
+        })
+
+        println("*----------------------------------------------*")
+        g.vertices.foreachPartition(iter => {
+          val pid = TaskContext.getPartitionId()
+          var temp : (VertexId, (Boolean, VD))  = null
+          val writer = new PrintWriter(new File("/home/liqi/IdeaProjects/GraphXwithGPU/logGPU/" +
+            "testGPUVertexLog_pid" + pid + "_iter" + iterTimes + ".txt"))
+          while(iter.hasNext){
+            temp = iter.next()
+            var chars = ""
+            chars = chars + " " + temp._1 + " : " + temp._2._1 + " :: " + temp._2._2
+            writer.write("In iter " + iterTimes + " of part " + pid + " , vertex data: "
+              + chars + '\n')
+          }
+          writer.close()
+        })
+        println("*----------------------------------------------*")
         if(envControl.runningInSkip){
 
           if (afterCounter != beforeCounter) {
@@ -127,7 +175,8 @@ object PregelGPU{
 
       // distribute the vertex messages into partitions
       vertexModified = g.vertices.aggregateUsingIndex(modifiedSubGraph,
-        algorithm.lambda_ReduceByKey).cache()
+        algorithm.lambda_ReduceByKey)
+      messageCheckpointer.update(vertexModified)
 
       /*
       vertexModified.foreachPartition(i =>{
@@ -147,20 +196,12 @@ object PregelGPU{
       })
       */
 
-      iterTimes = iterTimes + 1
-
       // get the amount of active vertices
       activeMessages = vertexModified.count()
 
       /*
       something while need to repartition
        */
-
-      val endTime = System.nanoTime()
-
-      println("Whole iteration time: " + (endTime - startTime) +
-        ", next iter active node amount: " + activeMessages)
-      println("-------------------------")
 
       oldVertexModified.unpersist(blocking = false)
       if(afterCounter != beforeCounter) {
@@ -170,12 +211,20 @@ object PregelGPU{
       beforeCounter = tempBeforeCounter
       afterCounter = ifFilteredCounter.sum
 
+      val endTime = System.nanoTime()
+
+      println("Whole iteration time: " + (endTime - startTime) +
+        ", next iter active node amount: " + activeMessages)
+      println("-------------------------")
+
+      iterTimes = iterTimes + 1
+
     }
 
     g = GraphXModified.joinVerticesOrDeactivate(g, vertexModified)((vid, v1, v2) =>
       algorithm.lambda_JoinVerticesDefault(vid, v1, v2))(vAttr =>
       (false, vAttr._2))
-      .cache()
+    graphCheckpointer.update(g)
 
     // extract the remained data
     modifiedSubGraph = g.triplets.mapPartitionsWithIndex((pid, iter) =>
@@ -183,14 +232,18 @@ object PregelGPU{
         iterTimes, partitionSplit, ifFilteredCounter))
 
     vertexModified = g.vertices.aggregateUsingIndex(modifiedSubGraph,
-      algorithm.lambda_ReduceByKey).cache()
+      algorithm.lambda_ReduceByKey)
+    messageCheckpointer.update(vertexModified)
 
     // the final combine
     g = GraphXModified.joinVerticesOrDeactivate(g, vertexModified)((vid, v1, v2) =>
       algorithm.lambda_JoinVerticesDefault(vid, v1, v2))(vAttr =>
       (false, vAttr._2))
-      .cache()
-    vertexModified.unpersist(blocking = false)
+    graphCheckpointer.update(g)
+
+    messageCheckpointer.unpersistDataSet()
+    graphCheckpointer.deleteAllCheckpoints()
+    messageCheckpointer.deleteAllCheckpoints()
     g
 
   }
