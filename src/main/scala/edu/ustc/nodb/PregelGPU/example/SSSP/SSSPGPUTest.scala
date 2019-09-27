@@ -1,12 +1,11 @@
 package edu.ustc.nodb.PregelGPU.example.SSSP
 
-import edu.ustc.nodb.PregelGPU.algorithm.SSSPshm.pregelSSSPShm
+import edu.ustc.nodb.PregelGPU.algorithm.SSSP.pregel_SSSP
 import edu.ustc.nodb.PregelGPU.plugin.graphGenerator
 import edu.ustc.nodb.PregelGPU.{PregelGPU, envControl}
 import org.apache.spark.{SparkConf, SparkContext}
 
 import scala.collection.mutable.ArrayBuffer
-import scala.io.StdIn
 
 object SSSPGPUTest{
 
@@ -47,17 +46,17 @@ object SSSPGPUTest{
     envControl.skippingPartSize = (vertexSum / parts.get).toInt
 
     val startNew = System.nanoTime()
-    val ssspAlgo = new pregelSSSPShm(allSourceList, vertexSum, edgeSum, parts.get)
-    val ssspGPUResult = PregelGPU.run(graph)(ssspAlgo)
+    val algorithm = new pregel_SSSP(allSourceList, vertexSum, edgeSum, parts.get)
+    val GPUResult = PregelGPU.run(graph)(algorithm)
     // val q = ssspGPUResult.vertices.count()
-    println(ssspGPUResult.vertices.collect().mkString("\n"))
+    println(GPUResult.vertices.collect().mkString("\n"))
     val endNew = System.nanoTime()
 
     println("-------------------------")
 
     println(endNew - startNew)
 
-    PregelGPU.close(ssspGPUResult, ssspAlgo)
+    PregelGPU.close(GPUResult, algorithm)
 
     //val k = StdIn.readInt()
     //println(k)

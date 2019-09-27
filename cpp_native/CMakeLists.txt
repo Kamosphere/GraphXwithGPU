@@ -50,16 +50,6 @@ target_link_libraries(SSSPGPU
         initProber
         JNIPlugin)
 
-add_library(SSSPGPUShm SHARED
-        edu_ustc_nodb_PregelGPU_algorithm_SSSPshm_GPUNativeShm.h
-        edu_ustc_nodb_PregelGPU_algorithm_SSSPshm_GPUNativeShm.cpp)
-
-target_link_libraries(SSSPGPUShm
-        srv_UtilClient
-        initProber
-        JNIPlugin
-        rt)
-
 #add_library(LPACPU SHARED
 #        edu_ustc_nodb_PregelGPU_algorithm_labelPropagation_GPUNative.h
 #        edu_ustc_nodb_PregelGPU_algorithm_labelPropagation_GPUNative.cpp)

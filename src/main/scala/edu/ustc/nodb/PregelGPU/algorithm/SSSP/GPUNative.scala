@@ -4,7 +4,7 @@ import java.util
 
 import org.apache.spark.graphx.VertexId
 
-private[SSSP] class GPUNative extends Serializable {
+class GPUNative extends Serializable {
 
   /* the GPU-based method to execute the SSSP algorithm
   possibly modified for template */

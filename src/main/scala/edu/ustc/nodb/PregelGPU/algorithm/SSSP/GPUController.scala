@@ -4,31 +4,29 @@ import java.util
 
 import edu.ustc.nodb.PregelGPU.algorithm.SPMap
 import edu.ustc.nodb.PregelGPU.envControl
+
 import org.apache.spark.graphx.VertexId
 
 import scala.collection.mutable.ArrayBuffer
 import scala.sys.process.Process
 
 class GPUController(vertexSum: Long,
+                    vertexCount: Int,
                     edgeCount: Int,
                     sourceList: ArrayBuffer[VertexId],
-                    pid: Int)
-
-  extends Serializable{
+                    pid: Int) extends Serializable {
 
   // scalastyle:off println
-
-  def this(pid: Int) = this(0, 0, new ArrayBuffer[VertexId], pid)
 
   // native interface
   val native = new GPUNative
 
+  def this(pid: Int) = this(0, 0, 0, new ArrayBuffer[VertexId], pid)
+
   val sourceSize: Int = sourceList.length
 
-  val resultID : Array[Long] = new Array[Long](vertexSum.toInt)
-  val resultAttr : Array[Double] = new Array[Double](vertexSum.toInt * sourceSize)
-
-  var tempVertexSet : VertexSet = _
+  val resultID : Array[Long] = new Array[Long](vertexCount)
+  val resultAttr : Array[Double] = new Array[Double](vertexCount * sourceSize)
 
   System.loadLibrary("SSSPGPU")
 
@@ -87,7 +85,7 @@ class GPUController(vertexSum: Long,
                     VertexActive: Array[Boolean],
                     VertexAttr: Array[Double],
                     vertexCount: Int):
-  (ArrayBuffer[(VertexId, (Boolean, SPMap))], Boolean) = {
+  (Array[VertexId], Array[SPMap], Boolean) = {
 
     // pass vertices through JNI and get result array back
     var underIndex = native.nativeStepMsgExecute(vertexSum,
@@ -100,17 +98,17 @@ class GPUController(vertexSum: Long,
 
     val startNew = System.nanoTime()
 
-    val results = vertexMsgPackage(underIndex, activeness = true)
+    val results = vertexAttrPackage(underIndex)
 
     val endNew = System.nanoTime()
     println("Constructing returned arrayBuffer time: " + (endNew - startNew))
-    (results, needCombine)
+    (resultID, results, needCombine)
 
   }
 
   // execute algorithm while prev iter skipped
   def GPUIterSkipCollect(vertexCount: Int):
-  (ArrayBuffer[(VertexId, (Boolean, SPMap))], Boolean) = {
+  (Array[VertexId], Array[SPMap], Boolean) = {
 
     // pass vertices through JNI and get arrayBuffer back
     var underIndex = native.nativeSkipStep(vertexSum,
@@ -122,61 +120,63 @@ class GPUController(vertexSum: Long,
 
     val startNew = System.nanoTime()
 
-    val results = vertexMsgPackage(underIndex, activeness = true)
+    val results = vertexAttrPackage(underIndex)
 
     val endNew = System.nanoTime()
-    println("Constructing returned skipped arrayBuffer time: " + (endNew - startNew))
-    (results, needCombine)
+    println("Constructing returned skipped array time: " + (endNew - startNew))
+    (resultID, results, needCombine)
 
   }
 
   // execute algorithm in final step
   def GPUFinalCollect(vertexCount: Int):
-  ArrayBuffer[(VertexId, (Boolean, SPMap))] = {
+  (Array[VertexId], Array[SPMap], Boolean) = {
 
-    // pass vertices through JNI and get arrayBuffer back
+    // pass vertices through JNI and get array back
     val underIndex = native.nativeStepFinal(vertexSum,
       vertexCount, edgeCount, sourceSize, pid,
       resultID, resultAttr)
 
     val startNew = System.nanoTime()
 
-    val results = vertexMsgPackage(underIndex, activeness = false)
+    val results = vertexAttrPackage(underIndex)
 
     val endNew = System.nanoTime()
-    println("Constructing remained arrayBuffer time: " + (endNew - startNew))
+    println("Constructing remained array time: " + (endNew - startNew))
 
-    results
+    (resultID, results, false)
   }
 
-  // after executing, close the server and release the shared memory
-  def GPUShutdown(): Boolean = {
+  def vertexAttrPackage(underIndex: Int):
+  Array[SPMap] = {
 
-    native.nativeEnvClose(pid)
+    val results = new Array[SPMap](underIndex)
 
-  }
-
-  def vertexMsgPackage(underIndex: Int, activeness: Boolean):
-  ArrayBuffer[(VertexId, (Boolean, SPMap))] = {
-
-    val results = new ArrayBuffer[(VertexId, (Boolean, SPMap))]
+    var tempVertexAttr : SPMap = null
 
     for(i <- 0 until underIndex) {
 
-      // package the vertex as vertex-like format
-      tempVertexSet = new VertexSet(resultID(i), activeness)
+      // package the vertex attr
+      tempVertexAttr = new SPMap
       var invalidDetector = 0.0
       for(j <- sourceList.indices) {
         invalidDetector = resultAttr(i * sourceSize + j)
         if(invalidDetector < Int.MaxValue) {
-          tempVertexSet.addAttr(sourceList(j), resultAttr(i * sourceSize + j))
+          tempVertexAttr(sourceList(j)) = resultAttr(i * sourceSize + j)
         }
       }
 
-      results.+=(tempVertexSet.TupleReturn())
+      results(i) = tempVertexAttr
     }
 
     results
+  }
+
+  // after executing, close the server
+  def GPUShutdown(): Boolean = {
+
+    native.nativeEnvClose(pid)
+
   }
 
   // scalastyle:on println

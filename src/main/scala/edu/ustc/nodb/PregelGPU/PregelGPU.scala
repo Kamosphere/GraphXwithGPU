@@ -2,10 +2,9 @@ package edu.ustc.nodb.PregelGPU
 
 import java.io.{File, PrintWriter}
 
-import edu.ustc.nodb.PregelGPU.algorithm.lambdaTemplate
-import edu.ustc.nodb.PregelGPU.plugin.GraphXModified
+import edu.ustc.nodb.PregelGPU.template.lambdaTemplete
+
 import edu.ustc.nodb.PregelGPU.plugin.checkPointer.{PeriodicGraphCheckpointer, PeriodicRDDCheckpointer}
-import edu.ustc.nodb.PregelGPU.plugin.partitionStrategy.{EdgePartition1DReverse, EdgePartitionNumHookedTest, EdgePartitionPreSearch}
 import org.apache.spark.graphx._
 import org.apache.spark.rdd.RDD
 import org.apache.spark.{SparkConf, TaskContext}
@@ -16,10 +15,12 @@ object PregelGPU{
 
   // scalastyle:off println
 
-  def run[VD: ClassTag, ED: ClassTag](graph: Graph[VertexId, ED],
-                                      maxIterations: Int = Int.MaxValue)
-                                     (algorithm: lambdaTemplate[VD, ED])
-  : Graph[(Boolean, VD), ED] = {
+  def run[VD: ClassTag, ED: ClassTag, A: ClassTag]
+  (graph: Graph[VertexId, ED],
+   activeDirection: EdgeDirection = EdgeDirection.Either,
+   maxIterations: Int = Int.MaxValue)
+  (algorithm: lambdaTemplete[VD, ED, A])
+  : Graph[VD, ED] = {
 
     val checkpointInterval = graph.vertices.sparkContext.getConf
       .getInt("spark.graphx.pregel.checkpointInterval", -1)
@@ -30,9 +31,9 @@ object PregelGPU{
       algorithm.lambda_initGraph(vid, attr))
     // var g = algorithm.repartition(spGraph)
     var g = spGraph
-    val graphCheckpointer = new PeriodicGraphCheckpointer[(Boolean, VD), ED](
+    val graphCheckPointer = new PeriodicGraphCheckpointer[VD, ED](
       checkpointInterval, graph.vertices.sparkContext)
-    graphCheckpointer.update(g)
+    graphCheckPointer.update(g)
     val endTime = System.nanoTime()
 
     println("prePartition Time : " + (endTime - startTime))
@@ -46,33 +47,33 @@ object PregelGPU{
 
     var iterTimes = 0
 
-    var partitionSplit : collection.Map[Int, (Int, Int)] =
-      g.triplets.mapPartitionsWithIndex((pid, Iter) => {
-        algorithm.lambda_partitionSplit(pid, Iter)
-      }).collectAsMap()
+    var partitionSplit = g.innerVerticesEdgesCount().collectAsMap()
 
-    var modifiedSubGraph: RDD[(VertexId, (Boolean, VD))] = g.triplets.mapPartitionsWithIndex((pid, iter) =>
-      algorithm.lambda_ModifiedSubGraph_repartitionIter(pid, iter)(
-        iterTimes, countOutDegree, partitionSplit, ifFilteredCounter))
+    algorithm.fillPartitionInnerData(partitionSplit)
+
+    g.edges.foreachPartition(iter => {
+      val pid = TaskContext.getPartitionId()
+      algorithm.lambda_edgeImport(pid, iter)(
+        iterTimes, countOutDegree, ifFilteredCounter)
+    })
+
+    var messages = GraphXUtils.mapReduceTripletsIntoGPU(g, ifFilteredCounter,
+      algorithm.lambda_GPUExecute, algorithm.lambda_globalReduceFunc)
 
     // get the vertex number and edge number in every partition
     // in order to allocate
 
-    // distribute the vertex messages by partition
-    var vertexModified = g.vertices.aggregateUsingIndex(modifiedSubGraph,
-      algorithm.lambda_ReduceByKey)
-
-    val messageCheckpointer = new PeriodicRDDCheckpointer[(VertexId, (Boolean, VD))](
+    val messageCheckPointer = new PeriodicRDDCheckpointer[(VertexId, A)](
       checkpointInterval, graph.vertices.sparkContext)
-    messageCheckpointer.update(vertexModified.asInstanceOf[RDD[(VertexId, (Boolean, VD))]])
+    messageCheckPointer.update(messages.asInstanceOf[RDD[(VertexId, A)]])
 
     // get the amount of active vertices
-    var activeMessages = vertexModified.count()
+    var activeMessages = messages.count()
 
     var afterCounter = ifFilteredCounter.value
 
     iterTimes = 1
-    var prevG : Graph[(Boolean, VD), ED] = null
+    var prevG : Graph[VD, ED] = null
 
     val ifRepartition = false
 
@@ -82,101 +83,89 @@ object PregelGPU{
       val startTime = System.nanoTime()
 
       prevG = g
-      val oldVertexModified = vertexModified
+
       ifFilteredCounter.reset()
       val tempBeforeCounter = ifFilteredCounter.sum
 
       // merge the messages into graph
-      g = GraphXModified.joinVerticesOrDeactivate(g, vertexModified)((vid, v1, v2) =>
-        algorithm.lambda_JoinVerticesDefault(vid, v1, v2))(vAttr =>
-        (false, vAttr._2))
-      graphCheckpointer.update(g)
+      g = g.joinVertices(messages)((vid, v1, v2) =>
+        algorithm.lambda_globalVertexFunc(vid, v1, v2))
+
+      graphCheckPointer.update(g)
+
+      val oldMessages = messages
 
       if(ifRepartition) {
 
-        partitionSplit = g.triplets.mapPartitionsWithIndex((pid, Iter) => {
-          algorithm.lambda_partitionSplit(pid, Iter)
-        }).collectAsMap()
+        partitionSplit = g.innerVerticesEdgesCount().collectAsMap()
 
-        modifiedSubGraph = g.triplets.mapPartitionsWithIndex((pid, iter) => {
-          algorithm.lambda_ModifiedSubGraph_repartitionIter(pid, iter)(
-            iterTimes, countOutDegree, partitionSplit, ifFilteredCounter)
-        })
-      }
-      else {
+        algorithm.fillPartitionInnerData(partitionSplit)
 
         g.triplets.foreachPartition(iter => {
           val pid = TaskContext.getPartitionId()
-          var temp : EdgeTriplet[(Boolean, VD),ED]  = null
+          algorithm.lambda_edgeImport(pid, iter)(
+            iterTimes, countOutDegree, ifFilteredCounter)
+        })
+      }
+      /*
+      g.triplets.foreachPartition(iter => {
+        val pid = TaskContext.getPartitionId()
+        var temp : EdgeTriplet[VD, ED]  = null
 
-          val writer = new PrintWriter(new File("/home/liqi/IdeaProjects/GraphXwithGPU/logGPU/" +
+        val writer = new PrintWriter(new File("/home/liqi/IdeaProjects/GraphXwithGPU/logGPU/" +
             "testGPUEdgeLog_pid" + pid + "_iter" + iterTimes + ".txt"))
-          while(iter.hasNext){
-            temp = iter.next()
-            var chars = ""
-            chars = chars + " " + temp.srcId + " : " + temp.srcAttr._1 + " :: " + temp.srcAttr._2
-            chars = chars + " -> " + temp.dstId + " : " + temp.dstAttr._1 + " :: " + temp.dstAttr._2
-            chars = chars + " Edge attr: " + temp.attr
-            writer.write("In iter " + iterTimes + " of part" + pid + " , edge data: "
-              + chars + '\n')
+        while(iter.hasNext){
+          temp = iter.next()
+          var chars = ""
+          chars = chars + " " + temp.srcId + " : " + temp.srcAttr
+          chars = chars + " -> " + temp.dstId + " : " + temp.dstAttr
+          chars = chars + " Edge attr: " + temp.attr
+          writer.write("In iter " + iterTimes + " of part" + pid + " , edge data: "
+            + chars + '\n')
 
-          }
-          writer.close()
+        }
+        writer.close()
 
-        })
+      })
 
-        println("*----------------------------------------------*")
-        g.vertices.foreachPartition(iter => {
-          val pid = TaskContext.getPartitionId()
-          var temp : (VertexId, (Boolean, VD))  = null
-          val writer = new PrintWriter(new File("/home/liqi/IdeaProjects/GraphXwithGPU/logGPU/" +
-            "testGPUVertexLog_pid" + pid + "_iter" + iterTimes + ".txt"))
-          while(iter.hasNext){
-            temp = iter.next()
-            var chars = ""
-            chars = chars + " " + temp._1 + " : " + temp._2._1 + " :: " + temp._2._2
-            writer.write("In iter " + iterTimes + " of part " + pid + " , vertex data: "
-              + chars + '\n')
-          }
-          writer.close()
-        })
-        println("*----------------------------------------------*")
-        if(envControl.runningInSkip){
+      println("*----------------------------------------------*")
+      g.vertices.foreachPartition(iter => {
+        val pid = TaskContext.getPartitionId()
+        var temp : (VertexId, VD)  = null
+        val writer = new PrintWriter(new File("/home/liqi/IdeaProjects/GraphXwithGPU/logGPU/" +
+          "testGPUVertexLog_pid" + pid + "_iter" + iterTimes + ".txt"))
+        while(iter.hasNext){
+          temp = iter.next()
+          var chars = ""
+          chars = chars + " " + temp._1 + " : " + temp._2
+          writer.write("In iter " + iterTimes + " of part " + pid + " , vertex data: "
+            + chars + '\n')
+        }
+        writer.close()
+      })
+      println("*----------------------------------------------*")
+      */
+      if(envControl.runningInSkip){
 
-          if (afterCounter != beforeCounter) {
-            // run the main process
-            modifiedSubGraph = GraphXModified.msgExtract(g,
-              Some(oldVertexModified, EdgeDirection.Either))
-              .mapPartitionsWithIndex((pid, iter) =>
-                algorithm.lambda_ModifiedSubGraph_normalIter(pid, iter)(
-                  iterTimes, partitionSplit, ifFilteredCounter))
-
-          }
+        if (afterCounter == beforeCounter) {
           // skip getting vertex information through graph
-          else {
-
-            modifiedSubGraph = g.triplets.mapPartitionsWithIndex((pid, iter) =>
-              algorithm.lambda_modifiedSubGraph_skipStep(pid, iter)(
-                iterTimes, partitionSplit, ifFilteredCounter))
-          }
-
+          val skippingDirection : EdgeDirection = null
+          messages = GraphXUtils.mapReduceTripletsIntoGPU_Skipping(g, ifFilteredCounter,
+            algorithm.lambda_GPUExecute_skipStep, algorithm.lambda_globalReduceFunc,
+            Some((oldMessages, skippingDirection)))
         }
 
-        else{
+        else {
 
-          modifiedSubGraph = GraphXModified.msgExtract(g,
-            Some(oldVertexModified, EdgeDirection.Either))
-            .mapPartitionsWithIndex((pid, iter) =>
-              algorithm.lambda_ModifiedSubGraph_normalIter(pid, iter)(
-                iterTimes, partitionSplit, ifFilteredCounter))
-
+          // run the main process
+          messages = GraphXUtils.mapReduceTripletsIntoGPU(g, ifFilteredCounter,
+            algorithm.lambda_GPUExecute, algorithm.lambda_globalReduceFunc,
+            Some((oldMessages, activeDirection)))
         }
+
       }
 
-      // distribute the vertex messages into partitions
-      vertexModified = g.vertices.aggregateUsingIndex(modifiedSubGraph,
-        algorithm.lambda_ReduceByKey)
-      messageCheckpointer.update(vertexModified)
+      messageCheckPointer.update(messages.asInstanceOf[RDD[(VertexId, A)]])
 
       /*
       vertexModified.foreachPartition(i =>{
@@ -197,13 +186,13 @@ object PregelGPU{
       */
 
       // get the amount of active vertices
-      activeMessages = vertexModified.count()
+      activeMessages = messages.count()
 
       /*
       something while need to repartition
        */
 
-      oldVertexModified.unpersist(blocking = false)
+      oldMessages.unpersist(blocking = false)
       if(afterCounter != beforeCounter) {
         prevG.unpersistVertices(blocking = false)
         prevG.edges.unpersist(blocking = false)
@@ -221,36 +210,33 @@ object PregelGPU{
 
     }
 
-    g = GraphXModified.joinVerticesOrDeactivate(g, vertexModified)((vid, v1, v2) =>
-      algorithm.lambda_JoinVerticesDefault(vid, v1, v2))(vAttr =>
-      (false, vAttr._2))
-    graphCheckpointer.update(g)
+    if(envControl.runningInSkip){
 
-    // extract the remained data
-    modifiedSubGraph = g.triplets.mapPartitionsWithIndex((pid, iter) =>
-      algorithm.lambda_modifiedSubGraph_collectAll(pid, iter)(
-        iterTimes, partitionSplit, ifFilteredCounter))
+      // in order to get all vertices information through graph
+      // when the last step skipped the sync
+      // here g.vertices stands for regarding all the vertices as activated
+      val skippingDirection : EdgeDirection = null
+      messages = GraphXUtils.mapReduceTripletsIntoGPU_Skipping(g, ifFilteredCounter,
+        algorithm.lambda_GPUExecute_skipStep, algorithm.lambda_globalReduceFunc,
+        Some((g.vertices, skippingDirection)))
 
-    vertexModified = g.vertices.aggregateUsingIndex(modifiedSubGraph,
-      algorithm.lambda_ReduceByKey)
-    messageCheckpointer.update(vertexModified)
+      g = g.joinVertices(messages)((vid, v1, v2) =>
+        algorithm.lambda_globalVertexFunc(vid, v1, v2))
 
-    // the final combine
-    g = GraphXModified.joinVerticesOrDeactivate(g, vertexModified)((vid, v1, v2) =>
-      algorithm.lambda_JoinVerticesDefault(vid, v1, v2))(vAttr =>
-      (false, vAttr._2))
-    graphCheckpointer.update(g)
+      graphCheckPointer.update(g)
 
-    messageCheckpointer.unpersistDataSet()
-    graphCheckpointer.deleteAllCheckpoints()
-    messageCheckpointer.deleteAllCheckpoints()
+    }
+
+    messageCheckPointer.unpersistDataSet()
+    graphCheckPointer.deleteAllCheckpoints()
+    messageCheckPointer.deleteAllCheckpoints()
     g
 
   }
 
   // after running algorithm, close the server
-  def close[VD: ClassTag, ED: ClassTag]
-  (Graph: Graph[(Boolean, VD), ED], algorithm: lambdaTemplate[VD, ED]): Unit = {
+  def close[VD: ClassTag, ED: ClassTag, A: ClassTag]
+  (Graph: Graph[VD, ED], algorithm: lambdaTemplete[VD, ED, A]): Unit = {
 
     Graph.vertices.foreachPartition(g => {
       val pid = TaskContext.getPartitionId()

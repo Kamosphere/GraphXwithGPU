@@ -1,12 +1,10 @@
 package edu.ustc.nodb.PregelGPU.example.SSSP
 
-import edu.ustc.nodb.PregelGPU.algorithm.SSSPshm.pregelSSSPShm
 import edu.ustc.nodb.PregelGPU.plugin.graphGenerator
-import edu.ustc.nodb.PregelGPU.{PregelGPU, envControl}
+import edu.ustc.nodb.PregelGPU.envControl
 import org.apache.spark.{SparkConf, SparkContext}
 
 import scala.collection.mutable.ArrayBuffer
-import scala.io.StdIn
 
 object SSSPSparkTest{
 
