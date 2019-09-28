@@ -101,7 +101,7 @@ class GPUController(vertexSum: Long,
     val results = vertexAttrPackage(underIndex)
 
     val endNew = System.nanoTime()
-    println("Constructing returned arrayBuffer time: " + (endNew - startNew))
+    // println("Constructing returned arrayBuffer time: " + (endNew - startNew))
     (resultID, results, needCombine)
 
   }
@@ -123,7 +123,7 @@ class GPUController(vertexSum: Long,
     val results = vertexAttrPackage(underIndex)
 
     val endNew = System.nanoTime()
-    println("Constructing returned skipped array time: " + (endNew - startNew))
+    // println("Constructing returned skipped array time: " + (endNew - startNew))
     (resultID, results, needCombine)
 
   }
@@ -142,7 +142,7 @@ class GPUController(vertexSum: Long,
     val results = vertexAttrPackage(underIndex)
 
     val endNew = System.nanoTime()
-    println("Constructing remained array time: " + (endNew - startNew))
+    // println("Constructing remained array time: " + (endNew - startNew))
 
     (resultID, results, false)
   }
@@ -157,12 +157,12 @@ class GPUController(vertexSum: Long,
     for(i <- 0 until underIndex) {
 
       // package the vertex attr
-      tempVertexAttr = new SPMap
+      tempVertexAttr = makeMap()
       var invalidDetector = 0.0
       for(j <- sourceList.indices) {
         invalidDetector = resultAttr(i * sourceSize + j)
         if(invalidDetector < Int.MaxValue) {
-          tempVertexAttr(sourceList(j)) = resultAttr(i * sourceSize + j)
+          tempVertexAttr.+=((sourceList(j), resultAttr(i * sourceSize + j)))
         }
       }
 
@@ -171,6 +171,8 @@ class GPUController(vertexSum: Long,
 
     results
   }
+
+  private def makeMap(x: (VertexId, Double)*) = Map(x: _*)
 
   // after executing, close the server
   def GPUShutdown(): Boolean = {

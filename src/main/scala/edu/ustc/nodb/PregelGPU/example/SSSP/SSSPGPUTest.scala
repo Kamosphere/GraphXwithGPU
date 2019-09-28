@@ -23,11 +23,10 @@ object SSSPGPUTest{
     if(parts.isEmpty) parts = Some(4)
 
     // load graph from file
-    var sourceFile = ""
+    var sourceFile = "testGraph100000.txt"
     if(envControl.controller == 0) {
-      sourceFile = "/usr/local/ssspexample/testGraph.txt"
+      sourceFile = "/usr/local/ssspexample/" + sourceFile
     }
-    else sourceFile = "testGraph.txt"
 
     val graph = graphGenerator.readFile(sc, sourceFile)(parts.get)
 

@@ -22,10 +22,11 @@ object PregelGPU{
   (algorithm: lambdaTemplete[VD, ED, A])
   : Graph[VD, ED] = {
 
+    val startTime = System.nanoTime()
+
     val checkpointInterval = graph.vertices.sparkContext.getConf
       .getInt("spark.graphx.pregel.checkpointInterval", -1)
 
-    val startTime = System.nanoTime()
     // initiate the graph
     val spGraph = graph.mapVertices ((vid, attr) =>
       algorithm.lambda_initGraph(vid, attr))
@@ -34,9 +35,7 @@ object PregelGPU{
     val graphCheckPointer = new PeriodicGraphCheckpointer[VD, ED](
       checkpointInterval, graph.vertices.sparkContext)
     graphCheckPointer.update(g)
-    val endTime = System.nanoTime()
 
-    println("prePartition Time : " + (endTime - startTime))
     val countOutDegree = g.outDegrees.collectAsMap()
 
     val sc = org.apache.spark.SparkContext.getOrCreate()
@@ -145,23 +144,19 @@ object PregelGPU{
       })
       println("*----------------------------------------------*")
       */
-      if(envControl.runningInSkip){
+      if(envControl.runningInSkip && afterCounter == beforeCounter) {
+        // skip getting vertex information through graph
+        val skippingDirection: EdgeDirection = null
+        messages = GraphXUtils.mapReduceTripletsIntoGPU_Skipping(g, ifFilteredCounter,
+          algorithm.lambda_GPUExecute_skipStep, algorithm.lambda_globalReduceFunc,
+          Some((oldMessages, skippingDirection)))
 
-        if (afterCounter == beforeCounter) {
-          // skip getting vertex information through graph
-          val skippingDirection : EdgeDirection = null
-          messages = GraphXUtils.mapReduceTripletsIntoGPU_Skipping(g, ifFilteredCounter,
-            algorithm.lambda_GPUExecute_skipStep, algorithm.lambda_globalReduceFunc,
-            Some((oldMessages, skippingDirection)))
-        }
-
-        else {
-
-          // run the main process
-          messages = GraphXUtils.mapReduceTripletsIntoGPU(g, ifFilteredCounter,
-            algorithm.lambda_GPUExecute, algorithm.lambda_globalReduceFunc,
-            Some((oldMessages, activeDirection)))
-        }
+      }
+      else {
+        // run the main process
+        messages = GraphXUtils.mapReduceTripletsIntoGPU(g, ifFilteredCounter,
+          algorithm.lambda_GPUExecute, algorithm.lambda_globalReduceFunc,
+          Some((oldMessages, activeDirection)))
 
       }
 
@@ -230,6 +225,10 @@ object PregelGPU{
     messageCheckPointer.unpersistDataSet()
     graphCheckPointer.deleteAllCheckpoints()
     messageCheckPointer.deleteAllCheckpoints()
+
+    val endTime = System.nanoTime()
+
+    println("The whole Pregel process time: " + (endTime - startTime))
     g
 
   }

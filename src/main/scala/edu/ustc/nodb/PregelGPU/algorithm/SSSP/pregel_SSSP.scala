@@ -17,6 +17,10 @@ class pregel_SSSP(allSource: Broadcast[ArrayBuffer[VertexId]],
 
   var controller: GPUController = _
 
+  private def makeMap(x: (VertexId, Double)*) = Map(x: _*)
+
+  override var initSource: Array[VertexId] = allSource.value.toArray
+
   override var partitionInnerData : collection.Map[Int,(Int,Int)] = _
 
   override def fillPartitionInnerData(newMap: collection.Map[Int,(Int,Int)]) : Unit = {
@@ -33,7 +37,7 @@ class pregel_SSSP(allSource: Broadcast[ArrayBuffer[VertexId]],
   override def lambda_initGraph
   (vid: VertexId, attr: VertexId): SPMap = {
 
-    var partitionInit: mutable.LinkedHashMap[VertexId, Double] = mutable.LinkedHashMap()
+    var partitionInit = makeMap()
     for (sid <- allSource.value.sorted) {
       if (vid == sid) {
         partitionInit += (sid -> 0)
@@ -45,9 +49,16 @@ class pregel_SSSP(allSource: Broadcast[ArrayBuffer[VertexId]],
     partitionInit
   }
 
+  override def lambda_initMessage(v1: VertexId): SPMap = {
+    if (initSource.contains(v1)) {
+      makeMap(v1 -> 0)
+    }
+    else makeMap()
+  }
+
   override def lambda_globalVertexFunc
   (v1: VertexId, v2: SPMap, v3: SPMap) : SPMap = {
-    val result : mutable.LinkedHashMap[Long, Double] = v2 ++ v3.map{
+    val result = v2 ++ v3.map{
       case (k, r) => k -> math.min(r, v2.getOrElse(k, Double.PositiveInfinity))
     }
     result
@@ -55,7 +66,7 @@ class pregel_SSSP(allSource: Broadcast[ArrayBuffer[VertexId]],
 
   override def lambda_globalReduceFunc
   (v1: SPMap, v2: SPMap): SPMap = {
-    val result : mutable.LinkedHashMap[Long, Double] = v1 ++ v2.map{
+    val result = v1 ++ v2.map{
       case (k, r) => k -> math.min(r, v1.getOrElse(k, Double.PositiveInfinity))
     }
     result

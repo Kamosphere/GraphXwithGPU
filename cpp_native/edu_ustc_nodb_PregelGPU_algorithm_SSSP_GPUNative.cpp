@@ -254,7 +254,7 @@ JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_algorithm_SSSP_GPUNative_nat
               + to_string(duration.count()) + " " + to_string(durationB.count()) + " sum time: "
               + to_string(durationAll.count());
 
-    cout<<output<<endl;
+    //cout<<output<<endl;
 
     if(allGained){
         return static_cast<int>(0-cPlusReturnId.size());
@@ -316,7 +316,7 @@ JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_algorithm_SSSP_GPUNative_nat
     std::string output = std::string();
     output += "Time of partition " + to_string(pid) + " in c++ for skipping: " + to_string(durationB.count());
 
-    cout<<output<<endl;
+    //cout<<output<<endl;
 
     if(allGained){
         return static_cast<int>(0-cPlusReturnId.size());
@@ -368,7 +368,7 @@ JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_algorithm_SSSP_GPUNative_nat
     std::string output = std::string();
     output += "Time of partition " + to_string(pid) + " in c++ for all merging: " + to_string(durationB.count());
 
-    cout<<output<<endl;
+    //cout<<output<<endl;
 
     return static_cast<int>(cPlusReturnId.size());
 
