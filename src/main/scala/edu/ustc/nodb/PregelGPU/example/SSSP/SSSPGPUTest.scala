@@ -2,6 +2,7 @@ package edu.ustc.nodb.PregelGPU.example.SSSP
 
 import edu.ustc.nodb.PregelGPU.algorithm.SSSP.pregel_SSSP
 import edu.ustc.nodb.PregelGPU.plugin.graphGenerator
+import edu.ustc.nodb.PregelGPU.plugin.partitionStrategy.EdgePartitionNumHookedTest
 import edu.ustc.nodb.PregelGPU.{PregelGPU, envControl}
 import org.apache.spark.{SparkConf, SparkContext}
 
@@ -22,27 +23,31 @@ object SSSPGPUTest{
     var parts = Some(args(0).toInt)
     if(parts.isEmpty) parts = Some(4)
 
+    val preDefinedGraphVertices = 100
+
     // load graph from file
-    var sourceFile = "testGraph100000.txt"
+    var sourceFile = "testGraph"+preDefinedGraphVertices+"x4.txt"
     if(envControl.controller == 0) {
       sourceFile = "/usr/local/ssspexample/" + sourceFile
     }
 
-    val graph = graphGenerator.readFile(sc, sourceFile)(parts.get)
+    envControl.skippingPartSize = preDefinedGraphVertices
 
-    // running two versions of SSSP
+    val graph = graphGenerator.readFile(sc, sourceFile)(parts.get)
+      .partitionBy(EdgePartitionNumHookedTest)
+    // running SSSP
 
     println("-------------------------")
 
-    val sourceList = ArrayBuffer(1L, 2L, 4L, 7L).distinct.sorted
+    val sourceList = ArrayBuffer(1L, preDefinedGraphVertices * 1 + 2L,
+      preDefinedGraphVertices * 2 + 4L,
+      preDefinedGraphVertices * 3 + 7L).distinct.sorted
 
     val allSourceList = sc.broadcast(sourceList)
 
     // the quantity of vertices in the whole graph
     val vertexSum = graph.vertices.count()
     val edgeSum = graph.edges.count()
-
-    envControl.skippingPartSize = (vertexSum / parts.get).toInt
 
     val startNew = System.nanoTime()
     val algorithm = new pregel_SSSP(allSourceList, vertexSum, edgeSum, parts.get)

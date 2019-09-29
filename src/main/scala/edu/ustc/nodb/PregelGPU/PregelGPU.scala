@@ -48,8 +48,10 @@ object PregelGPU{
 
     var partitionSplit = g.innerVerticesEdgesCount().collectAsMap()
 
+    // Input vertex count and edge count in order to init GPU env
     algorithm.fillPartitionInnerData(partitionSplit)
 
+    // Input edge data into GPU
     g.edges.foreachPartition(iter => {
       val pid = TaskContext.getPartitionId()
       algorithm.lambda_edgeImport(pid, iter)(
@@ -59,9 +61,6 @@ object PregelGPU{
     var messages = GraphXUtils.mapReduceTripletsIntoGPU(g, ifFilteredCounter,
       algorithm.lambda_GPUExecute, algorithm.lambda_globalReduceFunc)
 
-    // get the vertex number and edge number in every partition
-    // in order to allocate
-
     val messageCheckPointer = new PeriodicRDDCheckpointer[(VertexId, A)](
       checkpointInterval, graph.vertices.sparkContext)
     messageCheckPointer.update(messages.asInstanceOf[RDD[(VertexId, A)]])
@@ -70,6 +69,8 @@ object PregelGPU{
     var activeMessages = messages.count()
 
     var afterCounter = ifFilteredCounter.value
+
+    var prevIterSkipped = false
 
     iterTimes = 1
     var prevG : Graph[VD, ED] = null
@@ -84,6 +85,10 @@ object PregelGPU{
       prevG = g
 
       ifFilteredCounter.reset()
+
+      // Should be 0
+      // if a partition not satisfied skipping situation, counter will be added
+      // so if afterCounter is 0, all the partition could skip sync
       val tempBeforeCounter = ifFilteredCounter.sum
 
       // merge the messages into graph
@@ -144,20 +149,35 @@ object PregelGPU{
       })
       println("*----------------------------------------------*")
       */
-      if(envControl.runningInSkip && afterCounter == beforeCounter) {
-        // skip getting vertex information through graph
-        val skippingDirection: EdgeDirection = null
-        messages = GraphXUtils.mapReduceTripletsIntoGPU_Skipping(g, ifFilteredCounter,
-          algorithm.lambda_GPUExecute_skipStep, algorithm.lambda_globalReduceFunc,
-          Some((oldMessages, skippingDirection)))
+      if(envControl.runningInSkip){
+        if(afterCounter == beforeCounter){
+          // skip getting vertex information through graph
+          messages = GraphXUtils.mapReduceTripletsIntoGPU_Skipping(g, ifFilteredCounter,
+            algorithm.lambda_GPUExecute_skipStep, algorithm.lambda_globalReduceFunc)
 
+          // to let the next iter know
+          prevIterSkipped = true
+        }
+        else if (prevIterSkipped){
+          // run the main process
+          // if the prev iter skipped the sync, the iter need to catch all data
+          val prevSkippingDirection : EdgeDirection = null
+          messages = GraphXUtils.mapReduceTripletsIntoGPU(g, ifFilteredCounter,
+            algorithm.lambda_GPUExecute, algorithm.lambda_globalReduceFunc,
+            Some((oldMessages, prevSkippingDirection)))
+        }
+        else{
+          // run the main process
+          messages = GraphXUtils.mapReduceTripletsIntoGPU(g, ifFilteredCounter,
+            algorithm.lambda_GPUExecute, algorithm.lambda_globalReduceFunc,
+            Some((oldMessages, activeDirection)))
+        }
       }
-      else {
+      else{
         // run the main process
         messages = GraphXUtils.mapReduceTripletsIntoGPU(g, ifFilteredCounter,
           algorithm.lambda_GPUExecute, algorithm.lambda_globalReduceFunc,
           Some((oldMessages, activeDirection)))
-
       }
 
       messageCheckPointer.update(messages.asInstanceOf[RDD[(VertexId, A)]])
@@ -188,10 +208,14 @@ object PregelGPU{
        */
 
       oldMessages.unpersist(blocking = false)
+
+      // Not skipping
       if(afterCounter != beforeCounter) {
         prevG.unpersistVertices(blocking = false)
         prevG.edges.unpersist(blocking = false)
       }
+
+      // save for detecting if next iter can skip
       beforeCounter = tempBeforeCounter
       afterCounter = ifFilteredCounter.sum
 
@@ -210,10 +234,8 @@ object PregelGPU{
       // in order to get all vertices information through graph
       // when the last step skipped the sync
       // here g.vertices stands for regarding all the vertices as activated
-      val skippingDirection : EdgeDirection = null
-      messages = GraphXUtils.mapReduceTripletsIntoGPU_Skipping(g, ifFilteredCounter,
-        algorithm.lambda_GPUExecute_skipStep, algorithm.lambda_globalReduceFunc,
-        Some((g.vertices, skippingDirection)))
+      messages = GraphXUtils.mapReduceTripletsIntoGPU_FinalCollect(g,
+        algorithm.lambda_GPUExecute_finalCollect, algorithm.lambda_globalReduceFunc)
 
       g = g.joinVertices(messages)((vid, v1, v2) =>
         algorithm.lambda_globalVertexFunc(vid, v1, v2))
