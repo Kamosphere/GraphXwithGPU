@@ -96,11 +96,11 @@ class GPUController(vertexSum: Long,
     val needCombine = if (underIndex <= 0) false else true
     underIndex = math.abs(underIndex)
 
-    val startNew = System.nanoTime()
+    // val startNew = System.nanoTime()
 
     val results = vertexAttrPackage(underIndex)
 
-    val endNew = System.nanoTime()
+    // val endNew = System.nanoTime()
     // println("Constructing returned arrayBuffer time: " + (endNew - startNew))
     (resultID, results, needCombine)
 
@@ -118,11 +118,11 @@ class GPUController(vertexSum: Long,
     val needCombine = if (underIndex <= 0) false else true
     underIndex = math.abs(underIndex)
 
-    val startNew = System.nanoTime()
+    // val startNew = System.nanoTime()
 
     val results = vertexAttrPackage(underIndex)
 
-    val endNew = System.nanoTime()
+    // val endNew = System.nanoTime()
     // println("Constructing returned skipped array time: " + (endNew - startNew))
     (resultID, results, needCombine)
 
@@ -137,11 +137,11 @@ class GPUController(vertexSum: Long,
       vertexCount, edgeCount, sourceSize, pid,
       resultID, resultAttr)
 
-    val startNew = System.nanoTime()
+    // val startNew = System.nanoTime()
 
     val results = vertexAttrPackage(underIndex)
 
-    val endNew = System.nanoTime()
+    // val endNew = System.nanoTime()
     // println("Constructing remained array time: " + (endNew - startNew))
 
     (resultID, results, false)
@@ -161,7 +161,7 @@ class GPUController(vertexSum: Long,
       var invalidDetector = 0.0
       for(j <- sourceList.indices) {
         invalidDetector = resultAttr(i * sourceSize + j)
-        if(invalidDetector < Int.MaxValue) {
+        if(invalidDetector < Double.MaxValue) {
           tempVertexAttr.+=((sourceList(j), resultAttr(i * sourceSize + j)))
         }
       }

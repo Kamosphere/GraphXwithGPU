@@ -3,7 +3,6 @@ package edu.ustc.nodb.PregelGPU
 import java.io.{File, PrintWriter}
 
 import edu.ustc.nodb.PregelGPU.template.lambdaTemplete
-
 import edu.ustc.nodb.PregelGPU.plugin.checkPointer.{PeriodicGraphCheckpointer, PeriodicRDDCheckpointer}
 import org.apache.spark.graphx._
 import org.apache.spark.rdd.RDD
@@ -58,17 +57,8 @@ object PregelGPU{
         iterTimes, countOutDegree, ifFilteredCounter)
     })
 
-    val initMessages = sc.parallelize(algorithm.initSource).map(i => {
-      (i, algorithm.lambda_initMessage(i))
-    })
-
-    var messages = g.vertices.aggregateUsingIndex(initMessages, algorithm.lambda_globalReduceFunc)
-
-    /*
     var messages = GraphXUtils.mapReduceTripletsIntoGPU(g, ifFilteredCounter,
       algorithm.lambda_GPUExecute, algorithm.lambda_globalReduceFunc)
-      */
-
 
     val messageCheckPointer = new PeriodicRDDCheckpointer[(VertexId, A)](
       checkpointInterval, graph.vertices.sparkContext)
@@ -76,6 +66,23 @@ object PregelGPU{
 
     // get the amount of active vertices
     var activeMessages = messages.count()
+
+    /*
+    messages.foreachPartition(iter => {
+      val pid = TaskContext.getPartitionId()
+      var temp : (VertexId, A)  = null
+      val writer = new PrintWriter(new File("/home/liqi/IdeaProjects/GraphXwithGPU/logGPU/" +
+        "testGPUMessagesLog_pid" + pid + "_iter" + 0 + ".txt"))
+      while(iter.hasNext){
+        temp = iter.next()
+        var chars = ""
+        chars = chars + " " + temp._1 + " : " + temp._2
+        writer.write("In iter " + 0 + " of part " + pid + " , init message data: "
+          + chars + '\n')
+      }
+      writer.close()
+    })
+    */
 
     var afterCounter = ifFilteredCounter.value
 
@@ -135,7 +142,7 @@ object PregelGPU{
         }
         writer.close()
       })
-      */
+*/
       /*
       g.triplets.foreachPartition(iter => {
         val pid = TaskContext.getPartitionId()
@@ -177,7 +184,7 @@ object PregelGPU{
       if(envControl.runningInSkip){
         if(afterCounter == beforeCounter){
           // skip getting vertex information through graph
-          messages = GraphXUtils.mapReduceTripletsIntoGPU_Skipping(g, ifFilteredCounter, iterTimes,
+          messages = GraphXUtils.mapReduceTripletsIntoGPU_Skipping(g, ifFilteredCounter,
             algorithm.lambda_GPUExecute_skipStep, algorithm.lambda_globalReduceFunc)
 
           // to let the next iter know
@@ -187,20 +194,20 @@ object PregelGPU{
           // run the main process
           // if the prev iter skipped the sync, the iter need to catch all data
           val prevSkippingDirection : EdgeDirection = null
-          messages = GraphXUtils.mapReduceTripletsIntoGPU(g, ifFilteredCounter, iterTimes,
+          messages = GraphXUtils.mapReduceTripletsIntoGPU(g, ifFilteredCounter,
             algorithm.lambda_GPUExecute, algorithm.lambda_globalReduceFunc,
             Some((oldMessages, prevSkippingDirection)))
         }
         else{
           // run the main process
-          messages = GraphXUtils.mapReduceTripletsIntoGPU(g, ifFilteredCounter, iterTimes,
+          messages = GraphXUtils.mapReduceTripletsIntoGPU(g, ifFilteredCounter,
             algorithm.lambda_GPUExecute, algorithm.lambda_globalReduceFunc,
             Some((oldMessages, activeDirection)))
         }
       }
       else{
         // run the main process
-        messages = GraphXUtils.mapReduceTripletsIntoGPU(g, ifFilteredCounter, iterTimes,
+        messages = GraphXUtils.mapReduceTripletsIntoGPU(g, ifFilteredCounter,
           algorithm.lambda_GPUExecute, algorithm.lambda_globalReduceFunc,
           Some((oldMessages, activeDirection)))
       }

@@ -16,13 +16,11 @@ class PregelSparkSSSP (graph: Graph[VertexId, Double],
 
   private def makeMap(x: (VertexId, Double)*) = Map(x: _*)
 
-  private def addMaps(spmap1: SPMap, spmap2: SPMap):
-  SPMap =
+  private def addMaps(spmap1: SPMap, spmap2: SPMap): SPMap = {
     (spmap1.keySet ++ spmap2.keySet).map {
-
       k => k -> math.min(spmap1.getOrElse(k, Double.MaxValue), spmap2.getOrElse(k, Double.MaxValue))
-
-    }.toMap
+    }(collection.breakOut) // more efficient alternative to [[collection.Traversable.toMap]]
+  }
 
   val initialMessage : Map[VertexId, Double] = makeMap()
 
@@ -40,7 +38,7 @@ class PregelSparkSSSP (graph: Graph[VertexId, Double],
   def sendMessage(edge: EdgeTriplet[SPMap, Double]):
   Iterator[(VertexId, SPMap)] = {
 
-    var result = new ListBuffer[(VertexId, SPMap)]()
+    var result = new ArrayBuffer[(VertexId, SPMap)]()
     for (element <- allSource.value) {
       val oldAttr = edge.srcAttr.getOrElse(element, Double.PositiveInfinity)
       val newAttr = edge.dstAttr.getOrElse(element, Double.PositiveInfinity)

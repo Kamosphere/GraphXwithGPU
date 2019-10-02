@@ -4,6 +4,7 @@ import edu.ustc.nodb.PregelGPU.algorithm.SSSP.pregel_SSSP
 import edu.ustc.nodb.PregelGPU.plugin.graphGenerator
 import edu.ustc.nodb.PregelGPU.plugin.partitionStrategy.EdgePartitionNumHookedTest
 import edu.ustc.nodb.PregelGPU.{PregelGPU, envControl}
+import org.apache.spark.graphx.PartitionStrategy.{EdgePartition2D, RandomVertexCut}
 import org.apache.spark.{SparkConf, SparkContext}
 
 import scala.collection.mutable.ArrayBuffer
@@ -15,7 +16,10 @@ object SSSPGPUTest{
   def main(args: Array[String]) {
 
     // environment setting
-    val conf = new SparkConf().setAppName("Pregel_SSSP").setMaster("local[4]")
+    val conf = new SparkConf().setAppName("Pregel_SSSP")
+    if(envControl.controller != 0){
+      conf.setMaster("local[4]")
+    }
     val sc = new SparkContext(conf)
     sc.setLogLevel("ERROR")
 
@@ -23,10 +27,12 @@ object SSSPGPUTest{
     var parts = Some(args(0).toInt)
     if(parts.isEmpty) parts = Some(4)
 
-    val preDefinedGraphVertices = 100
+    val definedGraphVertices = 100000
+
+    val preDefinedGraphVertices = definedGraphVertices / 4
 
     // load graph from file
-    var sourceFile = "testGraph"+preDefinedGraphVertices+"x4.txt"
+    var sourceFile = "testGraph"+definedGraphVertices+".txt"
     if(envControl.controller == 0) {
       sourceFile = "/usr/local/ssspexample/" + sourceFile
     }
@@ -34,7 +40,8 @@ object SSSPGPUTest{
     envControl.skippingPartSize = preDefinedGraphVertices
 
     val graph = graphGenerator.readFile(sc, sourceFile)(parts.get)
-      .partitionBy(EdgePartitionNumHookedTest)
+      .partitionBy(RandomVertexCut)
+
     // running SSSP
 
     println("-------------------------")

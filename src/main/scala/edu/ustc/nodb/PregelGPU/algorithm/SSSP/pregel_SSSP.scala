@@ -1,5 +1,7 @@
 package edu.ustc.nodb.PregelGPU.algorithm.SSSP
 
+import java.io.{File, PrintWriter}
+
 import edu.ustc.nodb.PregelGPU.algorithm.SPMap
 import edu.ustc.nodb.PregelGPU.plugin.partitionStrategy.EdgePartitionPreSearch
 import edu.ustc.nodb.PregelGPU.template.lambdaTemplete
@@ -42,9 +44,6 @@ class pregel_SSSP(allSource: Broadcast[ArrayBuffer[VertexId]],
       if (vid == sid) {
         partitionInit += (sid -> 0)
       }
-      else {
-        partitionInit += (sid -> Double.PositiveInfinity)
-      }
     }
     partitionInit
   }
@@ -58,18 +57,16 @@ class pregel_SSSP(allSource: Broadcast[ArrayBuffer[VertexId]],
 
   override def lambda_globalVertexFunc
   (v1: VertexId, v2: SPMap, v3: SPMap) : SPMap = {
-    val result = v2 ++ v3.map{
-      case (k, r) => k -> math.min(r, v2.getOrElse(k, Double.PositiveInfinity))
-    }
-    result
+    (v2.keySet ++ v3.keySet).map {
+      k => k -> math.min(v2.getOrElse(k, Double.MaxValue), v3.getOrElse(k, Double.MaxValue))
+    }(collection.breakOut)
   }
 
   override def lambda_globalReduceFunc
   (v1: SPMap, v2: SPMap): SPMap = {
-    val result = v1 ++ v2.map{
-      case (k, r) => k -> math.min(r, v1.getOrElse(k, Double.PositiveInfinity))
-    }
-    result
+    (v1.keySet ++ v2.keySet).map {
+      k => k -> math.min(v1.getOrElse(k, Double.MaxValue), v2.getOrElse(k, Double.MaxValue))
+    }(collection.breakOut)
   }
 
   override def lambda_edgeImport
@@ -171,7 +168,7 @@ class pregel_SSSP(allSource: Broadcast[ArrayBuffer[VertexId]],
         vertexID(i) = idArr(index)
         vertexActive(i) = activeArr(index)
         for(mapIndex <- allSource.value.indices){
-          vertexAttr(i * mapSize + mapIndex) = attrArr(index)(sourceArray(mapIndex))
+          vertexAttr(i * mapSize + mapIndex) = attrArr(index).getOrElse(sourceArray(mapIndex), Int.MaxValue)
         }
         i += 1
       }
