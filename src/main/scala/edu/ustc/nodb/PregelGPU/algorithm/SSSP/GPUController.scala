@@ -161,7 +161,7 @@ class GPUController(vertexSum: Long,
       var invalidDetector = 0.0
       for(j <- sourceList.indices) {
         invalidDetector = resultAttr(i * sourceSize + j)
-        if(invalidDetector < Double.MaxValue) {
+        if(invalidDetector < Int.MaxValue) {
           tempVertexAttr.+=((sourceList(j), resultAttr(i * sourceSize + j)))
         }
       }

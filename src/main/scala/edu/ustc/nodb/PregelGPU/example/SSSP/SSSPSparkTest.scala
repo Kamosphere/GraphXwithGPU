@@ -26,12 +26,12 @@ object SSSPSparkTest{
     var parts = Some(args(0).toInt)
     if(parts.isEmpty) parts = Some(4)
 
-    val definedGraphVertices = 100000
+    val definedGraphVertices = 40000
 
     val preDefinedGraphVertices = definedGraphVertices / 4
 
     // load graph from file
-    var sourceFile = "testGraph"+definedGraphVertices+".txt"
+    var sourceFile = "testGraph"+preDefinedGraphVertices+"x4.txt"
     if(envControl.controller == 0) {
       sourceFile = "/usr/local/ssspexample/" + sourceFile
     }
@@ -39,7 +39,7 @@ object SSSPSparkTest{
     envControl.skippingPartSize = preDefinedGraphVertices
 
     val graph = graphGenerator.readFile(sc, sourceFile)(parts.get)
-      .partitionBy(RandomVertexCut)
+      .partitionBy(EdgePartitionNumHookedTest)
 
     // running SSSP
 

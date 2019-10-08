@@ -171,14 +171,13 @@ JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_algorithm_SSSP_GPUNative_nat
         // jlong sig = env->CallStaticLongMethod(n_sztool, id_getSize, vertexLL);
 
         long jVertexId_get = VertexIDTemp[i];
+        bool jVertexActive_get = VertexActiveTemp[i];
 
         for(int j = 0; j < lenMarkID; j++){
-            double jDis = VertexAttrTemp[i * lenMarkID + j] ;
+            double jDis = VertexAttrTemp[i * lenMarkID + j];
             int index = vertices.at(execute.initVSet[j]).initVIndex;
             if(index != INVALID_INITV_INDEX)vValues[jVertexId_get * lenMarkID + index] = jDis;
         }
-
-        bool jVertexActive_get = VertexActiveTemp[i];
 
         vertices.at(jVertexId_get).isActive = jVertexActive_get;
 

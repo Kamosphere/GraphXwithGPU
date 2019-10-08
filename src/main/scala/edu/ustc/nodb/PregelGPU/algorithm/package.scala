@@ -10,6 +10,6 @@ package object algorithm {
   // mutable.LinkedHashMap stored the pairs of nearest distance from landmark in order
   type SPMap = Map[VertexId, Double]
 
-  type LPAPair = mutable.HashMap[VertexId, Int]
+  type LPAPair = Map[VertexId, Long]
 
 }
