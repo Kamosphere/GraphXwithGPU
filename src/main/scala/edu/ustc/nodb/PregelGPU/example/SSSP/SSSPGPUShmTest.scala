@@ -4,6 +4,7 @@ import edu.ustc.nodb.PregelGPU.algorithm.SSSPshm.pregel_SSSPShm
 import edu.ustc.nodb.PregelGPU.plugin.graphGenerator
 import edu.ustc.nodb.PregelGPU.plugin.partitionStrategy.EdgePartitionNumHookedTest
 import edu.ustc.nodb.PregelGPU.{PregelGPUShm, envControl}
+import org.apache.spark.graphx.PartitionStrategy.EdgePartition2D
 import org.apache.spark.{SparkConf, SparkContext}
 
 import scala.collection.mutable.ArrayBuffer
@@ -20,7 +21,9 @@ object SSSPGPUShmTest{
       conf.setMaster("local[4]")
     }
     val sc = new SparkContext(conf)
-    sc.setLogLevel("ERROR")
+    if(envControl.controller != 0){
+      sc.setLogLevel("ERROR")
+    }
 
     // part the graph shall be divided
     var parts = Some(args(0).toInt)
@@ -39,7 +42,7 @@ object SSSPGPUShmTest{
     envControl.skippingPartSize = preDefinedGraphVertices
 
     val graph = graphGenerator.readFile(sc, sourceFile)(parts.get)
-      .partitionBy(EdgePartitionNumHookedTest)
+      .partitionBy(EdgePartition2D)
 
     // running SSSP
 

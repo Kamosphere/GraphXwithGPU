@@ -60,11 +60,22 @@ target_link_libraries(SSSPGPUShm
         JNIPlugin
         rt)
 
-#add_library(LPACPU SHARED
-#        edu_ustc_nodb_PregelGPU_algorithm_labelPropagation_GPUNative.h
-#        edu_ustc_nodb_PregelGPU_algorithm_labelPropagation_GPUNative.cpp)
+add_library(LPACPUShm SHARED
+        edu_ustc_nodb_PregelGPU_algorithm_LPA_GPUNativeShm.h
+        edu_ustc_nodb_PregelGPU_algorithm_LPA_GPUNativeShm.cpp)
 
-#target_link_libraries(LPACPU
-#        srv_UtilClient
-#        initProber
-#        JNIPlugin)
+target_link_libraries(LPACPUShm
+        srv_UtilClient
+        initProber
+        JNIPlugin
+        rt)
+
+add_library(PRGPUShm SHARED
+        edu_ustc_nodb_PregelGPU_algorithm_PageRank_GPUNativeShm.h
+        edu_ustc_nodb_PregelGPU_algorithm_PageRank_GPUNativeShm.cpp)
+
+target_link_libraries(PRGPUShm
+        srv_UtilClient
+        initProber
+        JNIPlugin
+        rt)

@@ -6,6 +6,7 @@ import org.apache.spark.graphx._
 import org.apache.spark.rdd.RDD
 import org.apache.spark.{SparkConf, TaskContext}
 
+import scala.collection.mutable.ArrayBuffer
 import scala.reflect.ClassTag
 
 object PregelGPUSkipping{
@@ -57,7 +58,7 @@ object PregelGPUSkipping{
 
     val iterVertexInfo = g.vertices.map(vertex => {
       (vertex._1, (algorithm.lambda_initMessage(vertex._1), 0))
-    }).cache()
+    })
 
     var iterUpdate = g.vertices.aggregateUsingIndex(iterVertexInfo,
       (a: (A, Int), b: (A, Int)) => b).cache()
@@ -149,11 +150,20 @@ object PregelGPUSkipping{
           else updateSource
         }).cache()
 
-        val delayedUpdateInfo = iterUpdate.filter(g => g._2._2 < iterTimes).map(i => {
-          (i._1, i._2._1)
-        })
+        val delayedUpdateInfo = iterUpdate.mapPartitions(i => {
+          val filteredResult = new ArrayBuffer[(VertexId, A)]
+          var temp : (VertexId, (A, Int)) = null
+          while (i.hasNext) {
+            temp = i.next()
+            if(temp._2._2 < iterTimes) {
+              filteredResult. += ((temp._1, temp._2._1))
+            }
+          }
+          filteredResult.iterator
+        }).partitionBy(g.vertices.partitioner.get).cache()
 
-        val delayedUpdateMessage = g.vertices.aggregateUsingIndex(delayedUpdateInfo, algorithm.lambda_globalReduceFunc)
+        val delayedUpdateMessage = g.vertices.aggregateUsingIndex(
+          delayedUpdateInfo, algorithm.lambda_globalReduceFunc).cache()
 
         // merge the messages into graph
         g = g.joinVertices(delayedUpdateMessage)((vid, v1, v2) =>

@@ -12,4 +12,6 @@ package object algorithm {
 
   type LPAPair = Map[VertexId, Long]
 
+  type PRPair = (Double, Double)
+
 }

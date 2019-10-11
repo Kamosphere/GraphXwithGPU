@@ -5,12 +5,13 @@ import java.io.{File, PrintWriter}
 import edu.ustc.nodb.PregelGPU.plugin.checkPointer.{PeriodicGraphCheckpointer, PeriodicRDDCheckpointer}
 import edu.ustc.nodb.PregelGPU.template.lambdaShmTemplete
 import org.apache.spark.graphx._
+import org.apache.spark.internal.Logging
 import org.apache.spark.rdd.RDD
 import org.apache.spark.{SparkConf, TaskContext}
 
 import scala.reflect.ClassTag
 
-object PregelGPUShm{
+object PregelGPUShm extends Logging{
 
   // scalastyle:off println
 
@@ -94,6 +95,9 @@ object PregelGPUShm{
 
     // loop
     while(activeMessages > 0 && iterTimes < maxIterations) {
+
+      logInfo("Pregel Start iteration " + iterTimes)
+      println("Pregel Start iteration " + iterTimes)
 
       val startTime = System.nanoTime()
 
@@ -196,6 +200,8 @@ object PregelGPUShm{
       /*
       something while need to repartition
        */
+      logInfo("Pregel finished iteration " + iterTimes)
+      println("Pregel finished iteration " + iterTimes)
 
       oldMessages.unpersist(blocking = false)
       prevG.unpersistVertices(blocking = false)
@@ -207,6 +213,12 @@ object PregelGPUShm{
 
       val endTime = System.nanoTime()
 
+      logInfo("-------------------------")
+      logInfo("Whole iteration time: " + (endTime - startTime) +
+        ", next iter active node amount: " + activeMessages)
+      logInfo("-------------------------")
+
+      println("-------------------------")
       println("Whole iteration time: " + (endTime - startTime) +
         ", next iter active node amount: " + activeMessages)
       println("-------------------------")
@@ -221,6 +233,7 @@ object PregelGPUShm{
 
     val endTime = System.nanoTime()
 
+    logInfo("The whole Pregel process time: " + (endTime - startTime))
     println("The whole Pregel process time: " + (endTime - startTime))
     g
 

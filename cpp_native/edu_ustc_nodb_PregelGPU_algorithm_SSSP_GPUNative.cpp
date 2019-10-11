@@ -152,7 +152,7 @@ JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_algorithm_SSSP_GPUNative_nat
     for(int i = 0; i < vertexAllSum; i++){
         vertices.emplace_back(Vertex(i, false, INVALID_INITV_INDEX));
         for(int j = 0; j < lenMarkID; j++){
-            vValues[i * lenMarkID + j] = (INT32_MAX >> 1);
+            vValues[i * lenMarkID + j] = INT32_MAX;
         }
     }
 
