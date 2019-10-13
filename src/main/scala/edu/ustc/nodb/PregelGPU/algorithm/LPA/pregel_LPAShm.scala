@@ -18,7 +18,7 @@ import scala.collection.mutable.ArrayBuffer
 class pregel_LPAShm(shmIdentifier: Array[String],
                     vertexSum: Long,
                     edgeSum: Long,
-                    parts: Int) extends lambdaShmTemplete[VertexId, Double, LPAPair] {
+                    parts: Int) extends lambdaShmTemplete[(VertexId, Long), Double, LPAPair] {
 
   var controller: GPUControllerShm = _
 
@@ -33,22 +33,17 @@ class pregel_LPAShm(shmIdentifier: Array[String],
   }
 
   override def repartition
-  (g: Graph[VertexId, Double]): Graph[VertexId, Double] = {
+  (g: Graph[(VertexId, Long), Double]): Graph[(VertexId, Long), Double] = {
     g
   }
 
-  override def lambda_initGraph
-  (vid: VertexId, attr: VertexId): VertexId = {
-    vid
-  }
-
-  override def lambda_initMessage(v1: VertexId): LPAPair = {
+  override def lambda_initMessage: LPAPair = {
     Map[VertexId, Long]()
   }
 
-  override def lambda_globalVertexFunc
-  (v1: VertexId, attr: VertexId, message: LPAPair) : VertexId = {
-    if (message.isEmpty) attr else message.maxBy(_._2)._1
+  override def lambda_globalVertexMergeFunc
+  (v1: VertexId, attr: (VertexId, Long), message: LPAPair) : (VertexId, Long) = {
+    if (message.isEmpty) attr else message.maxBy(_._2)
   }
 
   override def lambda_globalReduceFunc
@@ -146,10 +141,12 @@ class pregel_LPAShm(shmIdentifier: Array[String],
 
     val vertexIdIdentifier = writer.getNameByIndex(0)
     val vertexActiveIdentifier = writer.getNameByIndex(1)
-    val vertexAttrIdentifier = writer.getNameByIndex(2)
+    val vertexAttrKeyIdentifier = writer.getNameByIndex(2)
+    val vertexAttrValueIdentifier = writer.getNameByIndex(3)
 
     controller.GPUMsgExecute(vertexIdIdentifier, vertexActiveIdentifier,
-      vertexAttrIdentifier, modifiedVertexAmount, global2local)
+      vertexAttrKeyIdentifier, vertexAttrValueIdentifier,
+      modifiedVertexAmount, global2local)
 
   }
 
@@ -158,21 +155,23 @@ class pregel_LPAShm(shmIdentifier: Array[String],
 
     val vertexCount = partitionInnerData(pid)._1
 
-    val t = new Array[shmArrayWriter](3)
+    val t = new Array[shmArrayWriter](4)
     t(0) = new shmArrayWriterLong(pid, vertexCount, ident(0))
     t(1) = new shmArrayWriterBoolean(pid, vertexCount, ident(1))
     t(2) = new shmArrayWriterLong(pid, vertexCount, ident(2))
+    t(3) = new shmArrayWriterLong(pid, vertexCount, ident(3))
 
-    val d = new shmWriterPackager(3)
+    val d = new shmWriterPackager(4)
     d.addName(t(0).shmName, vertexCount)
     d.addName(t(1).shmName, vertexCount)
     d.addName(t(2).shmName, vertexCount)
+    d.addName(t(3).shmName, vertexCount)
 
     (t, d)
   }
 
   override def lambda_shmWrite(vid: VertexId, activeness: Boolean,
-                               vertexAttr: VertexId, writer: Array[shmArrayWriter])
+                               vertexAttr: (VertexId, Long), writer: Array[shmArrayWriter])
   : Unit = {
 
     writer(0) match {
@@ -182,7 +181,10 @@ class pregel_LPAShm(shmIdentifier: Array[String],
       case booleanWriter: shmArrayWriterBoolean => booleanWriter.shmArrayWriterSet(activeness)
     }
     writer(2) match {
-      case longWriter: shmArrayWriterLong => longWriter.shmArrayWriterSet(vertexAttr)
+      case longWriter: shmArrayWriterLong => longWriter.shmArrayWriterSet(vertexAttr._1)
+    }
+    writer(3) match {
+      case longWriter: shmArrayWriterLong => longWriter.shmArrayWriterSet(vertexAttr._2)
     }
 
   }
@@ -212,7 +214,7 @@ class pregel_LPAShm(shmIdentifier: Array[String],
   }
 
   override def lambda_shutDown
-  (pid: Int, iter: Iterator[(VertexId, VertexId)]):
+  (pid: Int, iter: Iterator[(VertexId, (VertexId, Long))]):
   Unit = {
 
     val Process = new GPUControllerShm(pid)

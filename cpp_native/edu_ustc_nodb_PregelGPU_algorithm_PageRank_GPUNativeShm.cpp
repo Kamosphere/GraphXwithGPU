@@ -110,13 +110,12 @@ JNIEXPORT jboolean JNICALL Java_edu_ustc_nodb_PregelGPU_algorithm_PageRank_GPUNa
 
         jobject start = env->CallObjectMethod(markId, id_ArrayList_get, i);
         jlong jMarkIDUnit = env->CallLongMethod(start, longValue);
-        vertices.at(jMarkIDUnit).initVIndex = i;
-        initVSet[i] = jMarkIDUnit;
-        vValues[initVSet[i]] = std::pair<double, double>(1.0, 1.0);
-
+        if (jMarkIDUnit > 0) {
+            vertices.at(jMarkIDUnit).initVIndex = i;
+            initVSet[i] = jMarkIDUnit;
+        }
         env->DeleteLocalRef(start);
     }
-
 
     // Init the Graph with existed edges
     jboolean isCopy = false;
@@ -223,8 +222,7 @@ JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_algorithm_PageRank_GPUNative
     int lenEdge = static_cast<int>(edgeCount);
     int lenVertex = static_cast<int>(vertexCount);
 
-    UtilClient<std::pair<double, double>, PRA_MSG> execute =
-            UtilClient<std::pair<double, double>, PRA_MSG>
+    UtilClient<std::pair<double, double>, PRA_MSG> execute = UtilClient<std::pair<double, double>, PRA_MSG>
             (vertexAllSum, lenEdge, lenMarkID, partitionID);
 
     int chk = 0;
@@ -246,7 +244,6 @@ JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_algorithm_PageRank_GPUNative
 
     for(jint i = 0; i < lenMarkID; i++){
         vertices.at(execute.initVSet[i]).initVIndex = i;
-        vValues[execute.initVSet[i]] = std::pair<double, double>(1.0, 1.0);
     }
 
     // read vertices attributes from shm files
@@ -284,6 +281,7 @@ JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_algorithm_PageRank_GPUNative
         throwIllegalArgument(env, "Shared memory corruption");
     }
 
+
     for (int i = 0; i < sizeID; i++) {
 
         // jlong sig = env->CallStaticLongMethod(n_sztool, id_getSize, vertexLL);
@@ -297,67 +295,89 @@ JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_algorithm_PageRank_GPUNative
 
     }
 
+    // test for multi-threading environment
+
     chk = execute.update(vValues, &vertices[0]);
 
     if(chk == -1){
         throwIllegalArgument(env, "Cannot update with server correctly");
     }
 
-    /*
-    // test for multithreading environment
+/*
+    string fileNameOutputEdgeLog = "testLogCPlusEdgePid" + to_string(pid) + "time" +
+                               to_string(startTimeAll.time_since_epoch().count()) + ".txt";
+    std::ofstream Fout(pathFile + fileNameOutputEdgeLog, fstream::out | fstream::app);
 
-    std::ofstream Gout("testGraph100Log" + to_string(pid) + ".txt", fstream::out | fstream::app);
+    Fout<<"-----------------Before-----------------"<<endl;
 
-    Gout<<"-----------------Before-----------------"<<endl;
-
-    for(int i = 0;i < vertexAllSum; i++){
+    for(int i = 0;i < edgeCount; i++){
         std::string outputT = "In partition " + to_string(pid) + " , ";
-        outputT += to_string(i) + " active status: " + to_string(execute.vSet[i].isActive) + " : {";
-        for(int j = 0;j < lenMarkID; j++){
-            outputT += " [ " + to_string(execute.initVSet[j])+" : "+to_string(execute.vValues[i * lenMarkID + j]) + " ] ";
-        }
-        outputT += " } ";
-        if(i == 100){
-            Gout<<outputT<<endl;
-        }
+        outputT += " [ " + to_string(execute.eSet[i].src) + " -> " + to_string(execute.eSet[i].dst) + " : ";
+        outputT += ": " + to_string(execute.eSet[i].weight) + " : " + to_string(execute.eSet[i].posOfMValues) + " ] ";
+        Fout<<outputT<<endl;
+
     }
 
-    Gout<<"-----------------Before-----------------"<<endl;
+    Fout<<"-----------------Before-----------------"<<endl;
+*/
 
-    // test end
-    */
 /*
     std::chrono::nanoseconds durationA = std::chrono::high_resolution_clock::now() - startTimeA;
     auto startTime = std::chrono::high_resolution_clock::now();
 
     // execute sssp using GPU in server-client mode
 */
-
     execute.request();
+
+    /*
+    auto startTimeAll2 = std::chrono::high_resolution_clock::now();
+    string pathFile2 = "/home/liqi/IdeaProjects/GraphXwithGPU/logPageRankGPU/2/";
+    string fileNameOutputResultLog = "testLogCPlusResultPid" + to_string(pid) + "time" +
+                               to_string(startTimeAll2.time_since_epoch().count()) + ".txt";
+    std::ofstream Fout(pathFile2 + fileNameOutputResultLog, fstream::out | fstream::app);
+
+    Fout<<"-----------------After-----------------"<<endl;
+
+    for (int i = 0; i < execute.eCount; i++) {
+        int messageVertex = execute.mValues[i].destVId;
+        if (messageVertex != -1) {
+            std::string outputT = "In partition " + to_string(pid) + " , ";
+            outputT += to_string(messageVertex) + " : {";
+            outputT += " [ " + to_string(execute.mValues[i].rank) + " ] ";
+            outputT += " } ";
+            Fout << outputT << endl;
+        }
+    }
+
+    Fout<<"-----------------After-----------------"<<endl;
+    Fout.close();
+     */
+
 /*
     std::chrono::nanoseconds duration = std::chrono::high_resolution_clock::now() - startTime;
 
     auto startTimeB = std::chrono::high_resolution_clock::now();
-*/
+    */
+
     vector<long> cPlusReturnId = vector<long>();
     vector<double> cPlusReturnAttr = vector<double>();
 
     bool allGained = true;
-    for (int i = 0; i < vertexAllSum; i++) {
-        if (execute.vSet[i].isActive) {
-            // copy data
-            cPlusReturnId.emplace_back(i);
-            // TODO:?
-            cPlusReturnAttr.emplace_back(execute.mValues->rank);
-            // detect if the vertex is filtered
-            if(! execute.filteredV[i]){
-                allGained = false;
+    for (int i = 0; i < execute.eCount; i++) {
+        int messageVertex = execute.mValues[i].destVId;
+        if (messageVertex != -1) {
+            if (execute.vSet[messageVertex].isActive){
+                cPlusReturnId.emplace_back(messageVertex);
+                cPlusReturnAttr.emplace_back(execute.mValues[i].rank);
+                if(! execute.filteredV[messageVertex]){
+                    allGained = false;
+                }
             }
         }
     }
 
     // name the returned shm file
-    string resultAttrIdentifier = to_string(pid) + "Double" + "Results";
+    string resultAttrIdentifier = to_string(pid) + "Double" + "ResultsMsg";
     string resultIdIdentifier = to_string(pid) + "Long" + "Results";
 
     chk = writeShm(resultIdIdentifier, cPlusReturnId);
@@ -384,6 +404,7 @@ JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_algorithm_PageRank_GPUNative
     if(! ifReturnAttr){
         throwIllegalArgument(env, "Cannot write back identifier");
     }
+
 /*
     std::chrono::nanoseconds durationB = std::chrono::high_resolution_clock::now() - startTime;
 
@@ -395,6 +416,7 @@ JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_algorithm_PageRank_GPUNative
 
     cout<<output<<endl;
 */
+
     if(allGained){
         return static_cast<int>(0-cPlusReturnId.size());
     }
@@ -434,20 +456,21 @@ JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_algorithm_PageRank_GPUNative
     vector<double> cPlusReturnAttr = vector<double>();
 
     bool allGained = true;
-    for (int i = 0; i < vertexAllSum; i++) {
-        if (execute.vSet[i].isActive) {
-            // copy data
-            cPlusReturnId.emplace_back(i);
-            // TODO:?
-            cPlusReturnAttr.emplace_back(execute.mValues->rank);
-            // detect if the vertex is filtered
-            if(! execute.filteredV[i]){
-                allGained = false;
+    for (int i = 0; i < execute.eCount; i++) {
+        int messageVertex = execute.mValues[i].destVId;
+        if (messageVertex != -1) {
+            if (execute.vSet[messageVertex].isActive){
+                cPlusReturnId.emplace_back(messageVertex);
+                cPlusReturnAttr.emplace_back(execute.mValues[i].rank);
+                if(! execute.filteredV[messageVertex]){
+                    allGained = false;
+                }
             }
         }
     }
 
-    string resultAttrIdentifier = to_string(pid) + "Double" + "Results";
+    // name the returned shm file
+    string resultAttrIdentifier = to_string(pid) + "Double" + "ResultsMsg";
     string resultIdIdentifier = to_string(pid) + "Long" + "Results";
 
     chk = writeShm(resultIdIdentifier, cPlusReturnId);
@@ -462,6 +485,7 @@ JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_algorithm_PageRank_GPUNative
 
     execute.disconnect();
 
+    // fill them into scala object
     bool ifReturnId = env->CallObjectMethod(shmWriter, addWriterName, env->NewStringUTF(resultIdIdentifier.c_str()), cPlusReturnId.size());
 
     if(! ifReturnId){
@@ -516,15 +540,20 @@ JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_algorithm_PageRank_GPUNative
     vector<long> cPlusReturnId = vector<long>();
     vector<double> cPlusReturnAttr = vector<double>();
 
-    for(int i = 0; i < vertexAllSum; i++){
-        bool idFiltered = execute.filteredV[i];
-        if(idFiltered){
-            cPlusReturnId.emplace_back(i);
-            cPlusReturnAttr.emplace_back(execute.mValues->rank);
+    for (int i = 0; i < execute.eCount; i++) {
+        int messageVertex = execute.mValues[i].destVId;
+
+        if (messageVertex != -1) {
+            bool idFiltered = execute.filteredV[messageVertex];
+            if(idFiltered){
+                cPlusReturnId.emplace_back(messageVertex);
+                cPlusReturnAttr.emplace_back(execute.mValues[i].rank);
+            }
         }
     }
 
-    string resultAttrIdentifier = to_string(pid) + "Double" + "Results";
+    // name the returned shm file
+    string resultAttrIdentifier = to_string(pid) + "Double" + "ResultsMsg";
     string resultIdIdentifier = to_string(pid) + "Long" + "Results";
 
     chk = writeShm(resultIdIdentifier, cPlusReturnId);
@@ -537,8 +566,10 @@ JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_algorithm_PageRank_GPUNative
         throwIllegalArgument(env, "Cannot construct shared data memory");
     }
 
+
     execute.disconnect();
 
+    // fill them into scala object
     bool ifReturnId = env->CallObjectMethod(shmWriter, addWriterName, env->NewStringUTF(resultIdIdentifier.c_str()), cPlusReturnId.size());
 
     if(! ifReturnId){
@@ -550,6 +581,7 @@ JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_algorithm_PageRank_GPUNative
     if(! ifReturnAttr){
         throwIllegalArgument(env, "Cannot write back identifier");
     }
+
 /*
     std::chrono::nanoseconds durationB = std::chrono::high_resolution_clock::now() - startTimeB;
 

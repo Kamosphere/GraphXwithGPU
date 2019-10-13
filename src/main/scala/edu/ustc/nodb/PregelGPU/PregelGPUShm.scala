@@ -16,7 +16,7 @@ object PregelGPUShm extends Logging{
   // scalastyle:off println
 
   def run[VD: ClassTag, ED: ClassTag, A: ClassTag]
-  (graph: Graph[VertexId, ED],
+  (graph: Graph[VD, ED],
    activeDirection: EdgeDirection = EdgeDirection.Either,
    maxIterations: Int = Int.MaxValue)
   (algorithm: lambdaShmTemplete[VD, ED, A])
@@ -27,11 +27,9 @@ object PregelGPUShm extends Logging{
     val checkpointInterval = graph.vertices.sparkContext.getConf
       .getInt("spark.graphx.pregel.checkpointInterval", -1)
 
-    // initiate the graph
-    val spGraph = graph.mapVertices ((vid, attr) =>
-      algorithm.lambda_initGraph(vid, attr))
     // var g = algorithm.repartition(spGraph)
-    var g = spGraph
+    var g = graph.mapVertices((vid, attr) =>
+      algorithm.lambda_globalVertexMergeFunc(vid, attr, algorithm.lambda_initMessage))
     val graphCheckPointer = new PeriodicGraphCheckpointer[VD, ED](
       checkpointInterval, graph.vertices.sparkContext)
     graphCheckPointer.update(g)
@@ -86,9 +84,28 @@ object PregelGPUShm extends Logging{
     })
     */
 
+    g.triplets.foreachPartition(iter => {
+      val pid = TaskContext.getPartitionId()
+      var temp : EdgeTriplet[VD, ED]  = null
+
+      val writer = new PrintWriter(new File("/home/liqi/IdeaProjects/GraphXwithGPU/logGPU/" +
+        "testGPUEdgeLog_pid" + pid + "_iter" + iterTimes + ".txt"))
+      while(iter.hasNext){
+        temp = iter.next()
+        var chars = ""
+        chars = chars + " " + temp.srcId + " : " + temp.srcAttr
+        chars = chars + " -> " + temp.dstId + " : " + temp.dstAttr
+        chars = chars + " Edge attr: " + temp.attr
+        writer.write("In iter " + iterTimes + " of part" + pid + " , edge data: "
+          + chars + '\n')
+
+      }
+      writer.close()
+
+    })
+
     var afterCounter = ifFilteredCounter.value
 
-    iterTimes = 1
     var prevG : Graph[VD, ED] = null
 
     val ifRepartition = false
@@ -112,7 +129,7 @@ object PregelGPUShm extends Logging{
 
       // merge the messages into graph
       g = g.joinVertices(messages)((vid, v1, v2) =>
-        algorithm.lambda_globalVertexFunc(vid, v1, v2))
+        algorithm.lambda_globalVertexMergeFunc(vid, v1, v2))
 
       graphCheckPointer.update(g)
 
@@ -131,7 +148,7 @@ object PregelGPUShm extends Logging{
         })
       }
 
-      /*
+
       oldMessages.foreachPartition(iter => {
         val pid = TaskContext.getPartitionId()
         var temp : (VertexId, A)  = null
@@ -146,27 +163,8 @@ object PregelGPUShm extends Logging{
         }
         writer.close()
       })
-      */
+
       /*
-      g.triplets.foreachPartition(iter => {
-        val pid = TaskContext.getPartitionId()
-        var temp : EdgeTriplet[VD, ED]  = null
-
-        val writer = new PrintWriter(new File("/home/liqi/IdeaProjects/GraphXwithGPU/logGPU/" +
-            "testGPUEdgeLog_pid" + pid + "_iter" + iterTimes + ".txt"))
-        while(iter.hasNext){
-          temp = iter.next()
-          var chars = ""
-          chars = chars + " " + temp.srcId + " : " + temp.srcAttr
-          chars = chars + " -> " + temp.dstId + " : " + temp.dstAttr
-          chars = chars + " Edge attr: " + temp.attr
-          writer.write("In iter " + iterTimes + " of part" + pid + " , edge data: "
-            + chars + '\n')
-
-        }
-        writer.close()
-
-      })
 
       println("*----------------------------------------------*")
       g.vertices.foreachPartition(iter => {

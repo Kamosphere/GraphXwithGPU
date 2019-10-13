@@ -1,14 +1,18 @@
-package edu.ustc.nodb.PregelGPU.example.SSSP
+package edu.ustc.nodb.PregelGPU.example.PageRank
 
+import edu.ustc.nodb.PregelGPU.algorithm.LPA.pregel_LPAShm
+import edu.ustc.nodb.PregelGPU.algorithm.PageRank.pregel_PRShm
+import edu.ustc.nodb.PregelGPU.algorithm.SSSP.pregel_SSSP
 import edu.ustc.nodb.PregelGPU.plugin.graphGenerator
-import edu.ustc.nodb.PregelGPU.envControl
-import edu.ustc.nodb.PregelGPU.plugin.partitionStrategy.EdgePartitionNumHookedTest
-import org.apache.spark.graphx.PartitionStrategy.{EdgePartition2D, RandomVertexCut}
+import edu.ustc.nodb.PregelGPU.{PregelGPU, PregelGPUShm, PregelGPUSkipping, envControl}
+import org.apache.spark.graphx.EdgeDirection
+import org.apache.spark.graphx.PartitionStrategy.EdgePartition2D
 import org.apache.spark.{SparkConf, SparkContext}
 
 import scala.collection.mutable.ArrayBuffer
+import scala.io.StdIn
 
-object SSSPSparkTest{
+object PageRankGPUTest{
 
   // scalastyle:on println
 
@@ -47,30 +51,41 @@ object SSSPSparkTest{
 
     println("-------------------------")
 
-    val sourceList = ArrayBuffer(1L, preDefinedGraphVertices * 1 + 2L,
-      preDefinedGraphVertices * 2 + 4L,
-      preDefinedGraphVertices * 3 + 7L).distinct.sorted
+    val sourceList = 1L
+    val allSourceList = sc.broadcast(Option(sourceList))
 
-    val allSourceList = sc.broadcast(sourceList)
+    val shmIdentifier = new Array[String](4)
+    shmIdentifier(0) = "ID"
+    shmIdentifier(1) = "Active"
+    shmIdentifier(2) = "PairSource1"
+    shmIdentifier(3) = "PairSource2"
 
     // the quantity of vertices in the whole graph
     val vertexSum = graph.vertices.count()
     val edgeSum = graph.edges.count()
 
-    val ssspTest = new PregelSparkSSSP(graph, allSourceList)
+    val algorithm = new pregel_PRShm(allSourceList, shmIdentifier,
+      vertexSum, edgeSum, 0.001, 0.15, parts.get)
 
-    val startNormal = System.nanoTime()
-    val ssspResult = ssspTest.run()
-    // val d = ssspResult.vertices.count()
-    val endNormal = System.nanoTime()
-    println(ssspResult.vertices.collect().mkString("\n"))
+    val startNew = System.nanoTime()
+
+    //TODO: deactive the last iter vertex
+    val testGraph = algorithm.graphInit(graph)
+    val GPUResult = PregelGPUShm.run(testGraph, EdgeDirection.Either, 15)(algorithm)
+    // val q = ssspGPUResult.vertices.count()
+    println(GPUResult.vertices.collect().mkString("\n"))
+    val endNew = System.nanoTime()
 
     println("-------------------------")
 
-    println(endNormal - startNormal)
+    println(endNew - startNew)
+
+    PregelGPUShm.close(GPUResult, algorithm)
+
+    val k = StdIn.readInt()
+    println(k)
 
   }
 
   // scalastyle:on println
 }
-

@@ -4,12 +4,12 @@ import scala.reflect.ClassTag
 
 import org.apache.spark.graphx._
 
-class PregelSparkLPA [VD, ED: ClassTag](graph: Graph[VD, ED]){
+class PregelSparkLPA [VD, ED: ClassTag](graph: Graph[VD, ED]) extends Serializable {
 
-  def sendMessage(e: EdgeTriplet[VertexId, ED]):
+  def sendMessage(e: EdgeTriplet[(VertexId, Long), ED]):
   Iterator[(VertexId, Map[VertexId, Long])] = {
 
-    Iterator((e.srcId, Map(e.dstAttr -> 1L)), (e.dstId, Map(e.srcAttr -> 1L)))
+    Iterator((e.dstId, Map(e.srcAttr._1 -> 1L)))
   }
 
   def mergeMessage(count1: Map[VertexId, Long], count2: Map[VertexId, Long])
@@ -21,21 +21,21 @@ class PregelSparkLPA [VD, ED: ClassTag](graph: Graph[VD, ED]){
     }(collection.breakOut) // more efficient alternative to [[collection.Traversable.toMap]]
   }
 
-  def vertexProgram(vid: VertexId, attr: Long, message: Map[VertexId, Long]):
-  VertexId = {
+  def vertexProgram(vid: VertexId, attr: (VertexId, Long), message: Map[VertexId, Long]):
+  (VertexId, Long) = {
 
-    if (message.isEmpty) attr else message.maxBy(_._2)._1
+    if (message.isEmpty) attr else message.maxBy(_._2)
   }
 
   val initialMessage = Map[VertexId, Long]()
 
-  def run(maxSteps: Int): Graph[VertexId, ED] = {
+  def run(maxSteps: Int): Graph[(VertexId, Long), ED] = {
 
     require(maxSteps > 0, s"Maximum of steps must be greater than 0, but got $maxSteps")
 
-    val lpaGraph = graph.mapVertices { case (vid, _) => vid }
+    val lpaGraph = graph.mapVertices { case (vid, _) => (vid, 0L) }
 
-    Pregel(lpaGraph, initialMessage, maxIterations = maxSteps)(
+    Pregel(lpaGraph, initialMessage, maxIterations = maxSteps, EdgeDirection.Out)(
       vprog = vertexProgram,
       sendMsg = sendMessage,
       mergeMsg = mergeMessage)

@@ -22,17 +22,20 @@ object SSSPGPUTest{
       conf.setMaster("local[4]")
     }
     val sc = new SparkContext(conf)
+    if(envControl.controller != 0){
+      sc.setLogLevel("ERROR")
+    }
 
     // part the graph shall be divided
     var parts = Some(args(0).toInt)
     if(parts.isEmpty) parts = Some(4)
 
-    val definedGraphVertices = 1000000
+    val definedGraphVertices = 40000
 
     val preDefinedGraphVertices = definedGraphVertices / 4
 
     // load graph from file
-    var sourceFile = "testGraph"+definedGraphVertices+".txt"
+    var sourceFile = "testGraph"+preDefinedGraphVertices+"x4.txt"
     if(envControl.controller == 0) {
       sourceFile = "/usr/local/ssspexample/" + sourceFile
     }

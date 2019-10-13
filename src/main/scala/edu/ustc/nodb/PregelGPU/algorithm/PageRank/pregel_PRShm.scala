@@ -1,12 +1,11 @@
 package edu.ustc.nodb.PregelGPU.algorithm.PageRank
 
-import edu.ustc.nodb.PregelGPU.algorithm.{PRPair, SPMap}
-import edu.ustc.nodb.PregelGPU.plugin.partitionStrategy.EdgePartitionPreSearch
+import edu.ustc.nodb.PregelGPU.algorithm.PRPair
 import edu.ustc.nodb.PregelGPU.template.lambdaShmTemplete
 import org.apache.spark.broadcast.Broadcast
 import org.apache.spark.graphx.util.collection.GraphXPrimitiveKeyOpenHashMap
 import org.apache.spark.graphx.util.collection.shmManager.shmArrayWriter
-import org.apache.spark.graphx.util.collection.shmManager.shmArrayWriterImpl.{shmArrayWriterBoolean, shmArrayWriterDouble, shmArrayWriterLong}
+import org.apache.spark.graphx.util.collection.shmManager.shmArrayWriterImpl._
 import org.apache.spark.graphx.util.collection.shmManager.shmNamePackager.shmWriterPackager
 import org.apache.spark.graphx.{Edge, Graph, VertexId}
 import org.apache.spark.util.LongAccumulator
@@ -14,6 +13,7 @@ import org.apache.spark.util.collection.BitSet
 
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
+import scala.reflect.ClassTag
 
 class pregel_PRShm(allSource: Broadcast[Option[VertexId]],
                    shmIdentifier: Array[String],
@@ -37,9 +37,22 @@ class pregel_PRShm(allSource: Broadcast[Option[VertexId]],
     partitionInnerData = newMap
   }
 
+  def graphInit[VD: ClassTag, ED: ClassTag]
+  (graph: Graph[VD, ED]): Graph[(Double, Double), Double] = {
+    graph.outerJoinVertices(graph.outDegrees) {
+      (vid, vdata, deg) => deg.getOrElse(0)
+    }
+      // Set the weight on the edges based on the degree
+      .mapTriplets( e => 1.0 / e.srcAttr )
+      // Set the vertex attributes to (initialPR, delta = 0)
+      .mapVertices { (id, attr) =>
+      if (id == initSrc) (0.0, Double.NegativeInfinity) else (0.0, 0.0)
+    }
+      .cache()
+  }
+
   override def repartition
   (g: Graph[PRPair, Double]): Graph[PRPair, Double] = {
-
     g
   }
 
@@ -60,17 +73,11 @@ class pregel_PRShm(allSource: Broadcast[Option[VertexId]],
     (newPR, newPR - oldPR)
   }
 
-  override def lambda_initGraph
-  (vid: VertexId, attr: VertexId): PRPair = {
-
-    if (vid == initSrc) (0.0, Double.NegativeInfinity) else (0.0, 0.0)
-  }
-
-  override def lambda_initMessage(v1: VertexId): Double = {
+  override def lambda_initMessage: Double = {
     if (personalized) 0.0 else resetProb / (1.0 - resetProb)
   }
 
-  override def lambda_globalVertexFunc
+  override def lambda_globalVertexMergeFunc
   (id: VertexId, attr: PRPair, msgSum: Double) : PRPair = {
     if (personalized) {
       personalizedVertexProgram(id, attr, msgSum)

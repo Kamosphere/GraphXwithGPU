@@ -4,15 +4,15 @@ import org.apache.spark.graphx._
 
 import scala.reflect.ClassTag
 
-class PregelSparkPageRank {
+class PregelSparkPageRank extends Serializable {
 
   def runUntilConvergenceWithOptions[VD: ClassTag, ED: ClassTag]
   (graph: Graph[VD, ED], tol: Double, resetProb: Double = 0.15,
    srcId: Option[VertexId] = None): Graph[Double, Double] =
   {
-    require(tol >= 0, s"Tolerance must be no less than 0, but got ${tol}")
+    require(tol >= 0, s"Tolerance must be no less than 0, but got $tol")
     require(resetProb >= 0 && resetProb <= 1, s"Random reset probability must belong" +
-      s" to [0, 1], but got ${resetProb}")
+      s" to [0, 1], but got $resetProb")
 
     val personalized = srcId.isDefined
     val src: VertexId = srcId.getOrElse(-1L)

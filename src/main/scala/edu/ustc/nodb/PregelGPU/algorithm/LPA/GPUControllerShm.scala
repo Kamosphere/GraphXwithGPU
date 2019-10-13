@@ -3,15 +3,14 @@ package edu.ustc.nodb.PregelGPU.algorithm.LPA
 import java.nio.file.{Files, Path, Paths}
 import java.util
 
-import edu.ustc.nodb.PregelGPU.algorithm.{LPAPair, SPMap}
+import edu.ustc.nodb.PregelGPU.algorithm.LPAPair
 import edu.ustc.nodb.PregelGPU.envControl
 import org.apache.spark.graphx.VertexId
 import org.apache.spark.graphx.util.collection.GraphXPrimitiveKeyOpenHashMap
-import org.apache.spark.graphx.util.collection.shmManager.shmArrayReaderImpl.{shmArrayReaderDouble, shmArrayReaderLong}
+import org.apache.spark.graphx.util.collection.shmManager.shmArrayReaderImpl._
 import org.apache.spark.graphx.util.collection.shmManager.shmNamePackager.{shmReaderPackager, shmWriterPackager}
 import org.apache.spark.util.collection.BitSet
 
-import scala.collection.mutable.ArrayBuffer
 import scala.sys.process.Process
 
 class GPUControllerShm(vertexSum: Long,
@@ -36,16 +35,16 @@ class GPUControllerShm(vertexSum: Long,
     // running script to activate server
     if (envControl.controller == 0) {
       runningScript =
-        "/usr/local/ssspexample/cpp_native/build/bin/srv_UtilServerTest_BellmanFordGPU " +
+        "/usr/local/ssspexample/cpp_native/build/bin/srv_UtilServerTest_LabelPropagation " +
           vertexSum.toString + " " + edgeCount.toString + " " +
-          0 + " " + pid.toString
+          1 + " " + pid.toString
 
     }
     else {
       runningScript =
-        "./cpp_native/build/bin/srv_UtilServerTest_BellmanFordGPU " +
+        "./cpp_native/build/bin/srv_UtilServerTest_LabelPropagation " +
           vertexSum.toString + " " + edgeCount.toString + " " +
-          0 + " " + pid.toString
+          1 + " " + pid.toString
 
     }
 
@@ -84,20 +83,22 @@ class GPUControllerShm(vertexSum: Long,
   // execute SSSP algorithm
   def GPUMsgExecute(VertexID: String,
                     VertexActive: String,
-                    VertexAttr: String,
+                    VertexAttrKey: String,
+                    VertexAttrValue: String,
                     modifiedVertexAmount: Int,
                     global2local: GraphXPrimitiveKeyOpenHashMap[VertexId, Int]):
   (BitSet, Array[LPAPair], Boolean) = {
 
     // create reader list to get input array in shm
-    val shmReader = new shmReaderPackager(3)
+    val shmReader = new shmReaderPackager(4)
 
     shmReader.addName(VertexID, modifiedVertexAmount)
     shmReader.addName(VertexActive, modifiedVertexAmount)
-    shmReader.addName(VertexAttr, modifiedVertexAmount)
+    shmReader.addName(VertexAttrKey, modifiedVertexAmount)
+    shmReader.addName(VertexAttrValue, modifiedVertexAmount)
 
     // create writer list to return shm file names
-    val shmWriter = new shmWriterPackager(2)
+    val shmWriter = new shmWriterPackager(3)
 
     // pass reader and writer through JNI
     var underIndex = native.nativeStepMsgExecute(vertexSum,
@@ -110,11 +111,13 @@ class GPUControllerShm(vertexSum: Long,
     // read files in writer list ( already written in c++ )
     val resultIDReader = new shmArrayReaderLong(
       shmWriter.getSizeByIndex(0), shmWriter.getNameByIndex(0))
-    val resultAttrReader = new shmArrayReaderDouble(
+    val resultAttrKeyReader = new shmArrayReaderLong(
       shmWriter.getSizeByIndex(1), shmWriter.getNameByIndex(1))
+    val resultAttrValueReader = new shmArrayReaderLong(
+      shmWriter.getSizeByIndex(2), shmWriter.getNameByIndex(2))
 
     val (resultBitSet, resultAttr) = vertexAttrPackage(
-      underIndex, global2local, resultIDReader, resultAttrReader)
+      underIndex, global2local, resultIDReader, resultAttrKeyReader, resultAttrValueReader)
 
     (resultBitSet, resultAttr, needCombine)
 
@@ -124,7 +127,7 @@ class GPUControllerShm(vertexSum: Long,
   def GPUIterSkipCollect(global2local: GraphXPrimitiveKeyOpenHashMap[VertexId, Int]):
   (BitSet, Array[LPAPair], Boolean) = {
 
-    val shmWriter = new shmWriterPackager(2)
+    val shmWriter = new shmWriterPackager(3)
 
     // pass writer through JNI, for the data in the last iter is in the server
     var underIndex = native.nativeSkipStep(vertexSum,
@@ -136,11 +139,13 @@ class GPUControllerShm(vertexSum: Long,
 
     val resultIDReader = new shmArrayReaderLong(
       shmWriter.getSizeByIndex(0), shmWriter.getNameByIndex(0))
-    val resultAttrReader = new shmArrayReaderDouble(
+    val resultAttrKeyReader = new shmArrayReaderLong(
       shmWriter.getSizeByIndex(1), shmWriter.getNameByIndex(1))
+    val resultAttrValueReader = new shmArrayReaderLong(
+      shmWriter.getSizeByIndex(2), shmWriter.getNameByIndex(2))
 
     val (resultBitSet, resultAttr) = vertexAttrPackage(
-      underIndex, global2local, resultIDReader, resultAttrReader)
+      underIndex, global2local, resultIDReader, resultAttrKeyReader, resultAttrValueReader)
 
     (resultBitSet, resultAttr, needCombine)
 
@@ -150,7 +155,7 @@ class GPUControllerShm(vertexSum: Long,
   def GPUFinalCollect(global2local: GraphXPrimitiveKeyOpenHashMap[VertexId, Int]):
   (BitSet, Array[LPAPair], Boolean) = {
 
-    val shmWriter = new shmWriterPackager(2)
+    val shmWriter = new shmWriterPackager(3)
 
     // pass writer through JNI, in order to get last skipped data back
     val underIndex = native.nativeStepFinal(vertexSum,
@@ -159,11 +164,13 @@ class GPUControllerShm(vertexSum: Long,
 
     val resultIDReader = new shmArrayReaderLong(
       shmWriter.getSizeByIndex(0), shmWriter.getNameByIndex(0))
-    val resultAttrReader = new shmArrayReaderDouble(
+    val resultAttrKeyReader = new shmArrayReaderLong(
       shmWriter.getSizeByIndex(1), shmWriter.getNameByIndex(1))
+    val resultAttrValueReader = new shmArrayReaderLong(
+      shmWriter.getSizeByIndex(2), shmWriter.getNameByIndex(2))
 
     val (resultBitSet, resultAttr) = vertexAttrPackage(
-      underIndex, global2local, resultIDReader, resultAttrReader)
+      underIndex, global2local, resultIDReader, resultAttrKeyReader, resultAttrValueReader)
 
     (resultBitSet, resultAttr, false)
   }
@@ -192,28 +199,29 @@ class GPUControllerShm(vertexSum: Long,
   def vertexAttrPackage(underIndex: Int,
                         global2local: GraphXPrimitiveKeyOpenHashMap[VertexId, Int],
                         resultIDReader: shmArrayReaderLong,
-                        resultAttrReader: shmArrayReaderDouble):
+                        resultAttrKeyReader: shmArrayReaderLong,
+                        resultAttrValueReader: shmArrayReaderLong):
   (BitSet, Array[LPAPair]) = {
 
     val resultBitSet = new BitSet(vertexCount)
     val resultAttr = new Array[LPAPair](vertexCount)
 
     //val startNew = System.nanoTime()
-    var tempAttr : LPAPair = null
+    var tempAttr : (VertexId, Long) = null
     for (i <- 0 until underIndex) {
       val globalId = resultIDReader.shmArrayReaderGetByIndex(i)
-      //TODO: have problem
-      /*
-      for (j <- 0 until sourceSize) {
-        val mapValue = resultAttrReader.shmArrayReaderGetByIndex(i * sourceSize + j)
-        if (mapValue < Int.MaxValue) {
-          tempAttr. += ((sourceList(j), mapValue))
-        }
-      }
-      */
+      tempAttr = (resultAttrKeyReader.shmArrayReaderGetByIndex(i),
+        resultAttrValueReader.shmArrayReaderGetByIndex(i))
+
       val localId = global2local(globalId)
-      resultBitSet.set(localId)
-      resultAttr(localId) = tempAttr
+
+      if (resultBitSet.get(localId)) {
+        resultAttr(localId). += (tempAttr)
+      }
+      else {
+        resultBitSet.set(localId)
+        resultAttr(localId) = Map[VertexId, Long](tempAttr)
+      }
     }
     //val endNew = System.nanoTime()
 

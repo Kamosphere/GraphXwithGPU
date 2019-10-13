@@ -53,7 +53,7 @@ class PregelSparkSSSP (graph: Graph[VertexId, Double],
 
     val spGraph = graph.mapVertices { (vid, attr) =>
       if (allSource.value.contains(vid)) makeMap(vid -> 0) else makeMap()
-    }
+    }.cache()
     Pregel(spGraph, initialMessage)(vertexProgram, sendMessage, addMaps)
 
   }

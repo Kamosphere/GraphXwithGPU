@@ -1,14 +1,13 @@
-package edu.ustc.nodb.PregelGPU.example.SSSP
+package edu.ustc.nodb.PregelGPU.example.LPA
 
-import edu.ustc.nodb.PregelGPU.plugin.graphGenerator
 import edu.ustc.nodb.PregelGPU.envControl
-import edu.ustc.nodb.PregelGPU.plugin.partitionStrategy.EdgePartitionNumHookedTest
-import org.apache.spark.graphx.PartitionStrategy.{EdgePartition2D, RandomVertexCut}
+import edu.ustc.nodb.PregelGPU.plugin.graphGenerator
+import org.apache.spark.graphx.PartitionStrategy.EdgePartition2D
 import org.apache.spark.{SparkConf, SparkContext}
 
 import scala.collection.mutable.ArrayBuffer
 
-object SSSPSparkTest{
+object LPASparkTest{
 
   // scalastyle:on println
 
@@ -28,7 +27,7 @@ object SSSPSparkTest{
     var parts = Some(args(0).toInt)
     if(parts.isEmpty) parts = Some(4)
 
-    val definedGraphVertices = 40000
+    val definedGraphVertices = 400
 
     val preDefinedGraphVertices = definedGraphVertices / 4
 
@@ -47,23 +46,17 @@ object SSSPSparkTest{
 
     println("-------------------------")
 
-    val sourceList = ArrayBuffer(1L, preDefinedGraphVertices * 1 + 2L,
-      preDefinedGraphVertices * 2 + 4L,
-      preDefinedGraphVertices * 3 + 7L).distinct.sorted
-
-    val allSourceList = sc.broadcast(sourceList)
-
     // the quantity of vertices in the whole graph
     val vertexSum = graph.vertices.count()
     val edgeSum = graph.edges.count()
 
-    val ssspTest = new PregelSparkSSSP(graph, allSourceList)
+    val LPATest = new PregelSparkLPA(graph)
 
     val startNormal = System.nanoTime()
-    val ssspResult = ssspTest.run()
+    val LPAResult = LPATest.run(50)
     // val d = ssspResult.vertices.count()
     val endNormal = System.nanoTime()
-    println(ssspResult.vertices.collect().mkString("\n"))
+    println(LPAResult.vertices.collect().mkString("\n"))
 
     println("-------------------------")
 

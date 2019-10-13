@@ -29,7 +29,7 @@ class GPUControllerShm(vertexSum: Long,
 
   val sourceSize: Int = 1
 
-  System.loadLibrary("PRGPUShm")
+  System.loadLibrary("PRCPUShm")
 
   def GPUServerActive():
   Unit = {
@@ -39,14 +39,14 @@ class GPUControllerShm(vertexSum: Long,
     // running script to activate server
     if (envControl.controller == 0) {
       runningScript =
-        "/usr/local/ssspexample/cpp_native/build/bin/srv_UtilServerTest_BellmanFordGPU " +
+        "/usr/local/ssspexample/cpp_native/build/bin/srv_UtilServerTest_PageRank " +
           vertexSum.toString + " " + edgeCount.toString + " " +
           1 + " " + pid.toString
 
     }
     else {
       runningScript =
-        "./cpp_native/build/bin/srv_UtilServerTest_BellmanFordGPU " +
+        "./cpp_native/build/bin/srv_UtilServerTest_PageRank " +
           vertexSum.toString + " " + edgeCount.toString + " " +
           1 + " " + pid.toString
 
@@ -209,16 +209,7 @@ class GPUControllerShm(vertexSum: Long,
     var tempAttr : Double = 0.0
     for (i <- 0 until underIndex) {
       val globalId = resultIDReader.shmArrayReaderGetByIndex(i)
-      // TODO: have problem
-      /*
-      tempAttr = makeMap()
-      for (j <- 0 until sourceSize) {
-        val mapValue = resultAttrReader.shmArrayReaderGetByIndex(i * sourceSize + j)
-        if (mapValue < Int.MaxValue) {
-          tempAttr. += ((sourceList(j), mapValue))
-        }
-      }
-      */
+      tempAttr = resultAttrReader.shmArrayReaderGetByIndex(i)
       val localId = global2local(globalId)
       resultBitSet.set(localId)
       resultAttr(localId) = tempAttr

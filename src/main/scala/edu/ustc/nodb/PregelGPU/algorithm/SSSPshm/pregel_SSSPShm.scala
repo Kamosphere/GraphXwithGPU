@@ -42,26 +42,9 @@ class pregel_SSSPShm(allSource: Broadcast[ArrayBuffer[VertexId]],
     partitionMethod.generateMappedGraph()
   }
 
-  override def lambda_initGraph
-  (vid: VertexId, attr: VertexId): SPMap = {
+  override def lambda_initMessage: SPMap = makeMap()
 
-    var partitionInit = makeMap()
-    for (sid <- allSource.value.sorted) {
-      if (vid == sid) {
-        partitionInit += (sid -> 0)
-      }
-    }
-    partitionInit
-  }
-
-  override def lambda_initMessage(v1: VertexId): SPMap = {
-    if (initSource.contains(v1)) {
-      makeMap(v1 -> 0)
-    }
-    else makeMap()
-  }
-
-  override def lambda_globalVertexFunc
+  override def lambda_globalVertexMergeFunc
   (v1: VertexId, v2: SPMap, v3: SPMap) : SPMap = {
     (v2.keySet ++ v3.keySet).map {
       k => k -> math.min(v2.getOrElse(k, Double.MaxValue), v3.getOrElse(k, Double.MaxValue))
@@ -200,12 +183,12 @@ class pregel_SSSPShm(allSource: Broadcast[ArrayBuffer[VertexId]],
       case booleanWriter: shmArrayWriterBoolean => booleanWriter.shmArrayWriterSet(activeness)
     }
     writer(2) match {
-      case doubleWriter: shmArrayWriterDouble => {
+      case doubleWriter: shmArrayWriterDouble =>
         for (elem <- allSource.value){
           val attr = vertexAttr.getOrElse(elem, Int.MaxValue.toDouble)
           doubleWriter.shmArrayWriterSet(attr)
         }
-      }
+
     }
 
   }

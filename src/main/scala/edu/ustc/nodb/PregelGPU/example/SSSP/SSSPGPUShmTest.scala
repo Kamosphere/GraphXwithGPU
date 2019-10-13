@@ -5,6 +5,7 @@ import edu.ustc.nodb.PregelGPU.plugin.graphGenerator
 import edu.ustc.nodb.PregelGPU.plugin.partitionStrategy.EdgePartitionNumHookedTest
 import edu.ustc.nodb.PregelGPU.{PregelGPUShm, envControl}
 import org.apache.spark.graphx.PartitionStrategy.EdgePartition2D
+import org.apache.spark.graphx.VertexId
 import org.apache.spark.{SparkConf, SparkContext}
 
 import scala.collection.mutable.ArrayBuffer
@@ -12,6 +13,8 @@ import scala.collection.mutable.ArrayBuffer
 object SSSPGPUShmTest{
 
   // scalastyle:on println
+  def makeMap(x: (VertexId, Double)*) = Map(x: _*)
+
 
   def main(args: Array[String]) {
 
@@ -55,17 +58,22 @@ object SSSPGPUShmTest{
     val allSourceList = sc.broadcast(sourceList)
 
     val shmIdentifier = new Array[String](3)
-    shmIdentifier(0) = ""
-    shmIdentifier(1) = ""
-    shmIdentifier(2) = ""
+    shmIdentifier(0) = "ID"
+    shmIdentifier(1) = "active"
+    shmIdentifier(2) = "Attr"
 
     // the quantity of vertices in the whole graph
     val vertexSum = graph.vertices.count()
     val edgeSum = graph.edges.count()
 
-    val startNew = System.nanoTime()
     val algorithm = new pregel_SSSPShm(allSourceList, shmIdentifier, vertexSum, edgeSum, parts.get)
-    val GPUResult = PregelGPUShm.run(graph)(algorithm)
+
+    val startNew = System.nanoTime()
+
+    val spGraph = graph.mapVertices { (vid, attr) =>
+      if (allSourceList.value.contains(vid)) makeMap(vid -> 0) else makeMap()
+    }.cache()
+    val GPUResult = PregelGPUShm.run(spGraph)(algorithm)
     // val q = ssspGPUResult.vertices.count()
     println(GPUResult.vertices.collect().mkString("\n"))
     val endNew = System.nanoTime()

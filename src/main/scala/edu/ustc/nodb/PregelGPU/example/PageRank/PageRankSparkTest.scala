@@ -1,14 +1,14 @@
-package edu.ustc.nodb.PregelGPU.example.SSSP
+package edu.ustc.nodb.PregelGPU.example.PageRank
 
-import edu.ustc.nodb.PregelGPU.plugin.graphGenerator
 import edu.ustc.nodb.PregelGPU.envControl
-import edu.ustc.nodb.PregelGPU.plugin.partitionStrategy.EdgePartitionNumHookedTest
-import org.apache.spark.graphx.PartitionStrategy.{EdgePartition2D, RandomVertexCut}
+import edu.ustc.nodb.PregelGPU.plugin.graphGenerator
+import org.apache.spark.graphx.Graph
+import org.apache.spark.graphx.PartitionStrategy.EdgePartition2D
 import org.apache.spark.{SparkConf, SparkContext}
 
 import scala.collection.mutable.ArrayBuffer
 
-object SSSPSparkTest{
+object PageRankSparkTest{
 
   // scalastyle:on println
 
@@ -47,20 +47,17 @@ object SSSPSparkTest{
 
     println("-------------------------")
 
-    val sourceList = ArrayBuffer(1L, preDefinedGraphVertices * 1 + 2L,
-      preDefinedGraphVertices * 2 + 4L,
-      preDefinedGraphVertices * 3 + 7L).distinct.sorted
-
-    val allSourceList = sc.broadcast(sourceList)
+    val sourceList = 1L
+    val allSourceList = sc.broadcast(Option(sourceList))
 
     // the quantity of vertices in the whole graph
     val vertexSum = graph.vertices.count()
     val edgeSum = graph.edges.count()
 
-    val ssspTest = new PregelSparkSSSP(graph, allSourceList)
+    val ssspTest = new PregelSparkPageRank
 
     val startNormal = System.nanoTime()
-    val ssspResult = ssspTest.run()
+    val ssspResult = ssspTest.runUntilConvergenceWithOptions(graph, 0.001, 0.15, allSourceList.value)
     // val d = ssspResult.vertices.count()
     val endNormal = System.nanoTime()
     println(ssspResult.vertices.collect().mkString("\n"))

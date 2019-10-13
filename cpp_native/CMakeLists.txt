@@ -7,6 +7,7 @@ project(PregelGPU)
 
 set(CMAKE_CXX_STANDARD 14)
 set(GCC_COVERAGE_COMPILE_FLAGS  "-fPIC")
+set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -Wl,-no-undefined" )
 add_definitions(${GCC_COVERAGE_COMPILE_FLAGS})
 
 #**************************************************************************************************
@@ -68,13 +69,14 @@ target_link_libraries(LPACPUShm
         srv_UtilClient
         initProber
         JNIPlugin
-        rt)
+        rt
+        algo_LabelPropagation)
 
-add_library(PRGPUShm SHARED
+add_library(PRCPUShm SHARED
         edu_ustc_nodb_PregelGPU_algorithm_PageRank_GPUNativeShm.h
         edu_ustc_nodb_PregelGPU_algorithm_PageRank_GPUNativeShm.cpp)
 
-target_link_libraries(PRGPUShm
+target_link_libraries(PRCPUShm
         srv_UtilClient
         initProber
         JNIPlugin
