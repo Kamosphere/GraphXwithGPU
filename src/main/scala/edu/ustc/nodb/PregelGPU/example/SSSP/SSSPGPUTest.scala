@@ -17,10 +17,10 @@ object SSSPGPUTest{
   def main(args: Array[String]) {
 
     // environment setting
-    val conf = new SparkConf().setAppName("Pregel_SSSP")
-    if(envControl.controller != 0){
-      conf.setMaster("local[4]")
-    }
+    val conf = new SparkConf().setAppName("Pregel_SSSP_GPU_Array")
+
+    conf.setMaster("local[4]")
+
     val sc = new SparkContext(conf)
     if(envControl.controller != 0){
       sc.setLogLevel("ERROR")
@@ -30,20 +30,20 @@ object SSSPGPUTest{
     var parts = Some(args(0).toInt)
     if(parts.isEmpty) parts = Some(4)
 
-    val definedGraphVertices = 40000
+    val definedGraphVertices = 400000
 
     val preDefinedGraphVertices = definedGraphVertices / 4
 
     // load graph from file
     var sourceFile = "testGraph"+preDefinedGraphVertices+"x4.txt"
     if(envControl.controller == 0) {
-      sourceFile = "/usr/local/ssspexample/" + sourceFile
+      sourceFile = "/usr/local/sourcegraph/" + sourceFile
     }
 
     envControl.skippingPartSize = preDefinedGraphVertices
 
     val graph = graphGenerator.readFile(sc, sourceFile)(parts.get)
-      .partitionBy(EdgePartition2D)
+      .partitionBy(EdgePartitionNumHookedTest)
 
     // running SSSP
 
@@ -59,7 +59,7 @@ object SSSPGPUTest{
     val vertexSum = graph.vertices.count()
     val edgeSum = graph.edges.count()
 
-    if (! envControl.runningInSkip) {
+    // if (! envControl.runningInSkip) {
 
       val startNew = System.nanoTime()
       val algorithm = new pregel_SSSP(allSourceList, vertexSum, edgeSum, parts.get)
@@ -73,7 +73,7 @@ object SSSPGPUTest{
       println(endNew - startNew)
 
       PregelGPU.close(GPUResult, algorithm)
-
+/*
     }
     else {
 
@@ -90,6 +90,7 @@ object SSSPGPUTest{
 
       PregelGPUSkipping.close(GPUResult, algorithm)
     }
+    */
 
     val k = StdIn.readInt()
     println(k)

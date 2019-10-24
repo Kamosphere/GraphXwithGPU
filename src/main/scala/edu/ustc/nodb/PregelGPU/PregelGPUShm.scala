@@ -67,6 +67,18 @@ object PregelGPUShm extends Logging{
     // get the amount of active vertices
     var activeMessages = messages.count()
 
+    val endTimeBeforeIter = System.nanoTime()
+
+    logInfo("-------------------------")
+    logInfo("First iteration time: " + (endTimeBeforeIter - startTime) +
+      ", next iter active node amount: " + activeMessages)
+    logInfo("-------------------------")
+
+    println("-------------------------")
+    println("First iteration time: " + (endTimeBeforeIter - startTime) +
+      ", next iter active node amount: " + activeMessages)
+    println("-------------------------")
+
     /*
     messages.foreachPartition(iter => {
       val pid = TaskContext.getPartitionId()
@@ -83,7 +95,7 @@ object PregelGPUShm extends Logging{
       writer.close()
     })
     */
-
+    /*
     g.triplets.foreachPartition(iter => {
       val pid = TaskContext.getPartitionId()
       var temp : EdgeTriplet[VD, ED]  = null
@@ -101,8 +113,8 @@ object PregelGPUShm extends Logging{
 
       }
       writer.close()
-
     })
+    */
 
     var afterCounter = ifFilteredCounter.value
 
@@ -147,7 +159,21 @@ object PregelGPUShm extends Logging{
             iterTimes, countOutDegree, ifFilteredCounter)
         })
       }
-
+      /*
+      g.vertices.foreachPartition(iter => {
+        val pid = TaskContext.getPartitionId()
+        var temp : (VertexId, VD)  = null
+        val writer = new PrintWriter(new File("/home/liqi/IdeaProjects/GraphXwithGPU/logGPUShm/" +
+          "testGPUVertexLog_pid" + pid + "_iter" + iterTimes + ".txt"))
+        while(iter.hasNext){
+          temp = iter.next()
+          var chars = ""
+          chars = chars + " " + temp._1 + " : " + temp._2
+          writer.write("In iter " + iterTimes + " of part " + pid + " , vertex data: "
+            + chars + '\n')
+        }
+        writer.close()
+      })
 
       oldMessages.foreachPartition(iter => {
         val pid = TaskContext.getPartitionId()
@@ -163,26 +189,19 @@ object PregelGPUShm extends Logging{
         }
         writer.close()
       })
-
-      /*
-
-      println("*----------------------------------------------*")
-      g.vertices.foreachPartition(iter => {
-        val pid = TaskContext.getPartitionId()
-        var temp : (VertexId, VD)  = null
-        val writer = new PrintWriter(new File("/home/liqi/IdeaProjects/GraphXwithGPU/logGPU/" +
-          "testGPUVertexLog_pid" + pid + "_iter" + iterTimes + ".txt"))
-        while(iter.hasNext){
-          temp = iter.next()
-          var chars = ""
-          chars = chars + " " + temp._1 + " : " + temp._2
-          writer.write("In iter " + iterTimes + " of part " + pid + " , vertex data: "
-            + chars + '\n')
-        }
-        writer.close()
-      })
-      println("*----------------------------------------------*")
       */
+
+      logInfo("In iteration " + iterTimes + ", beforeCounter is " + beforeCounter
+        + ", afterCounter is " + afterCounter)
+      println("In iteration " + iterTimes + ", beforeCounter is " + beforeCounter
+        + ", afterCounter is " + afterCounter)
+
+      if (afterCounter == beforeCounter) {
+
+        logInfo("Iteration " + iterTimes + " (in spark itertimes) can be skipped ")
+        println("Iteration " + iterTimes + " (in spark itertimes) can be skipped ")
+
+      }
 
       // run the main process
       messages = GraphXUtils.mapReduceTripletsIntoGPUInShm(g, ifFilteredCounter,
@@ -198,8 +217,6 @@ object PregelGPUShm extends Logging{
       /*
       something while need to repartition
        */
-      logInfo("Pregel finished iteration " + iterTimes)
-      println("Pregel finished iteration " + iterTimes)
 
       oldMessages.unpersist(blocking = false)
       prevG.unpersistVertices(blocking = false)
@@ -212,11 +229,13 @@ object PregelGPUShm extends Logging{
       val endTime = System.nanoTime()
 
       logInfo("-------------------------")
+      logInfo("Pregel finished iteration " + iterTimes)
       logInfo("Whole iteration time: " + (endTime - startTime) +
         ", next iter active node amount: " + activeMessages)
       logInfo("-------------------------")
 
       println("-------------------------")
+      println("Pregel finished iteration " + iterTimes)
       println("Whole iteration time: " + (endTime - startTime) +
         ", next iter active node amount: " + activeMessages)
       println("-------------------------")
@@ -244,6 +263,7 @@ object PregelGPUShm extends Logging{
     Graph.vertices.foreachPartition(g => {
       val pid = TaskContext.getPartitionId()
       algorithm.lambda_shutDown(pid, g)
+      logInfo("GPU and shm resource released in partition " + pid)
     })
   }
 

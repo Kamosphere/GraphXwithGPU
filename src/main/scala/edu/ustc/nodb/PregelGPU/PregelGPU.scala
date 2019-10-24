@@ -5,12 +5,13 @@ import java.io.{File, PrintWriter}
 import edu.ustc.nodb.PregelGPU.template.lambdaTemplete
 import edu.ustc.nodb.PregelGPU.plugin.checkPointer.{PeriodicGraphCheckpointer, PeriodicRDDCheckpointer}
 import org.apache.spark.graphx._
+import org.apache.spark.internal.Logging
 import org.apache.spark.rdd.RDD
 import org.apache.spark.{SparkConf, TaskContext}
 
 import scala.reflect.ClassTag
 
-object PregelGPU{
+object PregelGPU extends Logging{
 
   // scalastyle:off println
 
@@ -67,6 +68,18 @@ object PregelGPU{
     // get the amount of active vertices
     var activeMessages = messages.count()
 
+    val endTimeBeforeIter = System.nanoTime()
+
+    logInfo("-------------------------")
+    logInfo("First iteration time: " + (endTimeBeforeIter - startTime) +
+      ", next iter active node amount: " + activeMessages)
+    logInfo("-------------------------")
+
+    println("-------------------------")
+    println("First iteration time: " + (endTimeBeforeIter - startTime) +
+      ", next iter active node amount: " + activeMessages)
+    println("-------------------------")
+
     /*
     messages.foreachPartition(iter => {
       val pid = TaskContext.getPartitionId()
@@ -95,6 +108,9 @@ object PregelGPU{
 
     // loop
     while(activeMessages > 0 && iterTimes < maxIterations) {
+
+      logInfo("Pregel Start iteration " + iterTimes)
+      println("Pregel Start iteration " + iterTimes)
 
       val startTime = System.nanoTime()
 
@@ -185,7 +201,21 @@ object PregelGPU{
       })
       println("*----------------------------------------------*")
       */
+
+      logInfo("In iteration " + iterTimes + ", beforeCounter is " + beforeCounter
+        + ", afterCounter is " + afterCounter)
+      println("In iteration " + iterTimes + ", beforeCounter is " + beforeCounter
+        + ", afterCounter is " + afterCounter)
+
+      if (afterCounter == beforeCounter) {
+
+        logInfo("Iteration " + iterTimes + " (in spark itertimes) can be skipped ")
+        println("Iteration " + iterTimes + " (in spark itertimes) can be skipped ")
+
+      }
+
       if(envControl.runningInSkip){
+
         if(afterCounter == beforeCounter){
           // skip getting vertex information through graph
           messages = GraphXUtils.mapReduceTripletsIntoGPU_Skipping(g, ifFilteredCounter,
@@ -194,6 +224,7 @@ object PregelGPU{
           // to let the next iter know
           prevIterSkipped = true
         }
+
         else if (prevIterSkipped){
           // run the main process
           // if the prev iter skipped the sync, the iter need to catch all data
@@ -202,6 +233,7 @@ object PregelGPU{
             algorithm.lambda_GPUExecute, algorithm.lambda_globalReduceFunc,
             Some((oldMessages, prevSkippingDirection)))
         }
+
         else{
           // run the main process
           messages = GraphXUtils.mapReduceTripletsIntoGPU(g, ifFilteredCounter,
@@ -239,6 +271,14 @@ object PregelGPU{
 
       val endTime = System.nanoTime()
 
+      logInfo("-------------------------")
+      logInfo("Pregel finished iteration " + iterTimes)
+      logInfo("Whole iteration time: " + (endTime - startTime) +
+        ", next iter active node amount: " + activeMessages)
+      logInfo("-------------------------")
+
+      println("-------------------------")
+      println("Pregel finished iteration " + iterTimes)
       println("Whole iteration time: " + (endTime - startTime) +
         ", next iter active node amount: " + activeMessages)
       println("-------------------------")
@@ -268,6 +308,7 @@ object PregelGPU{
 
     val endTime = System.nanoTime()
 
+    logInfo("The whole Pregel process time: " + (endTime - startTime))
     println("The whole Pregel process time: " + (endTime - startTime))
     g
 
@@ -280,6 +321,7 @@ object PregelGPU{
     Graph.vertices.foreachPartition(g => {
       val pid = TaskContext.getPartitionId()
       algorithm.lambda_shutDown(pid, g)
+      logInfo("GPU and shm resource released in partition " + pid)
     })
   }
 

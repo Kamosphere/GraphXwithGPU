@@ -1,25 +1,23 @@
-package edu.ustc.nodb.PregelGPU.example.SSSP
+package edu.ustc.nodb.PregelGPU.example.CC
 
-import edu.ustc.nodb.PregelGPU.algorithm.SSSPshm.pregel_SSSPShm
+import edu.ustc.nodb.PregelGPU.algorithm.CC.pregel_CCShm
+import edu.ustc.nodb.PregelGPU.algorithm.LPA.pregel_LPAShm
 import edu.ustc.nodb.PregelGPU.plugin.graphGenerator
-import edu.ustc.nodb.PregelGPU.plugin.partitionStrategy.EdgePartitionNumHookedTest
 import edu.ustc.nodb.PregelGPU.{PregelGPUShm, envControl}
-import org.apache.spark.graphx.PartitionStrategy.{EdgePartition2D, RandomVertexCut}
-import org.apache.spark.graphx.VertexId
+import org.apache.spark.graphx.EdgeDirection
+import org.apache.spark.graphx.PartitionStrategy.RandomVertexCut
 import org.apache.spark.{SparkConf, SparkContext}
 
-import scala.collection.mutable.ArrayBuffer
+import scala.io.StdIn
 
-object SSSPGPUShmTest{
+object CCGPUTest{
 
   // scalastyle:on println
-  def makeMap(x: (VertexId, Double)*) = Map(x: _*)
-
 
   def main(args: Array[String]) {
 
     // environment setting
-    val conf = new SparkConf().setAppName("Pregel_SSSP_GPU")
+    val conf = new SparkConf().setAppName("Pregel_CC_GPU")
     if(envControl.controller != 0){
       conf.setMaster("local[4]")
     }
@@ -42,39 +40,30 @@ object SSSPGPUShmTest{
       sourceFile = "/usr/local/sourcegraph/" + sourceFile
     }
 
-    envControl.openTimeLog = false
     envControl.skippingPartSize = preDefinedGraphVertices
 
     val graph = graphGenerator.readFile(sc, sourceFile)(parts.get)
-      .partitionBy(EdgePartition2D)
+      .partitionBy(RandomVertexCut)
 
     // running SSSP
 
     println("-------------------------")
 
-    val sourceList = ArrayBuffer(1L, preDefinedGraphVertices * 1 + 2L,
-      preDefinedGraphVertices * 2 + 4L,
-      preDefinedGraphVertices * 3 + 7L).distinct.sorted
-
-    val allSourceList = sc.broadcast(sourceList)
-
     val shmIdentifier = new Array[String](3)
     shmIdentifier(0) = "ID"
-    shmIdentifier(1) = "active"
+    shmIdentifier(1) = "Active"
     shmIdentifier(2) = "Attr"
 
     // the quantity of vertices in the whole graph
     val vertexSum = graph.vertices.count()
     val edgeSum = graph.edges.count()
 
-    val algorithm = new pregel_SSSPShm(allSourceList, shmIdentifier, vertexSum, edgeSum, parts.get)
+    val algorithm = new pregel_CCShm(shmIdentifier, vertexSum, edgeSum, parts.get)
+
+    val ccGraph = graph.mapVertices { case (vid, _) => vid }
 
     val startNew = System.nanoTime()
-
-    val spGraph = graph.mapVertices { (vid, attr) =>
-      if (allSourceList.value.contains(vid)) makeMap(vid -> 0) else makeMap()
-    }.cache()
-    val GPUResult = PregelGPUShm.run(spGraph)(algorithm)
+    val GPUResult = PregelGPUShm.run(ccGraph, EdgeDirection.Either)(algorithm)
     // val q = ssspGPUResult.vertices.count()
     println(GPUResult.vertices.collect().mkString("\n"))
     val endNew = System.nanoTime()
@@ -85,8 +74,8 @@ object SSSPGPUShmTest{
 
     PregelGPUShm.close(GPUResult, algorithm)
 
-    //val k = StdIn.readInt()
-    //println(k)
+    val k = StdIn.readInt()
+    println(k)
 
   }
 

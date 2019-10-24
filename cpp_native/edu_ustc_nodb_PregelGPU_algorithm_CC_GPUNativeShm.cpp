@@ -1,4 +1,4 @@
-#include "edu_ustc_nodb_PregelGPU_algorithm_SSSPshm_GPUNativeShm.h"
+#include "edu_ustc_nodb_PregelGPU_algorithm_CC_GPUNativeShm.h"
 
 #include "util/JNIPlugin.h"
 
@@ -62,7 +62,7 @@ int writeShm(const string &filename, vector<T> &Arr)
 
 // Init the edge and markID
 
-JNIEXPORT jboolean JNICALL Java_edu_ustc_nodb_PregelGPU_algorithm_SSSPshm_GPUNativeShm_nativeEnvEdgeInit
+JNIEXPORT jboolean JNICALL Java_edu_ustc_nodb_PregelGPU_algorithm_CC_GPUNativeShm_nativeEnvEdgeInit
 (JNIEnv * env, jobject superClass,
         jlongArray jFilteredVertex, jlong vertexSum, jobject markId, jint pid, jobject shmReader){
 
@@ -77,7 +77,6 @@ JNIEXPORT jboolean JNICALL Java_edu_ustc_nodb_PregelGPU_algorithm_SSSPshm_GPUNat
     jmethodID getReaderName = env->GetMethodID(readerClass, "getNameByIndex", "(I)Ljava/lang/String;");
     jmethodID getReaderSize = env->GetMethodID(readerClass, "getSizeByIndex", "(I)I");
 
-
     //---------Entity---------
 
     int lenMarkID = env->CallIntMethod(markId, id_ArrayList_size);
@@ -90,7 +89,7 @@ JNIEXPORT jboolean JNICALL Java_edu_ustc_nodb_PregelGPU_algorithm_SSSPshm_GPUNat
     //Init the Graph with blank vertices
 
     vector<Vertex> vertices = vector<Vertex>();
-    double *vValues = new double [vertexAllSum * lenMarkID];
+    int *vValues = new int [vertexAllSum];
     bool* filteredV = new bool [vertexAllSum];
 
     vector<Edge> edges = vector<Edge>();
@@ -98,24 +97,12 @@ JNIEXPORT jboolean JNICALL Java_edu_ustc_nodb_PregelGPU_algorithm_SSSPshm_GPUNat
     for(int i = 0; i < vertexAllSum; i++){
         filteredV[i] = false;
         vertices.emplace_back(Vertex(i, false, INVALID_INITV_INDEX));
-        for(int j = 0; j < lenMarkID; j++){
-            vValues[i * lenMarkID + j] = INT32_MAX;
-        }
+        vValues[i] = INT32_MAX;
     }
 
     // fill markID, which stored the landmark
 
-    int *initVSet = new int [lenMarkID];
-
-    for(int i = 0; i < lenMarkID; i++){
-
-        jobject start = env->CallObjectMethod(markId, id_ArrayList_get, i);
-        jlong jMarkIDUnit = env->CallLongMethod(start, longValue);
-        vertices.at(jMarkIDUnit).initVIndex = i;
-        initVSet[i] = jMarkIDUnit;
-
-        env->DeleteLocalRef(start);
-    }
+    int *initVSet = new int [1];
 
     // Init the Graph with existed edges
     jboolean isCopy = false;
@@ -175,7 +162,7 @@ JNIEXPORT jboolean JNICALL Java_edu_ustc_nodb_PregelGPU_algorithm_SSSPshm_GPUNat
         return false;
     }
 
-    UtilClient<double, double> execute = UtilClient<double, double>(vertexAllSum, lenEdge, lenMarkID, partitionID);
+    UtilClient<int, int> execute = UtilClient<int, int>(vertexAllSum, lenEdge, 1, partitionID);
 
     chk = execute.connect();
     if (chk == -1){
@@ -209,7 +196,7 @@ JNIEXPORT jboolean JNICALL Java_edu_ustc_nodb_PregelGPU_algorithm_SSSPshm_GPUNat
 }
 
 
-JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_algorithm_SSSPshm_GPUNativeShm_nativeStepMsgExecute
+JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_algorithm_CC_GPUNativeShm_nativeStepMsgExecute
 (JNIEnv * env, jobject superClass,
         jlong vertexSum, jobject shmReader, jobject shmWriter,
         jint vertexCount, jint edgeCount, jint markIdLen, jint pid){
@@ -232,7 +219,7 @@ JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_algorithm_SSSPshm_GPUNativeS
     auto startTimeA = std::chrono::high_resolution_clock::now();
 
     string fileNameOutputEdgeLog = "testLogCPlusBreakDownPid" + to_string(pid)
-            + "Time" + to_string(startTimeA.time_since_epoch().count()) + ".txt";
+                                   + "Time" + to_string(startTimeA.time_since_epoch().count()) + ".txt";
     string pathFile = "/usr/local/ssspexample/outputlog/";
     std::ofstream Tout(pathFile + fileNameOutputEdgeLog, fstream::out | fstream::app);
     //---------Time evaluating---------
@@ -243,7 +230,7 @@ JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_algorithm_SSSPshm_GPUNativeS
     int lenEdge = static_cast<int>(edgeCount);
     int lenVertex = static_cast<int>(vertexCount);
 
-    UtilClient<double, double> execute = UtilClient<double, double>(vertexAllSum, lenEdge, lenMarkID, partitionID);
+    UtilClient<int, int> execute = UtilClient<int, int>(vertexAllSum, lenEdge, 1, partitionID);
 
     int chk = 0;
 
@@ -255,13 +242,11 @@ JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_algorithm_SSSPshm_GPUNativeS
     // Init the vertices
 
     vector<Vertex> vertices = vector<Vertex>();
-    double *vValues = new double [vertexAllSum * lenMarkID];
+    int *vValues = new int [vertexAllSum];
 
     for(int i = 0; i < vertexAllSum; i++){
         vertices.emplace_back(Vertex(i, false, INVALID_INITV_INDEX));
-        for(int j = 0; j < lenMarkID; j++){
-            vValues[i * lenMarkID + j] = INT32_MAX;
-        }
+        vValues[i] = INT32_MAX;
     }
 
     for(jint i = 0; i < lenMarkID; i++){
@@ -271,7 +256,7 @@ JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_algorithm_SSSPshm_GPUNativeS
     // read vertices attributes from shm files
     long* VertexIDTemp;
     bool * VertexActiveTemp;
-    double* VertexAttrTemp;
+    long* VertexAttrTemp;
 
     string VertexIDTempName = jString2String(env, (jstring)env->CallObjectMethod(shmReader, getReaderName, 0));
     string VertexActiveTempName = jString2String(env, (jstring)env->CallObjectMethod(shmReader, getReaderName, 1));
@@ -302,12 +287,7 @@ JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_algorithm_SSSPshm_GPUNativeS
 
         long jVertexId_get = VertexIDTemp[i];
         bool jVertexActive_get = VertexActiveTemp[i];
-
-        for(int j = 0; j < lenMarkID; j++){
-            double jDis = VertexAttrTemp[i * lenMarkID + j];
-            int index = vertices.at(execute.initVSet[j]).initVIndex;
-            if(index != INVALID_INITV_INDEX)vValues[jVertexId_get * lenMarkID + index] = jDis;
-        }
+        vValues[i] = VertexAttrTemp[i];
 
         vertices.at(jVertexId_get).isActive = jVertexActive_get;
 
@@ -319,9 +299,9 @@ JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_algorithm_SSSPshm_GPUNativeS
         throwIllegalArgument(env, "Cannot update with server correctly");
     }
 
-    /*
-    // test for multithreading environment
 
+    // test for multithreading environment
+    /*
     std::ofstream Gout("testGraph100Log" + to_string(pid) + ".txt", fstream::out | fstream::app);
 
     Gout<<"-----------------Before-----------------"<<endl;
@@ -339,9 +319,9 @@ JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_algorithm_SSSPshm_GPUNativeS
     }
 
     Gout<<"-----------------Before-----------------"<<endl;
-
-    // test end
     */
+    // test end
+
 
     //---------Time evaluating---------
     std::chrono::nanoseconds durationA = std::chrono::high_resolution_clock::now() - startTimeA;
@@ -359,16 +339,15 @@ JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_algorithm_SSSPshm_GPUNativeS
     //---------Time evaluating---------
 
     vector<long> cPlusReturnId = vector<long>();
-    vector<double> cPlusReturnAttr = vector<double>();
+    vector<long> cPlusReturnAttr = vector<long>();
 
     bool allGained = true;
     for (int i = 0; i < vertexAllSum; i++) {
         if (execute.vSet[i].isActive) {
             // copy data
             cPlusReturnId.emplace_back(i);
-            for (int j = 0; j < lenMarkID; j++) {
-                cPlusReturnAttr.emplace_back(execute.vValues[i * lenMarkID + j]);
-            }
+            cPlusReturnAttr.emplace_back(execute.mValues[i]);
+
             // detect if the vertex is filtered
             if(! execute.filteredV[i]){
                 allGained = false;
@@ -377,8 +356,8 @@ JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_algorithm_SSSPshm_GPUNativeS
     }
 
     // name the returned shm file
-    string resultAttrIdentifier = to_string(pid) + "Double" + "Results";
-    string resultIdIdentifier = to_string(pid) + "Long" + "Results";
+    string resultAttrIdentifier = to_string(pid) + "Long" + "ResultAttr";
+    string resultIdIdentifier = to_string(pid) + "Long" + "ResultID";
 
     chk = writeShm(resultIdIdentifier, cPlusReturnId);
     if(chk == -1){
@@ -426,7 +405,7 @@ JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_algorithm_SSSPshm_GPUNativeS
 
 }
 
-JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_algorithm_SSSPshm_GPUNativeShm_nativeSkipStep
+JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_algorithm_CC_GPUNativeShm_nativeSkipStep
         (JNIEnv * env, jobject superClass,
                 jlong vertexSum, jint vertexLen, jint edgeLen, jint markIdLen, jint pid, jobject shmWriter){
 
@@ -444,10 +423,9 @@ JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_algorithm_SSSPshm_GPUNativeS
 
     int vertexAllSum = static_cast<int>(vertexSum);
     int partitionID = static_cast<int>(pid);
-    int lenMarkID = static_cast<int>(markIdLen);
     int lenEdge = static_cast<int>(edgeLen);
 
-    UtilClient<double, double> execute = UtilClient<double, double>(vertexAllSum, lenEdge, lenMarkID, partitionID);
+    UtilClient<int, int> execute = UtilClient<int, int>(vertexAllSum, lenEdge, 1, partitionID);
 
     int chk = 0;
 
@@ -460,6 +438,7 @@ JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_algorithm_SSSPshm_GPUNativeS
     std::chrono::nanoseconds durationA = std::chrono::high_resolution_clock::now() - startTimeA;
     auto startTime = std::chrono::high_resolution_clock::now();
     //---------Time evaluating---------
+
     execute.request();
 
     //---------Time evaluating---------
@@ -468,16 +447,14 @@ JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_algorithm_SSSPshm_GPUNativeS
     //---------Time evaluating---------
 
     vector<long> cPlusReturnId = vector<long>();
-    vector<double> cPlusReturnAttr = vector<double>();
+    vector<long> cPlusReturnAttr = vector<long>();
 
     bool allGained = true;
     for (int i = 0; i < vertexAllSum; i++) {
         if (execute.vSet[i].isActive) {
             // copy data
             cPlusReturnId.emplace_back(i);
-            for (int j = 0; j < lenMarkID; j++) {
-                cPlusReturnAttr.emplace_back(execute.vValues[i * lenMarkID + j]);
-            }
+            cPlusReturnAttr.emplace_back(execute.mValues[i]);
             // detect if the vertex is filtered
             if(! execute.filteredV[i]){
                 allGained = false;
@@ -485,8 +462,8 @@ JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_algorithm_SSSPshm_GPUNativeS
         }
     }
 
-    string resultAttrIdentifier = to_string(pid) + "Double" + "Results";
-    string resultIdIdentifier = to_string(pid) + "Long" + "Results";
+    string resultAttrIdentifier = to_string(pid) + "Long" + "ResultAttr";
+    string resultIdIdentifier = to_string(pid) + "Long" + "ResultID";
 
     chk = writeShm(resultIdIdentifier, cPlusReturnId);
     if(chk == -1){
@@ -532,7 +509,7 @@ JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_algorithm_SSSPshm_GPUNativeS
     }
 }
 
-JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_algorithm_SSSPshm_GPUNativeShm_nativeStepFinal
+JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_algorithm_CC_GPUNativeShm_nativeStepFinal
         (JNIEnv * env, jobject superClass,
                 jlong vertexSum, jint vertexLen, jint edgeLen, jint markIdLen, jint pid, jobject shmWriter) {
 
@@ -553,7 +530,7 @@ JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_algorithm_SSSPshm_GPUNativeS
     int lenMarkID = static_cast<int>(markIdLen);
     int lenEdge = static_cast<int>(edgeLen);
 
-    UtilClient<double, double> execute = UtilClient<double, double>(vertexAllSum, lenEdge, lenMarkID, partitionID);
+    UtilClient<int, int> execute = UtilClient<int, int>(vertexAllSum, lenEdge, 1, partitionID);
 
     int chk = 0;
 
@@ -563,20 +540,18 @@ JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_algorithm_SSSPshm_GPUNativeS
     }
 
     vector<long> cPlusReturnId = vector<long>();
-    vector<double> cPlusReturnAttr = vector<double>();
+    vector<long> cPlusReturnAttr = vector<long>();
 
     for(int i = 0; i < vertexAllSum; i++){
         bool idFiltered = execute.filteredV[i];
         if(idFiltered){
             cPlusReturnId.emplace_back(i);
-            for (int j = 0; j < lenMarkID; j++) {
-                cPlusReturnAttr.emplace_back(execute.vValues[i * lenMarkID + j]);
-            }
+            cPlusReturnAttr.emplace_back(execute.mValues[i]);
         }
     }
 
-    string resultAttrIdentifier = to_string(pid) + "Double" + "Results";
-    string resultIdIdentifier = to_string(pid) + "Long" + "Results";
+    string resultAttrIdentifier = to_string(pid) + "Long" + "ResultAttr";
+    string resultIdIdentifier = to_string(pid) + "Long" + "ResultID";
 
     chk = writeShm(resultIdIdentifier, cPlusReturnId);
     if(chk == -1){
@@ -619,10 +594,10 @@ JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_algorithm_SSSPshm_GPUNativeS
 
 // server shutdown
 
-JNIEXPORT jboolean JNICALL Java_edu_ustc_nodb_PregelGPU_algorithm_SSSPshm_GPUNativeShm_nativeEnvClose
+JNIEXPORT jboolean JNICALL Java_edu_ustc_nodb_PregelGPU_algorithm_CC_GPUNativeShm_nativeEnvClose
   (JNIEnv * env, jobject superClass, jint pid){
 
-    UtilClient<double, double> control = UtilClient<double, double>(0, 0, 0, pid);
+    UtilClient<int, int> control = UtilClient<int, int>(0, 0, 0, pid);
 
     int chk = control.connect();
     if (chk == -1){

@@ -42,41 +42,50 @@ ELSE()
 endif()
 
 
-add_library(SSSPGPU SHARED
+add_library(SSSP_lib SHARED
         edu_ustc_nodb_PregelGPU_algorithm_SSSP_GPUNative.h
         edu_ustc_nodb_PregelGPU_algorithm_SSSP_GPUNative.cpp)
 
-target_link_libraries(SSSPGPU
+target_link_libraries(SSSP_lib
         srv_UtilClient
         initProber
         JNIPlugin)
 
-add_library(SSSPGPUShm SHARED
+add_library(SSSP_lib_Shm SHARED
         edu_ustc_nodb_PregelGPU_algorithm_SSSPshm_GPUNativeShm.h
         edu_ustc_nodb_PregelGPU_algorithm_SSSPshm_GPUNativeShm.cpp)
 
-target_link_libraries(SSSPGPUShm
+target_link_libraries(SSSP_lib_Shm
         srv_UtilClient
         initProber
         JNIPlugin
         rt)
 
-add_library(LPACPUShm SHARED
+add_library(LPA_lib_Shm SHARED
         edu_ustc_nodb_PregelGPU_algorithm_LPA_GPUNativeShm.h
         edu_ustc_nodb_PregelGPU_algorithm_LPA_GPUNativeShm.cpp)
 
-target_link_libraries(LPACPUShm
+target_link_libraries(LPA_lib_Shm
         srv_UtilClient
         initProber
         JNIPlugin
-        rt
-        algo_LabelPropagation)
+        rt)
 
-add_library(PRCPUShm SHARED
+add_library(PR_lib_Shm SHARED
         edu_ustc_nodb_PregelGPU_algorithm_PageRank_GPUNativeShm.h
         edu_ustc_nodb_PregelGPU_algorithm_PageRank_GPUNativeShm.cpp)
 
-target_link_libraries(PRCPUShm
+target_link_libraries(PR_lib_Shm
+        srv_UtilClient
+        initProber
+        JNIPlugin
+        rt)
+
+add_library(CC_lib_Shm SHARED
+        edu_ustc_nodb_PregelGPU_algorithm_CC_GPUNativeShm.h
+        edu_ustc_nodb_PregelGPU_algorithm_CC_GPUNativeShm.cpp)
+
+target_link_libraries(CC_lib_Shm
         srv_UtilClient
         initProber
         JNIPlugin

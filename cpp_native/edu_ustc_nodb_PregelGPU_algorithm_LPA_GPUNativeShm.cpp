@@ -171,7 +171,10 @@ JNIEXPORT jboolean JNICALL Java_edu_ustc_nodb_PregelGPU_algorithm_LPA_GPUNativeS
 
     initProber detector = initProber(partitionID);
     bool status = detector.run();
-    if(! status) return false;
+    if(! status) {
+        throwIllegalArgument(env, "Cannot detect existing server");
+        return false;
+    }
 
     UtilClient<LPA_Value, LPA_MSG> execute = UtilClient<LPA_Value, LPA_MSG>
             (vertexAllSum, lenEdge, 1, partitionID);
@@ -213,8 +216,14 @@ JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_algorithm_LPA_GPUNativeShm_n
 
     //-----------------------------
 
-    //auto startTimeAll = std::chrono::high_resolution_clock::now();
-    //auto startTimeA = std::chrono::high_resolution_clock::now();
+    //---------Time evaluating---------
+    auto startTimeA = std::chrono::high_resolution_clock::now();
+
+    string fileNameOutputEdgeLog = "testLogCPlusBreakDownPid" + to_string(pid)
+                                   + "Time" + to_string(startTimeA.time_since_epoch().count()) + ".txt";
+    string pathFile = "/usr/local/ssspexample/outputlog/";
+    std::ofstream Tout(pathFile + fileNameOutputEdgeLog, fstream::out | fstream::app);
+    //---------Time evaluating---------
 
     int vertexAllSum = static_cast<int>(vertexSum);
     int partitionID = static_cast<int>(pid);
@@ -320,19 +329,21 @@ JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_algorithm_LPA_GPUNativeShm_n
 
     // test end
 
-/*
+    //---------Time evaluating---------
     std::chrono::nanoseconds durationA = std::chrono::high_resolution_clock::now() - startTimeA;
     auto startTime = std::chrono::high_resolution_clock::now();
+    //---------Time evaluating---------
 
     // execute sssp using GPU in server-client mode
-*/
 
     execute.request();
-/*
+
+    //---------Time evaluating---------
     std::chrono::nanoseconds duration = std::chrono::high_resolution_clock::now() - startTime;
 
     auto startTimeB = std::chrono::high_resolution_clock::now();
-*/
+    //---------Time evaluating---------
+
     unordered_pairMap mergeMsg = unordered_pairMap(edgeCount);
 
     for (int i = 0; i < execute.eCount; i++) {
@@ -404,17 +415,18 @@ JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_algorithm_LPA_GPUNativeShm_n
         throwIllegalArgument(env, "Cannot write back identifier");
     }
 
-/*
-    std::chrono::nanoseconds durationB = std::chrono::high_resolution_clock::now() - startTime;
+    //---------Time evaluating---------
+    std::chrono::nanoseconds durationB = std::chrono::high_resolution_clock::now() - startTimeB;
 
-    std::chrono::nanoseconds durationAll = std::chrono::high_resolution_clock::now() - startTimeAll;
     std::string output = std::string();
     output += "Time of partition " + to_string(pid) + " in c++: " + to_string(durationA.count()) + " "
-              + to_string(duration.count()) + " " + to_string(durationB.count()) + " sum time: "
-              + to_string(durationAll.count());
+              + to_string(duration.count()) + " " + to_string(durationB.count());
 
-    cout<<output<<endl;
-*/
+    Tout<<output<<endl;
+
+    Tout.close();
+    //---------Time evaluating---------
+
     if(allGained){
         return static_cast<int>(0-cPlusReturnId.size());
     }
@@ -428,7 +440,14 @@ JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_algorithm_LPA_GPUNativeShm_n
         (JNIEnv * env, jobject superClass,
          jlong vertexSum, jint vertexLen, jint edgeLen, jint markIdLen, jint pid, jobject shmWriter){
 
-    //auto startTimeB = std::chrono::high_resolution_clock::now();
+    //---------Time evaluating---------
+    auto startTimeA = std::chrono::high_resolution_clock::now();
+
+    string fileNameOutputEdgeLog = "testLogCPlusBreakDownPid" + to_string(pid)
+                                   + "Time" + to_string(startTimeA.time_since_epoch().count()) + ".txt";
+    string pathFile = "/usr/local/ssspexample/outputlog/";
+    std::ofstream Tout(pathFile + fileNameOutputEdgeLog, fstream::out | fstream::app);
+    //---------Time evaluating---------
 
     jclass writerClass = env->GetObjectClass(shmWriter);
     jmethodID addWriterName = env->GetMethodID(writerClass, "addName", "(Ljava/lang/String;I)Z");
@@ -448,7 +467,17 @@ JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_algorithm_LPA_GPUNativeShm_n
         throwIllegalArgument(env, "Cannot establish the connection with server correctly");
     }
 
+    //---------Time evaluating---------
+    std::chrono::nanoseconds durationA = std::chrono::high_resolution_clock::now() - startTimeA;
+    auto startTime = std::chrono::high_resolution_clock::now();
+    //---------Time evaluating---------
+
     execute.request();
+
+    //---------Time evaluating---------
+    std::chrono::nanoseconds duration = std::chrono::high_resolution_clock::now() - startTime;
+    auto startTimeB = std::chrono::high_resolution_clock::now();
+    //---------Time evaluating---------
 
     unordered_pairMap mergeMsg = unordered_pairMap(lenEdge);
 
@@ -520,14 +549,19 @@ JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_algorithm_LPA_GPUNativeShm_n
     if(! ifReturnAttr2){
         throwIllegalArgument(env, "Cannot write back identifier");
     }
-/*
+
+    //---------Time evaluating---------
     std::chrono::nanoseconds durationB = std::chrono::high_resolution_clock::now() - startTimeB;
 
     std::string output = std::string();
-    output += "Time of partition " + to_string(pid) + " in c++ for skipping: " + to_string(durationB.count());
+    output += "Time of partition " + to_string(pid) + " in c++: " + to_string(durationA.count()) + " "
+              + to_string(duration.count()) + " " + to_string(durationB.count());
 
-    cout<<output<<endl;
-*/
+    Tout<<output<<endl;
+
+    Tout.close();
+    //---------Time evaluating---------
+
     if(allGained){
         return static_cast<int>(0-cPlusReturnId.size());
     }
@@ -540,7 +574,14 @@ JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_algorithm_LPA_GPUNativeShm_n
         (JNIEnv * env, jobject superClass,
          jlong vertexSum, jint vertexLen, jint edgeLen, jint markIdLen, jint pid, jobject shmWriter) {
 
-    //auto startTimeB = std::chrono::high_resolution_clock::now();
+    //---------Time evaluating---------
+    auto startTimeA = std::chrono::high_resolution_clock::now();
+
+    string fileNameOutputEdgeLog = "testLogCPlusBreakDownPid" + to_string(pid)
+                                   + "Time" + to_string(startTimeA.time_since_epoch().count()) + ".txt";
+    string pathFile = "/usr/local/ssspexample/outputlog/";
+    std::ofstream Tout(pathFile + fileNameOutputEdgeLog, fstream::out | fstream::app);
+    //---------Time evaluating---------
 
     jclass writerClass = env->GetObjectClass(shmWriter);
     jmethodID addWriterName = env->GetMethodID(writerClass, "addName", "(Ljava/lang/String;I)Z");
@@ -579,13 +620,11 @@ JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_algorithm_LPA_GPUNativeShm_n
     vector<long> cPlusReturnAttr1 = vector<long>();
     vector<long> cPlusReturnAttr2 = vector<long>();
 
-
     for (auto i: mergeMsg){
         cPlusReturnId.emplace_back(i.first.first);
         cPlusReturnAttr1.emplace_back(i.first.second);
         cPlusReturnAttr2.emplace_back(i.second);
     }
-
 
     // name the returned shm file
     string resultAttr1Identifier = to_string(pid) + "Long" + "Results1";
@@ -627,14 +666,18 @@ JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_algorithm_LPA_GPUNativeShm_n
     if(! ifReturnAttr2){
         throwIllegalArgument(env, "Cannot write back identifier");
     }
-/*
-    std::chrono::nanoseconds durationB = std::chrono::high_resolution_clock::now() - startTimeB;
+
+    //---------Time evaluating---------
+    std::chrono::nanoseconds durationA = std::chrono::high_resolution_clock::now() - startTimeA;
 
     std::string output = std::string();
-    output += "Time of partition " + to_string(pid) + " in c++ for all merging: " + to_string(durationB.count());
+    output += "Time of partition " + to_string(pid) + " in c++ for all merging: " + to_string(durationA.count());
 
-    cout<<output<<endl;
-*/
+    Tout<<output<<endl;
+
+    Tout.close();
+    //---------Time evaluating---------
+
     return static_cast<int>(cPlusReturnId.size());
 
 }

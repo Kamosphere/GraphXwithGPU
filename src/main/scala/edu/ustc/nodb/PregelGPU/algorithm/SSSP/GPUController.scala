@@ -4,8 +4,8 @@ import java.util
 
 import edu.ustc.nodb.PregelGPU.algorithm.SPMap
 import edu.ustc.nodb.PregelGPU.envControl
-
 import org.apache.spark.graphx.VertexId
+import org.apache.spark.internal.Logging
 
 import scala.collection.mutable.ArrayBuffer
 import scala.sys.process.Process
@@ -14,7 +14,7 @@ class GPUController(vertexSum: Long,
                     vertexCount: Int,
                     edgeCount: Int,
                     sourceList: ArrayBuffer[VertexId],
-                    pid: Int) extends Serializable {
+                    pid: Int) extends Serializable with Logging{
 
   // scalastyle:off println
 
@@ -28,7 +28,7 @@ class GPUController(vertexSum: Long,
   val resultID : Array[Long] = new Array[Long](vertexCount)
   val resultAttr : Array[Double] = new Array[Double](vertexCount * sourceSize)
 
-  System.loadLibrary("SSSPGPU")
+  System.loadLibrary("SSSP_lib")
 
   def GPUServerActive():
   Unit = {
@@ -71,13 +71,9 @@ class GPUController(vertexSum: Long,
       sourceId.add(unit)
     }
 
-    // if native method not success, it will run until finished
-    var result = false
-
-    while(! result) {
-      result = native.nativeEnvEdgeInit(
+    native.nativeEnvEdgeInit(
         filteredVertex, vertexSum, EdgeSrc, EdgeDst, EdgeAttr, sourceId, pid)
-    }
+
   }
 
   // execute SSSP algorithm
@@ -87,6 +83,7 @@ class GPUController(vertexSum: Long,
                     vertexCount: Int):
   (Array[VertexId], Array[SPMap], Boolean) = {
 
+    val startTime = System.nanoTime()
     // pass vertices through JNI and get result array back
     var underIndex = native.nativeStepMsgExecute(vertexSum,
       VertexID, VertexActive, VertexAttr,
@@ -96,12 +93,25 @@ class GPUController(vertexSum: Long,
     val needCombine = if (underIndex <= 0) false else true
     underIndex = math.abs(underIndex)
 
-    // val startNew = System.nanoTime()
+    val endTime = System.nanoTime()
+    val startTime2 = System.nanoTime()
 
     val results = vertexAttrPackage(underIndex)
 
-    // val endNew = System.nanoTime()
-    // println("Constructing returned arrayBuffer time: " + (endNew - startNew))
+    val endTime2 = System.nanoTime()
+
+    if (envControl.openTimeLog){
+      println("In partition " + pid +
+        ", (GPUEnvTime) Time for executing from GPU env: " + (endTime - startTime))
+      println("In partition " + pid +
+        ", (PackagingTime) Time for packaging in JVM: " + (endTime2 - startTime2))
+
+      logInfo("In partition " + pid +
+        ", (GPUEnvTime) Time for executing from GPU env: " + (endTime - startTime))
+      logInfo("In partition " + pid +
+        ", (PackagingTime) Time for packaging in JVM: " + (endTime2 - startTime2))
+    }
+
     (resultID, results, needCombine)
 
   }
@@ -110,6 +120,7 @@ class GPUController(vertexSum: Long,
   def GPUIterSkipCollect(vertexCount: Int):
   (Array[VertexId], Array[SPMap], Boolean) = {
 
+    val startTime = System.nanoTime()
     // pass vertices through JNI and get arrayBuffer back
     var underIndex = native.nativeSkipStep(vertexSum,
       vertexCount, edgeCount, sourceSize, pid,
@@ -118,12 +129,25 @@ class GPUController(vertexSum: Long,
     val needCombine = if (underIndex <= 0) false else true
     underIndex = math.abs(underIndex)
 
-    // val startNew = System.nanoTime()
+    val endTime = System.nanoTime()
+    val startTime2 = System.nanoTime()
 
     val results = vertexAttrPackage(underIndex)
 
-    // val endNew = System.nanoTime()
-    // println("Constructing returned skipped array time: " + (endNew - startNew))
+    val endTime2 = System.nanoTime()
+
+    if (envControl.openTimeLog){
+      println("In partition " + pid +
+        ", (GPUEnvTime) Time for executing from GPU env: " + (endTime - startTime))
+      println("In partition " + pid +
+        ", (PackagingTime) Time for packaging in JVM: " + (endTime2 - startTime2))
+
+      logInfo("In partition " + pid +
+        ", (GPUEnvTime) Time for executing from GPU env: " + (endTime - startTime))
+      logInfo("In partition " + pid +
+        ", (PackagingTime) Time for packaging in JVM: " + (endTime2 - startTime2))
+    }
+
     (resultID, results, needCombine)
 
   }
@@ -132,17 +156,30 @@ class GPUController(vertexSum: Long,
   def GPUFinalCollect(vertexCount: Int):
   (Array[VertexId], Array[SPMap], Boolean) = {
 
+    val startTime = System.nanoTime()
+
     // pass vertices through JNI and get array back
     val underIndex = native.nativeStepFinal(vertexSum,
       vertexCount, edgeCount, sourceSize, pid,
       resultID, resultAttr)
 
-    // val startNew = System.nanoTime()
+    val endTime = System.nanoTime()
+    val startTime2 = System.nanoTime()
 
     val results = vertexAttrPackage(underIndex)
+    val endTime2 = System.nanoTime()
 
-    // val endNew = System.nanoTime()
-    // println("Constructing remained array time: " + (endNew - startNew))
+    if (envControl.openTimeLog){
+      println("In partition " + pid +
+        ", (GPUEnvTime) Time for executing from GPU env: " + (endTime - startTime))
+      println("In partition " + pid +
+        ", (PackagingTime) Time for packaging in JVM: " + (endTime2 - startTime2))
+
+      logInfo("In partition " + pid +
+        ", (GPUEnvTime) Time for executing from GPU env: " + (endTime - startTime))
+      logInfo("In partition " + pid +
+        ", (PackagingTime) Time for packaging in JVM: " + (endTime2 - startTime2))
+    }
 
     (resultID, results, false)
   }

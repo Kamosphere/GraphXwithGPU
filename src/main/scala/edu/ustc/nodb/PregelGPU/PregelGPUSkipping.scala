@@ -3,13 +3,14 @@ package edu.ustc.nodb.PregelGPU
 import edu.ustc.nodb.PregelGPU.plugin.checkPointer.{PeriodicGraphCheckpointer, PeriodicRDDCheckpointer}
 import edu.ustc.nodb.PregelGPU.template.lambdaTemplete
 import org.apache.spark.graphx._
+import org.apache.spark.internal.Logging
 import org.apache.spark.rdd.RDD
 import org.apache.spark.{SparkConf, TaskContext}
 
 import scala.collection.mutable.ArrayBuffer
 import scala.reflect.ClassTag
 
-object PregelGPUSkipping{
+object PregelGPUSkipping extends Logging{
 
   // scalastyle:off println
 
@@ -73,6 +74,18 @@ object PregelGPUSkipping{
     // get the amount of active vertices
     var activeMessages = messages.count()
 
+    val endTimeBeforeIter = System.nanoTime()
+
+    logInfo("-------------------------")
+    logInfo("First iteration time: " + (endTimeBeforeIter - startTime) +
+      ", next iter active node amount: " + activeMessages)
+    logInfo("-------------------------")
+
+    println("-------------------------")
+    println("First iteration time: " + (endTimeBeforeIter - startTime) +
+      ", next iter active node amount: " + activeMessages)
+    println("-------------------------")
+
     var afterCounter = ifFilteredCounter.value
 
     var prevIterSkipped = false
@@ -84,6 +97,9 @@ object PregelGPUSkipping{
 
     // loop
     while(activeMessages > 0 && iterTimes < maxIterations) {
+
+      logInfo("Pregel Start iteration " + iterTimes)
+      println("Pregel Start iteration " + iterTimes)
 
       val startTime = System.nanoTime()
 
@@ -102,8 +118,9 @@ object PregelGPUSkipping{
         g = g.joinVertices(messages)((vid, v1, v2) =>
           algorithm.lambda_globalVertexFunc(vid, v1, v2))
 
-        graphCheckPointer.update(g)
       }
+
+      graphCheckPointer.update(g)
 
       val oldMessages = messages
 
@@ -118,6 +135,18 @@ object PregelGPUSkipping{
           algorithm.lambda_edgeImport(pid, iter)(
             iterTimes, countOutDegree, ifFilteredCounter)
         })
+      }
+
+      logInfo("In iteration " + iterTimes + ", beforeCounter is " + beforeCounter
+        + ", afterCounter is " + afterCounter)
+      println("In iteration " + iterTimes + ", beforeCounter is " + beforeCounter
+        + ", afterCounter is " + afterCounter)
+
+      if (afterCounter == beforeCounter) {
+
+        logInfo("Iteration " + iterTimes + " (in spark itertimes) can be skipped ")
+        println("Iteration " + iterTimes + " (in spark itertimes) can be skipped ")
+
       }
 
       if(afterCounter == beforeCounter){
@@ -210,24 +239,35 @@ object PregelGPUSkipping{
 
       val endTime = System.nanoTime()
 
+      logInfo("-------------------------")
+      logInfo("Pregel finished iteration " + iterTimes)
+      logInfo("Whole iteration time: " + (endTime - startTime) +
+        ", next iter active node amount: " + activeMessages)
+      logInfo("-------------------------")
+
+      println("-------------------------")
+      println("Pregel finished iteration " + iterTimes)
       println("Whole iteration time: " + (endTime - startTime) +
         ", next iter active node amount: " + activeMessages)
       println("-------------------------")
+
 
       iterTimes = iterTimes + 1
 
     }
 
-    // in order to get all vertices information through graph
-    // when the last step skipped the sync
-    // here g.vertices stands for regarding all the vertices as activated
-    messages = GraphXUtils.mapReduceTripletsIntoGPU_FinalCollect(g,
-      algorithm.lambda_GPUExecute_finalCollect, algorithm.lambda_globalReduceFunc)
+    if (prevIterSkipped) {
+      // in order to get all vertices information through graph
+      // when the last step skipped the sync
+      // here g.vertices stands for regarding all the vertices as activated
+      messages = GraphXUtils.mapReduceTripletsIntoGPU_FinalCollect(g,
+        algorithm.lambda_GPUExecute_finalCollect, algorithm.lambda_globalReduceFunc)
 
-    g = g.joinVertices(messages)((vid, v1, v2) =>
-      algorithm.lambda_globalVertexFunc(vid, v1, v2))
+      g = g.joinVertices(messages)((vid, v1, v2) =>
+        algorithm.lambda_globalVertexFunc(vid, v1, v2))
 
-    graphCheckPointer.update(g)
+      graphCheckPointer.update(g)
+    }
 
     iterUpdate.unpersist(false)
     messageCheckPointer.unpersistDataSet()
@@ -236,6 +276,7 @@ object PregelGPUSkipping{
 
     val endTime = System.nanoTime()
 
+    logInfo("The whole Pregel process time: " + (endTime - startTime))
     println("The whole Pregel process time: " + (endTime - startTime))
     g
 
@@ -248,6 +289,7 @@ object PregelGPUSkipping{
     Graph.vertices.foreachPartition(g => {
       val pid = TaskContext.getPartitionId()
       algorithm.lambda_shutDown(pid, g)
+      logInfo("GPU and shm resource released in partition " + pid)
     })
   }
 

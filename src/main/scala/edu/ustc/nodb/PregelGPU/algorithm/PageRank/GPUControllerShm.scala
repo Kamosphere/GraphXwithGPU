@@ -9,6 +9,7 @@ import org.apache.spark.graphx.VertexId
 import org.apache.spark.graphx.util.collection.GraphXPrimitiveKeyOpenHashMap
 import org.apache.spark.graphx.util.collection.shmManager.shmArrayReaderImpl.{shmArrayReaderDouble, shmArrayReaderLong}
 import org.apache.spark.graphx.util.collection.shmManager.shmNamePackager.{shmReaderPackager, shmWriterPackager}
+import org.apache.spark.internal.Logging
 import org.apache.spark.util.collection.BitSet
 
 import scala.collection.mutable.ArrayBuffer
@@ -18,7 +19,7 @@ class GPUControllerShm(vertexSum: Long,
                        vertexCount: Int,
                        edgeCount: Int,
                        source: VertexId,
-                       pid: Int) extends Serializable {
+                       pid: Int) extends Serializable with Logging{
 
   // scalastyle:off println
 
@@ -29,7 +30,7 @@ class GPUControllerShm(vertexSum: Long,
 
   val sourceSize: Int = 1
 
-  System.loadLibrary("PRCPUShm")
+  System.loadLibrary("PR_lib_Shm")
 
   def GPUServerActive():
   Unit = {
@@ -72,21 +73,17 @@ class GPUControllerShm(vertexSum: Long,
 
     sourceId.add(source)
 
-    // if native method not success, it will run until finished
-    var result = false
-
     val shmReader = new shmReaderPackager(3)
 
     shmReader.addName(EdgeSrc, edgeCount)
     shmReader.addName(EdgeDst, edgeCount)
     shmReader.addName(EdgeAttr, edgeCount)
 
-    while(! result) {
-      result = native.nativeEnvEdgeInit(filteredVertex, vertexSum, sourceId, pid, shmReader)
-    }
+    native.nativeEnvEdgeInit(filteredVertex, vertexSum, sourceId, pid, shmReader)
+
   }
 
-  // execute SSSP algorithm
+  // execute PR algorithm
   def GPUMsgExecute(VertexID: String,
                     VertexActive: String,
                     VertexAttrPair1: String,
@@ -106,6 +103,8 @@ class GPUControllerShm(vertexSum: Long,
     // create writer list to return shm file names
     val shmWriter = new shmWriterPackager(2)
 
+    val startTime = System.nanoTime()
+
     // pass reader and writer through JNI
     var underIndex = native.nativeStepMsgExecute(vertexSum,
       shmReader, shmWriter,
@@ -113,6 +112,9 @@ class GPUControllerShm(vertexSum: Long,
 
     val needCombine = if (underIndex <= 0) false else true
     underIndex = math.abs(underIndex)
+
+    val endTime = System.nanoTime()
+    val startTime2 = System.nanoTime()
 
     // read files in writer list ( already written in c++ )
     val resultIDReader = new shmArrayReaderLong(
@@ -122,6 +124,20 @@ class GPUControllerShm(vertexSum: Long,
 
     val (resultBitSet, resultAttr) = vertexAttrPackage(
       underIndex, global2local, resultIDReader, resultAttrReader)
+
+    val endTime2 = System.nanoTime()
+
+    if (envControl.openTimeLog){
+      println("In partition " + pid +
+        ", (GPUEnvTime) Time for executing from GPU env: " + (endTime - startTime))
+      println("In partition " + pid +
+        ", (PackagingTime) Time for packaging in JVM: " + (endTime2 - startTime2))
+
+      logInfo("In partition " + pid +
+        ", (GPUEnvTime) Time for executing from GPU env: " + (endTime - startTime))
+      logInfo("In partition " + pid +
+        ", (PackagingTime) Time for packaging in JVM: " + (endTime2 - startTime2))
+    }
 
     (resultBitSet, resultAttr, needCombine)
 
@@ -133,6 +149,8 @@ class GPUControllerShm(vertexSum: Long,
 
     val shmWriter = new shmWriterPackager(2)
 
+    val startTime = System.nanoTime()
+
     // pass writer through JNI, for the data in the last iter is in the server
     var underIndex = native.nativeSkipStep(vertexSum,
       vertexCount, edgeCount, sourceSize, pid,
@@ -141,6 +159,9 @@ class GPUControllerShm(vertexSum: Long,
     val needCombine = if (underIndex <= 0) false else true
     underIndex = math.abs(underIndex)
 
+    val endTime = System.nanoTime()
+    val startTime2 = System.nanoTime()
+
     val resultIDReader = new shmArrayReaderLong(
       shmWriter.getSizeByIndex(0), shmWriter.getNameByIndex(0))
     val resultAttrReader = new shmArrayReaderDouble(
@@ -148,6 +169,20 @@ class GPUControllerShm(vertexSum: Long,
 
     val (resultBitSet, resultAttr) = vertexAttrPackage(
       underIndex, global2local, resultIDReader, resultAttrReader)
+
+    val endTime2 = System.nanoTime()
+
+    if (envControl.openTimeLog){
+      println("In partition " + pid +
+        ", (GPUEnvTime) Time for executing from GPU env: " + (endTime - startTime))
+      println("In partition " + pid +
+        ", (PackagingTime) Time for packaging in JVM: " + (endTime2 - startTime2))
+
+      logInfo("In partition " + pid +
+        ", (GPUEnvTime) Time for executing from GPU env: " + (endTime - startTime))
+      logInfo("In partition " + pid +
+        ", (PackagingTime) Time for packaging in JVM: " + (endTime2 - startTime2))
+    }
 
     (resultBitSet, resultAttr, needCombine)
 
@@ -159,10 +194,15 @@ class GPUControllerShm(vertexSum: Long,
 
     val shmWriter = new shmWriterPackager(2)
 
+    val startTime = System.nanoTime()
+
     // pass writer through JNI, in order to get last skipped data back
     val underIndex = native.nativeStepFinal(vertexSum,
       vertexCount, edgeCount, sourceSize, pid,
       shmWriter)
+
+    val endTime = System.nanoTime()
+    val startTime2 = System.nanoTime()
 
     val resultIDReader = new shmArrayReaderLong(
       shmWriter.getSizeByIndex(0), shmWriter.getNameByIndex(0))
@@ -171,6 +211,20 @@ class GPUControllerShm(vertexSum: Long,
 
     val (resultBitSet, resultAttr) = vertexAttrPackage(
       underIndex, global2local, resultIDReader, resultAttrReader)
+
+    val endTime2 = System.nanoTime()
+
+    if (envControl.openTimeLog){
+      println("In partition " + pid +
+        ", (GPUEnvTime) Time for executing from GPU env: " + (endTime - startTime))
+      println("In partition " + pid +
+        ", (PackagingTime) Time for packaging in JVM: " + (endTime2 - startTime2))
+
+      logInfo("In partition " + pid +
+        ", (GPUEnvTime) Time for executing from GPU env: " + (endTime - startTime))
+      logInfo("In partition " + pid +
+        ", (PackagingTime) Time for packaging in JVM: " + (endTime2 - startTime2))
+    }
 
     (resultBitSet, resultAttr, false)
   }
@@ -205,7 +259,6 @@ class GPUControllerShm(vertexSum: Long,
     val resultBitSet = new BitSet(vertexCount)
     val resultAttr = new Array[Double](vertexCount)
 
-    //val startNew = System.nanoTime()
     var tempAttr : Double = 0.0
     for (i <- 0 until underIndex) {
       val globalId = resultIDReader.shmArrayReaderGetByIndex(i)
@@ -214,7 +267,6 @@ class GPUControllerShm(vertexSum: Long,
       resultBitSet.set(localId)
       resultAttr(localId) = tempAttr
     }
-    //val endNew = System.nanoTime()
 
     (resultBitSet, resultAttr)
   }

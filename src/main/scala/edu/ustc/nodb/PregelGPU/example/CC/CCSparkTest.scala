@@ -1,21 +1,18 @@
-package edu.ustc.nodb.PregelGPU.example.PageRank
+package edu.ustc.nodb.PregelGPU.example.CC
 
 import edu.ustc.nodb.PregelGPU.envControl
 import edu.ustc.nodb.PregelGPU.plugin.graphGenerator
-import org.apache.spark.graphx.Graph
-import org.apache.spark.graphx.PartitionStrategy.{EdgePartition2D, RandomVertexCut}
+import org.apache.spark.graphx.PartitionStrategy.RandomVertexCut
 import org.apache.spark.{SparkConf, SparkContext}
 
-import scala.collection.mutable.ArrayBuffer
-
-object PageRankSparkTest{
+object CCSparkTest{
 
   // scalastyle:on println
 
   def main(args: Array[String]) {
 
     // environment setting
-    val conf = new SparkConf().setAppName("Pregel_PR")
+    val conf = new SparkConf().setAppName("Pregel_CC")
     if(envControl.controller != 0){
       conf.setMaster("local[4]")
     }
@@ -47,20 +44,17 @@ object PageRankSparkTest{
 
     println("-------------------------")
 
-    val sourceList = 1L
-    val allSourceList = sc.broadcast(Option(sourceList))
-
     // the quantity of vertices in the whole graph
     val vertexSum = graph.vertices.count()
     val edgeSum = graph.edges.count()
 
-    val ssspTest = new PregelSparkPageRank
+    val CCTest = new PregelSparkCC
 
     val startNormal = System.nanoTime()
-    val ssspResult = ssspTest.runUntilConvergenceWithOptions(graph, 0.001, 0.15, allSourceList.value)
+    val CCResult = CCTest.run(graph)
     // val d = ssspResult.vertices.count()
     val endNormal = System.nanoTime()
-    println(ssspResult.vertices.collect().mkString("\n"))
+    println(CCResult.vertices.collect().mkString("\n"))
 
     println("-------------------------")
 

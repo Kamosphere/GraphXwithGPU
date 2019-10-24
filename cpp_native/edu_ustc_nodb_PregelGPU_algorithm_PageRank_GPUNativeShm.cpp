@@ -170,7 +170,10 @@ JNIEXPORT jboolean JNICALL Java_edu_ustc_nodb_PregelGPU_algorithm_PageRank_GPUNa
 
     initProber detector = initProber(partitionID);
     bool status = detector.run();
-    if(! status) return false;
+    if(! status) {
+        throwIllegalArgument(env, "Cannot detect existing server");
+        return false;
+    }
 
     UtilClient<std::pair<double, double>, PRA_MSG> execute =
             UtilClient<std::pair<double, double>, PRA_MSG>
@@ -213,8 +216,14 @@ JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_algorithm_PageRank_GPUNative
 
     //-----------------------------
 
-    //auto startTimeAll = std::chrono::high_resolution_clock::now();
-    //auto startTimeA = std::chrono::high_resolution_clock::now();
+    //---------Time evaluating---------
+    auto startTimeA = std::chrono::high_resolution_clock::now();
+
+    string fileNameOutputEdgeLog = "testLogCPlusBreakDownPid" + to_string(pid)
+                                   + "Time" + to_string(startTimeA.time_since_epoch().count()) + ".txt";
+    string pathFile = "/usr/local/ssspexample/outputlog/";
+    std::ofstream Tout(pathFile + fileNameOutputEdgeLog, fstream::out | fstream::app);
+    //---------Time evaluating---------
 
     int vertexAllSum = static_cast<int>(vertexSum);
     int partitionID = static_cast<int>(pid);
@@ -281,7 +290,6 @@ JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_algorithm_PageRank_GPUNative
         throwIllegalArgument(env, "Shared memory corruption");
     }
 
-
     for (int i = 0; i < sizeID; i++) {
 
         // jlong sig = env->CallStaticLongMethod(n_sztool, id_getSize, vertexLL);
@@ -296,13 +304,51 @@ JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_algorithm_PageRank_GPUNative
     }
 
     // test for multi-threading environment
+/*
+    auto startTimeAll = std::chrono::high_resolution_clock::now();
+    string pathFile = "/home/liqi/IdeaProjects/GraphXwithGPU/logPageRankGPU/1/";
+    string fileNameOutputVertexLog = "testLogCPlusVertexPid" + to_string(pid) + "time" +
+                                   to_string(startTimeAll.time_since_epoch().count()) + ".txt";
+    std::ofstream Fout(pathFile + fileNameOutputVertexLog, fstream::out | fstream::app);
 
+    Fout<<"-----------------Before-----------------"<<endl;
+
+    for(int i = 0;i < vertexAllSum; i++){
+        std::string outputT = "In partition " + to_string(pid) + " , ";
+        outputT += to_string(i) + " active status: " + to_string(execute.vSet[i].isActive) + " : {";
+        outputT += " [ " + to_string(execute.vValues[i].first) + " ] [ " + to_string(execute.vValues[i].second) + " ] ";
+        outputT += " } ";
+        Fout<<outputT<<endl;
+
+    }
+
+    Fout<<"-----------------Before-----------------"<<endl;
+*/
     chk = execute.update(vValues, &vertices[0]);
 
     if(chk == -1){
         throwIllegalArgument(env, "Cannot update with server correctly");
     }
+/*
+    auto startTimeAll2 = std::chrono::high_resolution_clock::now();
+    string pathFile2 = "/home/liqi/IdeaProjects/GraphXwithGPU/logPageRankGPU/2/";
+    string fileNameOutputVertexLog2 = "testLogCPlusVertexPid" + to_string(pid) + "time" +
+                                   to_string(startTimeAll.time_since_epoch().count()) + ".txt";
+    std::ofstream Gout(pathFile2 + fileNameOutputVertexLog2, fstream::out | fstream::app);
 
+    Gout<<"-----------------Before-----------------"<<endl;
+
+    for(int i = 0;i < vertexAllSum; i++){
+        std::string outputT = "In partition " + to_string(pid) + " , ";
+        outputT += to_string(i) + " active status: " + to_string(execute.vSet[i].isActive) + " : {";
+        outputT += " [ " + to_string(execute.vValues[i].first) + " ] [ " + to_string(execute.vValues[i].second) + " ] ";
+        outputT += " } ";
+        Gout<<outputT<<endl;
+
+    }
+
+    Gout<<"-----------------Before-----------------"<<endl;
+*/
 /*
     string fileNameOutputEdgeLog = "testLogCPlusEdgePid" + to_string(pid) + "time" +
                                to_string(startTimeAll.time_since_epoch().count()) + ".txt";
@@ -321,14 +367,40 @@ JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_algorithm_PageRank_GPUNative
     Fout<<"-----------------Before-----------------"<<endl;
 */
 
-/*
+    //---------Time evaluating---------
     std::chrono::nanoseconds durationA = std::chrono::high_resolution_clock::now() - startTimeA;
     auto startTime = std::chrono::high_resolution_clock::now();
+    //---------Time evaluating---------
 
     // execute sssp using GPU in server-client mode
-*/
+
     execute.request();
 
+    //---------Time evaluating---------
+    std::chrono::nanoseconds duration = std::chrono::high_resolution_clock::now() - startTime;
+
+    auto startTimeB = std::chrono::high_resolution_clock::now();
+    //---------Time evaluating---------
+/*
+    auto startTimeAll3 = std::chrono::high_resolution_clock::now();
+    string pathFile3 = "/home/liqi/IdeaProjects/GraphXwithGPU/logPageRankGPU/3/";
+    string fileNameOutputVertexLog3 = "testLogCPlusVertexPid" + to_string(pid) + "time" +
+                                      to_string(startTimeAll.time_since_epoch().count()) + ".txt";
+    std::ofstream Hout(pathFile3 + fileNameOutputVertexLog3, fstream::out | fstream::app);
+
+    Hout<<"-----------------After-----------------"<<endl;
+
+    for(int i = 0;i < vertexAllSum; i++){
+        std::string outputT = "In partition " + to_string(pid) + " , ";
+        outputT += to_string(i) + " active status: " + to_string(execute.vSet[i].isActive) + " : {";
+        outputT += " [ " + to_string(execute.vValues[i].first) + " ] [ " + to_string(execute.vValues[i].second) + " ] ";
+        outputT += " } ";
+        Hout<<outputT<<endl;
+
+    }
+
+    Hout<<"-----------------After-----------------"<<endl;
+*/
     /*
     auto startTimeAll2 = std::chrono::high_resolution_clock::now();
     string pathFile2 = "/home/liqi/IdeaProjects/GraphXwithGPU/logPageRankGPU/2/";
@@ -353,11 +425,6 @@ JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_algorithm_PageRank_GPUNative
     Fout.close();
      */
 
-/*
-    std::chrono::nanoseconds duration = std::chrono::high_resolution_clock::now() - startTime;
-
-    auto startTimeB = std::chrono::high_resolution_clock::now();
-    */
 
     vector<long> cPlusReturnId = vector<long>();
     vector<double> cPlusReturnAttr = vector<double>();
@@ -405,17 +472,17 @@ JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_algorithm_PageRank_GPUNative
         throwIllegalArgument(env, "Cannot write back identifier");
     }
 
-/*
-    std::chrono::nanoseconds durationB = std::chrono::high_resolution_clock::now() - startTime;
+    //---------Time evaluating---------
+    std::chrono::nanoseconds durationB = std::chrono::high_resolution_clock::now() - startTimeB;
 
-    std::chrono::nanoseconds durationAll = std::chrono::high_resolution_clock::now() - startTimeAll;
     std::string output = std::string();
     output += "Time of partition " + to_string(pid) + " in c++: " + to_string(durationA.count()) + " "
-              + to_string(duration.count()) + " " + to_string(durationB.count()) + " sum time: "
-              + to_string(durationAll.count());
+              + to_string(duration.count()) + " " + to_string(durationB.count());
 
-    cout<<output<<endl;
-*/
+    Tout<<output<<endl;
+
+    Tout.close();
+    //---------Time evaluating---------
 
     if(allGained){
         return static_cast<int>(0-cPlusReturnId.size());
@@ -430,7 +497,14 @@ JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_algorithm_PageRank_GPUNative
         (JNIEnv * env, jobject superClass,
          jlong vertexSum, jint vertexLen, jint edgeLen, jint markIdLen, jint pid, jobject shmWriter){
 
-    //auto startTimeB = std::chrono::high_resolution_clock::now();
+    //---------Time evaluating---------
+    auto startTimeA = std::chrono::high_resolution_clock::now();
+
+    string fileNameOutputEdgeLog = "testLogCPlusBreakDownPid" + to_string(pid)
+                                   + "Time" + to_string(startTimeA.time_since_epoch().count()) + ".txt";
+    string pathFile = "/usr/local/ssspexample/outputlog/";
+    std::ofstream Tout(pathFile + fileNameOutputEdgeLog, fstream::out | fstream::app);
+    //---------Time evaluating---------
 
     jclass writerClass = env->GetObjectClass(shmWriter);
     jmethodID addWriterName = env->GetMethodID(writerClass, "addName", "(Ljava/lang/String;I)Z");
@@ -450,7 +524,17 @@ JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_algorithm_PageRank_GPUNative
         throwIllegalArgument(env, "Cannot establish the connection with server correctly");
     }
 
+    //---------Time evaluating---------
+    std::chrono::nanoseconds durationA = std::chrono::high_resolution_clock::now() - startTimeA;
+    auto startTime = std::chrono::high_resolution_clock::now();
+    //---------Time evaluating---------
+
     execute.request();
+
+    //---------Time evaluating---------
+    std::chrono::nanoseconds duration = std::chrono::high_resolution_clock::now() - startTime;
+    auto startTimeB = std::chrono::high_resolution_clock::now();
+    //---------Time evaluating---------
 
     vector<long> cPlusReturnId = vector<long>();
     vector<double> cPlusReturnAttr = vector<double>();
@@ -497,14 +581,19 @@ JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_algorithm_PageRank_GPUNative
     if(! ifReturnAttr){
         throwIllegalArgument(env, "Cannot write back identifier");
     }
-/*
+
+    //---------Time evaluating---------
     std::chrono::nanoseconds durationB = std::chrono::high_resolution_clock::now() - startTimeB;
 
     std::string output = std::string();
-    output += "Time of partition " + to_string(pid) + " in c++ for skipping: " + to_string(durationB.count());
+    output += "Time of partition " + to_string(pid) + " in c++: " + to_string(durationA.count()) + " "
+              + to_string(duration.count()) + " " + to_string(durationB.count());
 
-    cout<<output<<endl;
-*/
+    Tout<<output<<endl;
+
+    Tout.close();
+    //---------Time evaluating---------
+
     if(allGained){
         return static_cast<int>(0-cPlusReturnId.size());
     }
@@ -517,7 +606,14 @@ JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_algorithm_PageRank_GPUNative
         (JNIEnv * env, jobject superClass,
          jlong vertexSum, jint vertexLen, jint edgeLen, jint markIdLen, jint pid, jobject shmWriter) {
 
-    //auto startTimeB = std::chrono::high_resolution_clock::now();
+    //---------Time evaluating---------
+    auto startTimeA = std::chrono::high_resolution_clock::now();
+
+    string fileNameOutputEdgeLog = "testLogCPlusBreakDownPid" + to_string(pid)
+                                   + "Time" + to_string(startTimeA.time_since_epoch().count()) + ".txt";
+    string pathFile = "/usr/local/ssspexample/outputlog/";
+    std::ofstream Tout(pathFile + fileNameOutputEdgeLog, fstream::out | fstream::app);
+    //---------Time evaluating---------
 
     jclass writerClass = env->GetObjectClass(shmWriter);
     jmethodID addWriterName = env->GetMethodID(writerClass, "addName", "(Ljava/lang/String;I)Z");
@@ -582,14 +678,16 @@ JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_algorithm_PageRank_GPUNative
         throwIllegalArgument(env, "Cannot write back identifier");
     }
 
-/*
-    std::chrono::nanoseconds durationB = std::chrono::high_resolution_clock::now() - startTimeB;
+    //---------Time evaluating---------
+    std::chrono::nanoseconds durationA = std::chrono::high_resolution_clock::now() - startTimeA;
 
     std::string output = std::string();
-    output += "Time of partition " + to_string(pid) + " in c++ for all merging: " + to_string(durationB.count());
+    output += "Time of partition " + to_string(pid) + " in c++ for all merging: " + to_string(durationA.count());
 
-    cout<<output<<endl;
-*/
+    Tout<<output<<endl;
+
+    Tout.close();
+    //---------Time evaluating---------
     return static_cast<int>(cPlusReturnId.size());
 
 }
