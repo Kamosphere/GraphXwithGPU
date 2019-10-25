@@ -13,8 +13,7 @@ import scala.collection.mutable.ArrayBuffer
 object SSSPGPUShmTest{
 
   // scalastyle:on println
-  def makeMap(x: (VertexId, Double)*) = Map(x: _*)
-
+  def makeMap(x: (VertexId, Double)*): Map[VertexId, Double] = Map(x: _*)
 
   def main(args: Array[String]) {
 
@@ -42,7 +41,6 @@ object SSSPGPUShmTest{
       sourceFile = "/usr/local/sourcegraph/" + sourceFile
     }
 
-    envControl.openTimeLog = false
     envControl.skippingPartSize = preDefinedGraphVertices
 
     val graph = graphGenerator.readFile(sc, sourceFile)(parts.get)

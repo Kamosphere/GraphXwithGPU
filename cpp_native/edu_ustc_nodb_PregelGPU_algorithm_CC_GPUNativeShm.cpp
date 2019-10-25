@@ -217,11 +217,12 @@ JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_algorithm_CC_GPUNativeShm_na
 
     //---------Time evaluating---------
     auto startTimeA = std::chrono::high_resolution_clock::now();
-
+    /*
     string fileNameOutputEdgeLog = "testLogCPlusBreakDownPid" + to_string(pid)
                                    + "Time" + to_string(startTimeA.time_since_epoch().count()) + ".txt";
     string pathFile = "/usr/local/ssspexample/outputlog/";
     std::ofstream Tout(pathFile + fileNameOutputEdgeLog, fstream::out | fstream::app);
+    */
     //---------Time evaluating---------
 
     int vertexAllSum = static_cast<int>(vertexSum);
@@ -287,7 +288,7 @@ JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_algorithm_CC_GPUNativeShm_na
 
         long jVertexId_get = VertexIDTemp[i];
         bool jVertexActive_get = VertexActiveTemp[i];
-        vValues[i] = VertexAttrTemp[i];
+        vValues[jVertexId_get] = VertexAttrTemp[i];
 
         vertices.at(jVertexId_get).isActive = jVertexActive_get;
 
@@ -302,23 +303,25 @@ JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_algorithm_CC_GPUNativeShm_na
 
     // test for multithreading environment
     /*
-    std::ofstream Gout("testGraph100Log" + to_string(pid) + ".txt", fstream::out | fstream::app);
+    auto startTimeAll = std::chrono::high_resolution_clock::now();
+    string fileNameOutputLog = "testLogCPlusPid" + to_string(pid) + "time" +
+                               to_string(startTimeAll.time_since_epoch().count()) + ".txt";
+    string pathFile = "/home/liqi/IdeaProjects/GraphXwithGPU/logCCGPU/";
+    std::ofstream Gout(pathFile + fileNameOutputLog, fstream::out | fstream::app);
 
     Gout<<"-----------------Before-----------------"<<endl;
 
     for(int i = 0;i < vertexAllSum; i++){
         std::string outputT = "In partition " + to_string(pid) + " , ";
         outputT += to_string(i) + " active status: " + to_string(execute.vSet[i].isActive) + " : {";
-        for(int j = 0;j < lenMarkID; j++){
-            outputT += " [ " + to_string(execute.initVSet[j])+" : "+to_string(execute.vValues[i * lenMarkID + j]) + " ] ";
-        }
+        outputT += " [ " + to_string(execute.vValues[i]) + " ] ";
         outputT += " } ";
-        if(i == 100){
-            Gout<<outputT<<endl;
-        }
+        Gout<<outputT<<endl;
+
     }
 
     Gout<<"-----------------Before-----------------"<<endl;
+    Gout.close();
     */
     // test end
 
@@ -391,9 +394,11 @@ JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_algorithm_CC_GPUNativeShm_na
     output += "Time of partition " + to_string(pid) + " in c++: " + to_string(durationA.count()) + " "
               + to_string(duration.count()) + " " + to_string(durationB.count());
 
+    /*
     Tout<<output<<endl;
 
     Tout.close();
+     */
     //---------Time evaluating---------
 
     if(allGained){
@@ -412,10 +417,12 @@ JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_algorithm_CC_GPUNativeShm_na
     //---------Time evaluating---------
     auto startTimeA = std::chrono::high_resolution_clock::now();
 
+    /*
     string fileNameOutputEdgeLog = "testLogCPlusBreakDownPid" + to_string(pid)
                                    + "Time" + to_string(startTimeA.time_since_epoch().count()) + ".txt";
     string pathFile = "/usr/local/ssspexample/outputlog/";
     std::ofstream Tout(pathFile + fileNameOutputEdgeLog, fstream::out | fstream::app);
+     */
     //---------Time evaluating---------
 
     jclass writerClass = env->GetObjectClass(shmWriter);
@@ -496,9 +503,11 @@ JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_algorithm_CC_GPUNativeShm_na
     output += "Time of partition " + to_string(pid) + " in c++: " + to_string(durationA.count()) + " "
               + to_string(duration.count()) + " " + to_string(durationB.count());
 
+    /*
     Tout<<output<<endl;
 
     Tout.close();
+     */
     //---------Time evaluating---------
 
     if(allGained){
@@ -516,10 +525,12 @@ JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_algorithm_CC_GPUNativeShm_na
     //---------Time evaluating---------
     auto startTimeA = std::chrono::high_resolution_clock::now();
 
+    /*
     string fileNameOutputEdgeLog = "testLogCPlusBreakDownPid" + to_string(pid)
                                    + "Time" + to_string(startTimeA.time_since_epoch().count()) + ".txt";
     string pathFile = "/usr/local/ssspexample/outputlog/";
     std::ofstream Tout(pathFile + fileNameOutputEdgeLog, fstream::out | fstream::app);
+     */
     //---------Time evaluating---------
 
     jclass writerClass = env->GetObjectClass(shmWriter);
@@ -583,9 +594,11 @@ JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_algorithm_CC_GPUNativeShm_na
     std::string output = std::string();
     output += "Time of partition " + to_string(pid) + " in c++ for all merging: " + to_string(durationA.count());
 
+    /*
     Tout<<output<<endl;
 
     Tout.close();
+     */
     //---------Time evaluating---------
 
     return static_cast<int>(cPlusReturnId.size());

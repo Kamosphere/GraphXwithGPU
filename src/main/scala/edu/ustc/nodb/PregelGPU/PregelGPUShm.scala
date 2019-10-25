@@ -80,22 +80,6 @@ object PregelGPUShm extends Logging{
     println("-------------------------")
 
     /*
-    messages.foreachPartition(iter => {
-      val pid = TaskContext.getPartitionId()
-      var temp : (VertexId, A)  = null
-      val writer = new PrintWriter(new File("/home/liqi/IdeaProjects/GraphXwithGPU/logGPU/" +
-        "testGPUMessagesLog_pid" + pid + "_iter" + 0 + ".txt"))
-      while(iter.hasNext){
-        temp = iter.next()
-        var chars = ""
-        chars = chars + " " + temp._1 + " : " + temp._2
-        writer.write("In iter " + 0 + " of part " + pid + " , init message data: "
-          + chars + '\n')
-      }
-      writer.close()
-    })
-    */
-    /*
     g.triplets.foreachPartition(iter => {
       val pid = TaskContext.getPartitionId()
       var temp : EdgeTriplet[VD, ED]  = null

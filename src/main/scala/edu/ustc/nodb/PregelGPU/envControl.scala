@@ -2,7 +2,7 @@ package edu.ustc.nodb.PregelGPU
 
 object envControl {
   // 0 for running in server with standalone, other for local
-  val controller : Int = 0
+  val controller : Int = 1
 
   // true open skipping, false for close skipping
   val runningInSkip : Boolean = false
@@ -16,5 +16,5 @@ object envControl {
   var openTimeLog : Boolean = false
 
   // For global test of all algorithms
-  val allTestGraphVertices = 10000000
+  val allTestGraphVertices = 10000
 }

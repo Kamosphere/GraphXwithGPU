@@ -40,7 +40,7 @@ JNIEXPORT jboolean JNICALL Java_edu_ustc_nodb_PregelGPU_algorithm_SSSP_GPUNative
         filteredV[i] = false;
         vertices.emplace_back(Vertex(i, false, INVALID_INITV_INDEX));
         for(int j = 0; j < lenMarkID; j++){
-            vValues[i * lenMarkID + j] = (INT32_MAX >> 1);
+            vValues[i * lenMarkID + j] = INT32_MAX;
         }
     }
 
@@ -132,10 +132,12 @@ JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_algorithm_SSSP_GPUNative_nat
     //---------Time evaluating---------
     auto startTimeA = std::chrono::high_resolution_clock::now();
 
+    /*
     string fileNameOutputEdgeLog = "testLogCPlusBreakDownPid" + to_string(pid)
                                    + "Time" + to_string(startTimeA.time_since_epoch().count()) + ".txt";
     string pathFile = "/usr/local/ssspexample/outputlog/";
     std::ofstream Tout(pathFile + fileNameOutputEdgeLog, fstream::out | fstream::app);
+     */
     //---------Time evaluating---------
 
     int vertexAllSum = static_cast<int>(vertexSum);
@@ -247,7 +249,6 @@ JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_algorithm_SSSP_GPUNative_nat
             for (int j = 0; j < lenMarkID; j++) {
                 cPlusReturnAttr.emplace_back(execute.vValues[i * lenMarkID + j]);
             }
-
             // detect if the vertex is filtered
             if(! execute.filteredV[i]){
                 allGained = false;
@@ -267,9 +268,11 @@ JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_algorithm_SSSP_GPUNative_nat
     output += "Time of partition " + to_string(pid) + " in c++: " + to_string(durationA.count()) + " "
               + to_string(duration.count()) + " " + to_string(durationB.count());
 
+    /*
     Tout<<output<<endl;
 
     Tout.close();
+     */
     //---------Time evaluating---------
 
     if(allGained){
@@ -288,10 +291,12 @@ JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_algorithm_SSSP_GPUNative_nat
     //---------Time evaluating---------
     auto startTimeA = std::chrono::high_resolution_clock::now();
 
+    /*
     string fileNameOutputEdgeLog = "testLogCPlusBreakDownPid" + to_string(pid)
                                    + "Time" + to_string(startTimeA.time_since_epoch().count()) + ".txt";
     string pathFile = "/usr/local/ssspexample/outputlog/";
     std::ofstream Tout(pathFile + fileNameOutputEdgeLog, fstream::out | fstream::app);
+     */
     //---------Time evaluating---------
 
     int vertexAllSum = static_cast<int>(vertexSum);
@@ -351,9 +356,11 @@ JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_algorithm_SSSP_GPUNative_nat
     output += "Time of partition " + to_string(pid) + " in c++: " + to_string(durationA.count()) + " "
               + to_string(duration.count()) + " " + to_string(durationB.count());
 
+    /*
     Tout<<output<<endl;
 
     Tout.close();
+     */
     //---------Time evaluating---------
 
     if(allGained){
@@ -371,10 +378,12 @@ JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_algorithm_SSSP_GPUNative_nat
     //---------Time evaluating---------
     auto startTimeA = std::chrono::high_resolution_clock::now();
 
+    /*
     string fileNameOutputEdgeLog = "testLogCPlusBreakDownPid" + to_string(pid)
                                    + "Time" + to_string(startTimeA.time_since_epoch().count()) + ".txt";
     string pathFile = "/usr/local/ssspexample/outputlog/";
     std::ofstream Tout(pathFile + fileNameOutputEdgeLog, fstream::out | fstream::app);
+     */
     //---------Time evaluating---------
 
     int vertexAllSum = static_cast<int>(vertexSum);
@@ -414,9 +423,11 @@ JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_algorithm_SSSP_GPUNative_nat
     std::string output = std::string();
     output += "Time of partition " + to_string(pid) + " in c++ for all merging: " + to_string(durationA.count());
 
+    /*
     Tout<<output<<endl;
 
     Tout.close();
+     */
     //---------Time evaluating---------
 
     return static_cast<int>(cPlusReturnId.size());

@@ -40,9 +40,9 @@ object LPASparkTest{
     envControl.skippingPartSize = preDefinedGraphVertices
 
     val graph = graphGenerator.readFile(sc, sourceFile)(parts.get)
-      .partitionBy(RandomVertexCut)
+      .partitionBy(EdgePartition2D)
 
-    // running SSSP
+    // running LPA
 
     println("-------------------------")
 

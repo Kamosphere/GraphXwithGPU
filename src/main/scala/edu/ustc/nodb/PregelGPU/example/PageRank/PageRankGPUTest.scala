@@ -5,7 +5,7 @@ import edu.ustc.nodb.PregelGPU.algorithm.PageRank.pregel_PRShm
 import edu.ustc.nodb.PregelGPU.algorithm.SSSP.pregel_SSSP
 import edu.ustc.nodb.PregelGPU.plugin.graphGenerator
 import edu.ustc.nodb.PregelGPU.{PregelGPU, PregelGPUShm, PregelGPUSkipping, envControl}
-import org.apache.spark.graphx.EdgeDirection
+import org.apache.spark.graphx.{EdgeDirection, Graph}
 import org.apache.spark.graphx.PartitionStrategy.{EdgePartition2D, RandomVertexCut}
 import org.apache.spark.{SparkConf, SparkContext}
 
@@ -45,9 +45,9 @@ object PageRankGPUTest{
     envControl.skippingPartSize = preDefinedGraphVertices
 
     val graph = graphGenerator.readFile(sc, sourceFile)(parts.get)
-      .partitionBy(RandomVertexCut)
+      .partitionBy(EdgePartition2D)
 
-    // running SSSP
+    // running PR
 
     println("-------------------------")
 
@@ -71,8 +71,10 @@ object PageRankGPUTest{
 
     val testGraph = algorithm.graphInit(graph)
     val GPUResult = PregelGPUShm.run(testGraph, EdgeDirection.Either)(algorithm)
+    val GPUNormalize = GPUResult.mapVertices((vid, attr) => attr._1)
+    val normalizedResult = normalizeRankSum(GPUNormalize, algorithm.personalized)
     // val q = ssspGPUResult.vertices.count()
-    println(GPUResult.vertices.collect().mkString("\n"))
+    println(normalizedResult.vertices.collect().mkString("\n"))
     val endNew = System.nanoTime()
 
     println("-------------------------")
@@ -84,6 +86,18 @@ object PageRankGPUTest{
     val k = StdIn.readInt()
     println(k)
 
+  }
+
+  // Normalizes the sum of ranks to n (or 1 if personalized)
+  def normalizeRankSum(rankGraph: Graph[Double, Double], personalized: Boolean): Graph[Double, Double] = {
+    val rankSum = rankGraph.vertices.values.sum()
+    if (personalized) {
+      rankGraph.mapVertices((id, rank) => rank / rankSum)
+    } else {
+      val numVertices = rankGraph.numVertices
+      val correctionFactor = numVertices.toDouble / rankSum
+      rankGraph.mapVertices((id, rank) => rank * correctionFactor)
+    }
   }
 
   // scalastyle:on println

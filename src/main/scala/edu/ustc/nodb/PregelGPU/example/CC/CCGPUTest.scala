@@ -5,7 +5,7 @@ import edu.ustc.nodb.PregelGPU.algorithm.LPA.pregel_LPAShm
 import edu.ustc.nodb.PregelGPU.plugin.graphGenerator
 import edu.ustc.nodb.PregelGPU.{PregelGPUShm, envControl}
 import org.apache.spark.graphx.EdgeDirection
-import org.apache.spark.graphx.PartitionStrategy.RandomVertexCut
+import org.apache.spark.graphx.PartitionStrategy.{EdgePartition2D, RandomVertexCut}
 import org.apache.spark.{SparkConf, SparkContext}
 
 import scala.io.StdIn
@@ -43,9 +43,9 @@ object CCGPUTest{
     envControl.skippingPartSize = preDefinedGraphVertices
 
     val graph = graphGenerator.readFile(sc, sourceFile)(parts.get)
-      .partitionBy(RandomVertexCut)
+      .partitionBy(EdgePartition2D)
 
-    // running SSSP
+    // running CC
 
     println("-------------------------")
 

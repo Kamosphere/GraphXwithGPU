@@ -2,7 +2,7 @@ package edu.ustc.nodb.PregelGPU.example.CC
 
 import edu.ustc.nodb.PregelGPU.envControl
 import edu.ustc.nodb.PregelGPU.plugin.graphGenerator
-import org.apache.spark.graphx.PartitionStrategy.RandomVertexCut
+import org.apache.spark.graphx.PartitionStrategy.{EdgePartition2D, RandomVertexCut}
 import org.apache.spark.{SparkConf, SparkContext}
 
 object CCSparkTest{
@@ -38,9 +38,9 @@ object CCSparkTest{
     envControl.skippingPartSize = preDefinedGraphVertices
 
     val graph = graphGenerator.readFile(sc, sourceFile)(parts.get)
-      .partitionBy(RandomVertexCut)
+      .partitionBy(EdgePartition2D)
 
-    // running SSSP
+    // running CC
 
     println("-------------------------")
 

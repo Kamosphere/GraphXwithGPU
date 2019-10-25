@@ -41,9 +41,9 @@ object PageRankSparkTest{
     envControl.skippingPartSize = preDefinedGraphVertices
 
     val graph = graphGenerator.readFile(sc, sourceFile)(parts.get)
-      .partitionBy(RandomVertexCut)
+      .partitionBy(EdgePartition2D)
 
-    // running SSSP
+    // running PR
 
     println("-------------------------")
 
