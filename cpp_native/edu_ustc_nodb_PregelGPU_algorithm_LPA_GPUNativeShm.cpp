@@ -292,7 +292,7 @@ JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_algorithm_LPA_GPUNativeShm_n
         long jVertexId_get = VertexIDTemp[i];
         bool jVertexActive_get = VertexActiveTemp[i];
 
-        vValues[i] = LPA_Value(jVertexId_get, VertexAttrKeyTemp[i], VertexAttrValueTemp[i]);
+        vValues[jVertexId_get] = LPA_Value(jVertexId_get, VertexAttrKeyTemp[i], VertexAttrValueTemp[i]);
 
         vertices.at(jVertexId_get).isActive = jVertexActive_get;
 

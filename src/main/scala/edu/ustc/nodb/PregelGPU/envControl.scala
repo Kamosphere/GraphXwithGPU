@@ -16,5 +16,8 @@ object envControl {
   var openTimeLog : Boolean = false
 
   // For global test of all algorithms
-  val allTestGraphVertices = 10000
+  val allTestGraphVertices = 100000
+
+  // For executing script type, 0 for CPU, other for GPU
+  val runningScriptType = 0
 }

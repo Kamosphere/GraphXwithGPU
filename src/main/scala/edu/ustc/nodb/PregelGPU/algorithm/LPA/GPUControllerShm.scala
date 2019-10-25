@@ -33,21 +33,26 @@ class GPUControllerShm(vertexSum: Long,
 
     var runningScript = ""
 
-    // running script to activate server
-    if (envControl.controller == 0) {
-      runningScript =
-        "/usr/local/ssspexample/cpp_native/build/bin/srv_UtilServerTest_LabelPropagation " +
-          vertexSum.toString + " " + edgeCount.toString + " " +
-          1 + " " + pid.toString
+    // running script to activate server in c++
 
+    // diff in executing environment
+    if (envControl.controller == 0) {
+      runningScript = "/usr/local/ssspexample/cpp_native/build/bin/"
     }
     else {
-      runningScript =
-        "./cpp_native/build/bin/srv_UtilServerTest_LabelPropagation " +
-          vertexSum.toString + " " + edgeCount.toString + " " +
-          1 + " " + pid.toString
-
+      runningScript = "./cpp_native/build/bin/"
     }
+
+    // diff in executor
+    if (envControl.runningScriptType == 0) {
+      runningScript += "srv_UtilServerTest_LabelPropagation "
+    }
+    else {
+      runningScript += "srv_UtilServerTest_LabelPropagationGPU "
+    }
+
+    runningScript += vertexSum.toString + " " + edgeCount.toString + " " +
+      1 + " " + pid.toString
 
     Process(runningScript).run()
 
