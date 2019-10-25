@@ -35,9 +35,10 @@ object SSSPGPUTest{
     val preDefinedGraphVertices = definedGraphVertices / 4
 
     // load graph from file
-    var sourceFile = "testGraph"+preDefinedGraphVertices+"x4.txt"
+    var sourceFile = "testGraph"+definedGraphVertices+".txt"
     if(envControl.controller == 0) {
-      sourceFile = "/usr/local/sourcegraph/" + sourceFile
+      conf.set("fs.defaultFS", "hdfs://192.168.1.10:9000")
+      sourceFile = "hdfs://192.168.1.10:9000/sourcegraph/" + sourceFile
     }
 
     envControl.skippingPartSize = preDefinedGraphVertices
