@@ -22,6 +22,8 @@ object SSSPGPUTest{
     conf.setMaster("local[4]")
 
     val sc = new SparkContext(conf)
+
+    sc.setCheckpointDir("./checkpoint/")
     if(envControl.controller != 0){
       sc.setLogLevel("ERROR")
     }
@@ -30,12 +32,12 @@ object SSSPGPUTest{
     var parts = Some(args(0).toInt)
     if(parts.isEmpty) parts = Some(4)
 
-    val definedGraphVertices = 400000
+    val definedGraphVertices = envControl.allTestGraphVertices * 4
 
     val preDefinedGraphVertices = definedGraphVertices / 4
 
     // load graph from file
-    var sourceFile = "testGraph"+definedGraphVertices+".txt"
+    var sourceFile = "testGraph"+preDefinedGraphVertices+"x4.txt"
     if(envControl.controller == 0) {
       conf.set("fs.defaultFS", "hdfs://192.168.1.10:9000")
       sourceFile = "hdfs://192.168.1.10:9000/sourcegraph/" + sourceFile
@@ -60,7 +62,7 @@ object SSSPGPUTest{
     val vertexSum = graph.vertices.count()
     val edgeSum = graph.edges.count()
 
-    // if (! envControl.runningInSkip) {
+    if (! envControl.runningInSkip) {
 
       val startNew = System.nanoTime()
       val algorithm = new pregel_SSSP(allSourceList, vertexSum, edgeSum, parts.get)
@@ -74,7 +76,7 @@ object SSSPGPUTest{
       println(endNew - startNew)
 
       PregelGPU.close(GPUResult, algorithm)
-/*
+
     }
     else {
 
@@ -91,7 +93,7 @@ object SSSPGPUTest{
 
       PregelGPUSkipping.close(GPUResult, algorithm)
     }
-    */
+
 
     val k = StdIn.readInt()
     println(k)

@@ -91,6 +91,7 @@ JNIEXPORT jboolean JNICALL Java_edu_ustc_nodb_PregelGPU_algorithm_SSSPshm_GPUNat
     vector<Vertex> vertices = vector<Vertex>();
     double *vValues = new double [vertexAllSum * lenMarkID];
     bool* filteredV = new bool [vertexAllSum];
+    int* timestamp = new int [vertexAllSum];
 
     vector<Edge> edges = vector<Edge>();
 
@@ -100,6 +101,7 @@ JNIEXPORT jboolean JNICALL Java_edu_ustc_nodb_PregelGPU_algorithm_SSSPshm_GPUNat
         for(int j = 0; j < lenMarkID; j++){
             vValues[i * lenMarkID + j] = INT32_MAX;
         }
+        timestamp[i] = -1;
     }
 
     // fill markID, which stored the landmark
@@ -182,7 +184,7 @@ JNIEXPORT jboolean JNICALL Java_edu_ustc_nodb_PregelGPU_algorithm_SSSPshm_GPUNat
         return false;
     }
 
-    chk = execute.transfer(vValues, &vertices[0], &edges[0], initVSet, filteredV, lenFiltered);
+    chk = execute.transfer(vValues, &vertices[0], &edges[0], initVSet, filteredV, timestamp);
 
     if(chk == -1){
         throwIllegalArgument(env, "Cannot transfer with server correctly");
@@ -368,7 +370,7 @@ JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_algorithm_SSSPshm_GPUNativeS
             // copy data
             cPlusReturnId.emplace_back(i);
             for (int j = 0; j < lenMarkID; j++) {
-                cPlusReturnAttr.emplace_back(execute.vValues[i * lenMarkID + j]);
+                cPlusReturnAttr.emplace_back(execute.mValues[i * lenMarkID + j]);
             }
             // detect if the vertex is filtered
             if(! execute.filteredV[i]){
@@ -481,7 +483,7 @@ JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_algorithm_SSSPshm_GPUNativeS
             // copy data
             cPlusReturnId.emplace_back(i);
             for (int j = 0; j < lenMarkID; j++) {
-                cPlusReturnAttr.emplace_back(execute.vValues[i * lenMarkID + j]);
+                cPlusReturnAttr.emplace_back(execute.mValues[i * lenMarkID + j]);
             }
             // detect if the vertex is filtered
             if(! execute.filteredV[i]){
@@ -579,7 +581,7 @@ JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_algorithm_SSSPshm_GPUNativeS
         if(idFiltered){
             cPlusReturnId.emplace_back(i);
             for (int j = 0; j < lenMarkID; j++) {
-                cPlusReturnAttr.emplace_back(execute.vValues[i * lenMarkID + j]);
+                cPlusReturnAttr.emplace_back(execute.mValues[i * lenMarkID + j]);
             }
         }
     }

@@ -31,12 +31,12 @@ object SSSPGPUShmTest{
     var parts = Some(args(0).toInt)
     if(parts.isEmpty) parts = Some(4)
 
-    val definedGraphVertices = envControl.allTestGraphVertices
+    val definedGraphVertices = envControl.allTestGraphVertices * 4
 
     val preDefinedGraphVertices = definedGraphVertices / 4
 
     // load graph from file
-    var sourceFile = "testGraph"+definedGraphVertices+".txt"
+    var sourceFile = "testGraph"+preDefinedGraphVertices+"x4.txt"
     if(envControl.controller == 0) {
       conf.set("fs.defaultFS", "hdfs://192.168.1.10:9000")
       sourceFile = "hdfs://192.168.1.10:9000/sourcegraph/" + sourceFile
@@ -45,7 +45,7 @@ object SSSPGPUShmTest{
     envControl.skippingPartSize = preDefinedGraphVertices
 
     val graph = graphGenerator.readFile(sc, sourceFile)(parts.get)
-      .partitionBy(EdgePartition2D)
+      .partitionBy(EdgePartitionNumHookedTest)
 
     // running SSSP
 

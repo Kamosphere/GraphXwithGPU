@@ -189,6 +189,114 @@ class GPUController(vertexSum: Long,
     (resultID, results, false)
   }
 
+  //-----------------
+  // New version of skipping
+  //-----------------
+  def VertexIntoGPU(VertexID: Array[Long],
+                    VertexActive: Array[Boolean],
+                    VertexAttr: Array[Double],
+                    vertexCount: Int):
+  (Boolean, Int) = {
+
+    val startTime = System.nanoTime()
+    // pass vertices through JNI and get result array back
+    var underIndex = native.nativeStepVertexInput(vertexSum,
+      VertexID, VertexActive, VertexAttr,
+      vertexCount, edgeCount, sourceSize, pid)
+
+    val needCombine = if (underIndex <= 0) false else true
+    underIndex = math.abs(underIndex)
+
+    val endTime = System.nanoTime()
+
+    if (envControl.openTimeLog){
+      println("In partition " + pid +
+        ", (GPUEnvTime) Time for executing from GPU env: " + (endTime - startTime))
+
+      logInfo("In partition " + pid +
+        ", (GPUEnvTime) Time for executing from GPU env: " + (endTime - startTime))
+    }
+
+    (needCombine, underIndex)
+
+  }
+
+  def getGPUMessages(vertexCount: Int):
+  (Array[VertexId], Array[SPMap]) = {
+
+    val startTime = System.nanoTime()
+
+    // pass vertices through JNI and get array back
+    val underIndex = native.nativeStepGetMessages(vertexSum, resultID, resultAttr,
+      vertexCount, edgeCount, sourceSize, pid)
+
+    val results = vertexAttrPackage(underIndex)
+    val endTime = System.nanoTime()
+
+    if (envControl.openTimeLog){
+      println("In partition " + pid +
+        ", (PackagingTime) Time for packaging in JVM: " + (endTime - startTime))
+
+      logInfo("In partition " + pid +
+        ", (PackagingTime) Time for packaging in JVM: " + (endTime - startTime))
+    }
+
+    (resultID, results)
+  }
+
+  def getOldMergedGPUMessages(vertexCount: Int):
+  (Array[VertexId], Array[Boolean], Array[Int], Array[SPMap]) = {
+
+    val startTime = System.nanoTime()
+
+    val resultActive = new Array[Boolean](vertexCount)
+    val resultTimeStamp = new Array[Int](vertexCount)
+
+    // pass vertices through JNI and get array back
+    val underIndex = native.nativeStepGetOldMessages(vertexSum,
+      resultID, resultActive, resultTimeStamp, resultAttr,
+      vertexCount, edgeCount, sourceSize, pid)
+
+    val results = vertexAttrPackage(underIndex)
+    val endTime = System.nanoTime()
+
+    if (envControl.openTimeLog){
+      println("In partition " + pid +
+        ", (PackagingTime) Time for packaging in JVM: " + (endTime - startTime))
+
+      logInfo("In partition " + pid +
+        ", (PackagingTime) Time for packaging in JVM: " + (endTime - startTime))
+    }
+
+    (resultID, resultActive, resultTimeStamp, results)
+  }
+
+  // execute algorithm in final step
+  def skipVertexIntoGPU(vertexCount: Int, iterTimes: Int):
+  (Boolean, Int) = {
+
+    val startTime = System.nanoTime()
+
+    // pass vertices through JNI and get array back
+    var underIndex = native.nativeSkipVertexInput(vertexSum,
+      vertexCount, edgeCount, sourceSize, pid, iterTimes)
+
+    val needCombine = if (underIndex <= 0) false else true
+    underIndex = math.abs(underIndex)
+
+    val endTime = System.nanoTime()
+
+    if (envControl.openTimeLog){
+      println("In partition " + pid +
+        ", (GPUEnvTime) Time for executing from GPU env: " + (endTime - startTime))
+
+      logInfo("In partition " + pid +
+        ", (GPUEnvTime) Time for executing from GPU env: " + (endTime - startTime))
+    }
+
+    (needCombine, underIndex)
+  }
+
   def vertexAttrPackage(underIndex: Int):
   Array[SPMap] = {
 

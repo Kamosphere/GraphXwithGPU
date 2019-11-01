@@ -2,10 +2,10 @@ package edu.ustc.nodb.PregelGPU
 
 object envControl {
   // 0 for running in server with standalone, other for local
-  val controller : Int = 0
+  val controller : Int = 1
 
   // true open skipping, false for close skipping
-  val runningInSkip : Boolean = false
+  val runningInSkip : Boolean = true
 
   // For repartitioning the graph that construct from several sub graphs
   // Test for best situation of skipping
@@ -16,7 +16,7 @@ object envControl {
   var openTimeLog : Boolean = false
 
   // For global test of all algorithms
-  val allTestGraphVertices = 1000000
+  val allTestGraphVertices = 100000
 
   // For executing script type, 0 for CPU, other for GPU
   val runningScriptType = 0

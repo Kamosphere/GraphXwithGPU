@@ -214,39 +214,9 @@ object PregelGPU extends Logging{
 
       }
 
-      if(envControl.runningInSkip){
-
-        if(afterCounter == beforeCounter){
-          // skip getting vertex information through graph
-          messages = GraphXUtils.mapReduceTripletsIntoGPU_Skipping(g, ifFilteredCounter,
-            algorithm.lambda_GPUExecute_skipStep, algorithm.lambda_globalReduceFunc)
-
-          // to let the next iter know
-          prevIterSkipped = true
-        }
-
-        else if (prevIterSkipped){
-          // run the main process
-          // if the prev iter skipped the sync, the iter need to catch all data
-          val prevSkippingDirection : EdgeDirection = null
-          messages = GraphXUtils.mapReduceTripletsIntoGPU(g, ifFilteredCounter,
-            algorithm.lambda_GPUExecute, algorithm.lambda_globalReduceFunc,
-            Some((oldMessages, prevSkippingDirection)))
-        }
-
-        else{
-          // run the main process
-          messages = GraphXUtils.mapReduceTripletsIntoGPU(g, ifFilteredCounter,
-            algorithm.lambda_GPUExecute, algorithm.lambda_globalReduceFunc,
-            Some((oldMessages, activeDirection)))
-        }
-      }
-      else{
-        // run the main process
-        messages = GraphXUtils.mapReduceTripletsIntoGPU(g, ifFilteredCounter,
-          algorithm.lambda_GPUExecute, algorithm.lambda_globalReduceFunc,
-          Some((oldMessages, activeDirection)))
-      }
+      messages = GraphXUtils.mapReduceTripletsIntoGPU(g, ifFilteredCounter,
+        algorithm.lambda_GPUExecute, algorithm.lambda_globalReduceFunc,
+        Some((oldMessages, activeDirection)))
 
       messageCheckPointer.update(messages.asInstanceOf[RDD[(VertexId, A)]])
 
@@ -284,21 +254,6 @@ object PregelGPU extends Logging{
       println("-------------------------")
 
       iterTimes = iterTimes + 1
-
-    }
-
-    if(envControl.runningInSkip){
-
-      // in order to get all vertices information through graph
-      // when the last step skipped the sync
-      // here g.vertices stands for regarding all the vertices as activated
-      messages = GraphXUtils.mapReduceTripletsIntoGPU_FinalCollect(g,
-        algorithm.lambda_GPUExecute_finalCollect, algorithm.lambda_globalReduceFunc)
-
-      g = g.joinVertices(messages)((vid, v1, v2) =>
-        algorithm.lambda_globalVertexFunc(vid, v1, v2))
-
-      graphCheckPointer.update(g)
 
     }
 

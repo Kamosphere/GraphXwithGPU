@@ -92,6 +92,7 @@ JNIEXPORT jboolean JNICALL Java_edu_ustc_nodb_PregelGPU_algorithm_PageRank_GPUNa
     vector<Vertex> vertices = vector<Vertex>();
     std::pair<double, double> *vValues = new std::pair<double, double> [vertexAllSum];
     bool* filteredV = new bool [vertexAllSum];
+    int* timestamp = new int [vertexAllSum];
 
     vector<Edge> edges = vector<Edge>();
 
@@ -99,6 +100,7 @@ JNIEXPORT jboolean JNICALL Java_edu_ustc_nodb_PregelGPU_algorithm_PageRank_GPUNa
         filteredV[i] = false;
         vertices.emplace_back(Vertex(i, false, INVALID_INITV_INDEX));
         vValues[i] = std::pair<double, double>(0.0, 0.0);
+        timestamp[i] = -1;
     }
 
     // fill markID, which stored the landmark
@@ -184,7 +186,7 @@ JNIEXPORT jboolean JNICALL Java_edu_ustc_nodb_PregelGPU_algorithm_PageRank_GPUNa
         return false;
     }
 
-    chk = execute.transfer(vValues, &vertices[0], &edges[0], initVSet, filteredV, lenFiltered);
+    chk = execute.transfer(vValues, &vertices[0], &edges[0], initVSet, filteredV, timestamp);
 
     if(chk == -1){
         throwIllegalArgument(env, "Cannot transfer with server correctly");

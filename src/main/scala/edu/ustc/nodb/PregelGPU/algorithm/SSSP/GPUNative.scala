@@ -52,6 +52,48 @@ class GPUNative extends Serializable {
                               resultAttr: Array[Double]):
   Int
 
+  // new native function to execute algorithm
+  @native def nativeStepVertexInput(vertexSum: Long,
+                                    VertexID: Array[Long],
+                                    VertexActive: Array[Boolean],
+                                    VertexAttr: Array[Double],
+                                    vertexCount: Int,
+                                    edgeCount: Int,
+                                    markIdSize: Int,
+                                    pid: Int):
+  Int
+
+  // new native function to fetch info in executing
+  @native def nativeStepGetMessages(vertexSum: Long,
+                                    resultID: Array[Long],
+                                    resultAttr: Array[Double],
+                                    vertexCount: Int,
+                                    edgeCount: Int,
+                                    markIdSize: Int,
+                                    pid: Int):
+  Int
+
+  // new native function to fetch info in several times executing
+  @native def nativeStepGetOldMessages(vertexSum: Long,
+                                       resultID: Array[Long],
+                                       resultActive: Array[Boolean],
+                                       resultTimeStamp: Array[Int],
+                                       resultAttr: Array[Double],
+                                       vertexCount: Int,
+                                       edgeCount: Int,
+                                       markIdSize: Int,
+                                       pid: Int):
+  Int
+
+  // new native function to execute algorithm while prev iter skipped
+  @native def nativeSkipVertexInput(vertexSum: Long,
+                                    vertexCount: Int,
+                                    edgeCount: Int,
+                                    markIdSize: Int,
+                                    pid: Int,
+                                    iterTimes: Int):
+  Int
+
   // native function to close server
   @native def nativeEnvClose(pid: Int):
   Boolean

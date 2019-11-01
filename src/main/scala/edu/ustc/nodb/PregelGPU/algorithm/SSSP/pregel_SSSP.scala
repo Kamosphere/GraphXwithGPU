@@ -127,6 +127,8 @@ class pregel_SSSP(allSource: Broadcast[ArrayBuffer[VertexId]],
       }
     }
 
+    println(filteredVertex)
+
     val endTimeA = System.nanoTime()
 
     val startTimeB = System.nanoTime()
@@ -213,4 +215,108 @@ class pregel_SSSP(allSource: Broadcast[ArrayBuffer[VertexId]],
       envInit = Process.GPUShutdown()
     }
   }
+
+  //-----------------------
+  // New implement of skipping
+  //-----------------------
+
+  override def lambda_VertexIntoGPU
+  (pid: Int, idArr: Array[VertexId], activeArr: Array[Boolean], attrArr: Array[SPMap]):
+  (Boolean, Int) = {
+
+    val vertexCount = partitionInnerData(pid)._1
+    val edgeCount = partitionInnerData(pid)._2
+
+    val sourceArray = allSource.value
+    controller = new GPUController(vertexSum, vertexCount, edgeCount, sourceArray, pid)
+
+    val mapSize = sourceArray.length
+
+    val vertexID = new Array[VertexId](vertexCount)
+    val vertexActive = new Array[Boolean](vertexCount)
+    val vertexAttr = new Array[Double](vertexCount * mapSize)
+
+    var i = 0
+    for(index <- vertexID.indices){
+      if(idArr(index) == -1){
+      }
+      else{
+        vertexID(i) = idArr(index)
+        vertexActive(i) = activeArr(index)
+        for(mapIndex <- allSource.value.indices){
+          vertexAttr(i * mapSize + mapIndex) = attrArr(index).getOrElse(sourceArray(mapIndex), Int.MaxValue)
+        }
+        i += 1
+      }
+    }
+
+    controller.VertexIntoGPU(vertexID, vertexActive, vertexAttr, vertexCount)
+
+  }
+
+  override def lambda_getMessages
+  (pid: Int): (Array[VertexId], Array[SPMap]) = {
+    val vertexCount = partitionInnerData(pid)._1
+    val edgeCount = partitionInnerData(pid)._2
+
+    val sourceArray = allSource.value
+    controller = new GPUController(vertexSum, vertexCount, edgeCount, sourceArray, pid)
+
+    controller.getGPUMessages(vertexCount)
+  }
+
+  override def lambda_getOldMessages
+  (pid: Int): (Array[VertexId], Array[Boolean], Array[Int], Array[SPMap]) = {
+    val vertexCount = partitionInnerData(pid)._1
+    val edgeCount = partitionInnerData(pid)._2
+
+    val sourceArray = allSource.value
+    controller = new GPUController(vertexSum, vertexCount, edgeCount, sourceArray, pid)
+
+    controller.getOldMergedGPUMessages(vertexCount)
+  }
+
+  override def lambda_SkipVertexIntoGPU
+  (pid: Int, iterTimes: Int): (Boolean, Int) = {
+    val vertexCount = partitionInnerData(pid)._1
+    val edgeCount = partitionInnerData(pid)._2
+
+    val sourceArray = allSource.value
+    controller = new GPUController(vertexSum, vertexCount, edgeCount, sourceArray, pid)
+
+    controller.skipVertexIntoGPU(vertexCount, iterTimes)
+  }
+
+  // May not correct
+  override def lambda_globalOldMsgReduceFunc
+  (v1: (Boolean, Int, SPMap), v2: (Boolean, Int, SPMap)): (Boolean, Int, SPMap) = {
+
+    // for two message same, detect last modified timestamp
+    if (v1._3 == v2._3) {
+      if (v1._2 > v2._2) {
+        v2
+      }
+      else {
+        v1
+      }
+    }
+
+    // for different, check if merged result is same as someone
+    else {
+      val result = (v1._3.keySet ++ v2._3.keySet).map {
+        k => k -> math.min(v1._3.getOrElse(k, Double.MaxValue), v2._3.getOrElse(k, Double.MaxValue))
+      }.toMap
+
+      if (result == v1._3) {
+        v1
+      }
+      else if (result == v2._3) {
+        v2
+      }
+      // different from both, then trigger iter must active this vertex, timestamp has no meaning
+      else (true, 0, result)
+    }
+
+  }
+
 }

@@ -91,6 +91,7 @@ JNIEXPORT jboolean JNICALL Java_edu_ustc_nodb_PregelGPU_algorithm_CC_GPUNativeSh
     vector<Vertex> vertices = vector<Vertex>();
     int *vValues = new int [vertexAllSum];
     bool* filteredV = new bool [vertexAllSum];
+    int* timestamp = new int [vertexAllSum];
 
     vector<Edge> edges = vector<Edge>();
 
@@ -98,6 +99,7 @@ JNIEXPORT jboolean JNICALL Java_edu_ustc_nodb_PregelGPU_algorithm_CC_GPUNativeSh
         filteredV[i] = false;
         vertices.emplace_back(Vertex(i, false, INVALID_INITV_INDEX));
         vValues[i] = INT32_MAX;
+        timestamp[i] = -1;
     }
 
     // fill markID, which stored the landmark
@@ -170,7 +172,7 @@ JNIEXPORT jboolean JNICALL Java_edu_ustc_nodb_PregelGPU_algorithm_CC_GPUNativeSh
         return false;
     }
 
-    chk = execute.transfer(vValues, &vertices[0], &edges[0], initVSet, filteredV, lenFiltered);
+    chk = execute.transfer(vValues, &vertices[0], &edges[0], initVSet, filteredV, timestamp);
 
     if(chk == -1){
         throwIllegalArgument(env, "Cannot transfer with server correctly");

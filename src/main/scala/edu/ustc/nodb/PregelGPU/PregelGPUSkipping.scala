@@ -1,10 +1,11 @@
 package edu.ustc.nodb.PregelGPU
 
-import edu.ustc.nodb.PregelGPU.plugin.checkPointer.{PeriodicGraphCheckpointer, PeriodicRDDCheckpointer}
 import edu.ustc.nodb.PregelGPU.template.lambdaTemplete
 import org.apache.spark.graphx._
+import org.apache.spark.graphx.util.PeriodicGraphCheckpointer
 import org.apache.spark.internal.Logging
 import org.apache.spark.rdd.RDD
+import org.apache.spark.rdd.util.PeriodicRDDCheckpointer
 import org.apache.spark.{SparkConf, TaskContext}
 
 import scala.collection.mutable.ArrayBuffer
@@ -41,8 +42,6 @@ object PregelGPUSkipping extends Logging{
 
     val ifFilteredCounter = sc.longAccumulator("ifFilteredCounter")
 
-    var beforeCounter = -1L
-
     var iterTimes = 0
 
     var partitionSplit = g.innerVerticesEdgesCount().collectAsMap()
@@ -57,15 +56,10 @@ object PregelGPUSkipping extends Logging{
         iterTimes, countOutDegree, ifFilteredCounter)
     })
 
-    val iterVertexInfo = g.vertices.map(vertex => {
-      (vertex._1, (algorithm.lambda_initMessage(vertex._1), 0))
-    })
+    var checkSkippable = GraphXUtils.mapReduceTripletsIntoGPUSkip_normal(g, algorithm.lambda_VertexIntoGPU).collectAsMap()
 
-    var iterUpdate = g.vertices.aggregateUsingIndex(iterVertexInfo,
-      (a: (A, Int), b: (A, Int)) => b).cache()
-
-    var messages = GraphXUtils.mapReduceTripletsIntoGPU(g, ifFilteredCounter,
-      algorithm.lambda_GPUExecute, algorithm.lambda_globalReduceFunc)
+    var messages = GraphXUtils.mapReduceTripletsIntoGPUSkip_fetch(g,
+      algorithm.lambda_getMessages, algorithm.lambda_globalReduceFunc)
 
     val messageCheckPointer = new PeriodicRDDCheckpointer[(VertexId, A)](
       checkpointInterval, graph.vertices.sparkContext)
@@ -86,10 +80,6 @@ object PregelGPUSkipping extends Logging{
       ", next iter active node amount: " + activeMessages)
     println("-------------------------")
 
-    var afterCounter = ifFilteredCounter.value
-
-    var prevIterSkipped = false
-
     iterTimes = 1
     var prevG : Graph[VD, ED] = null
 
@@ -105,24 +95,12 @@ object PregelGPUSkipping extends Logging{
 
       prevG = g
 
-      ifFilteredCounter.reset()
-
-      // Should be 0
-      // if a partition not satisfied skipping situation, counter will be added
-      // so if afterCounter is 0, all the partition could skip sync
-      val tempBeforeCounter = ifFilteredCounter.sum
-
-      if(! prevIterSkipped){
-
-        // merge the messages into graph
-        g = g.joinVertices(messages)((vid, v1, v2) =>
-          algorithm.lambda_globalVertexFunc(vid, v1, v2))
-
-      }
+      // merge the messages into graph
+      g = g.joinVertices(messages)((vid, v1, v2) =>
+        algorithm.lambda_globalVertexFunc(vid, v1, v2))
 
       graphCheckPointer.update(g)
 
-      val oldMessages = messages
 
       if(ifRepartition) {
 
@@ -137,86 +115,92 @@ object PregelGPUSkipping extends Logging{
         })
       }
 
-      logInfo("In iteration " + iterTimes + ", beforeCounter is " + beforeCounter
-        + ", afterCounter is " + afterCounter)
-      println("In iteration " + iterTimes + ", beforeCounter is " + beforeCounter
-        + ", afterCounter is " + afterCounter)
+      var skipable = true
+      var activeMessagesInPartition = 0
 
-      if (afterCounter == beforeCounter) {
+      println(checkSkippable)
 
-        logInfo("Iteration " + iterTimes + " (in spark itertimes) can be skipped ")
-        println("Iteration " + iterTimes + " (in spark itertimes) can be skipped ")
-
+      for (partition <- checkSkippable) {
+        activeMessagesInPartition += partition._2._2
+        if (partition._2._1){
+          skipable = false
+        }
+      }
+      if (activeMessagesInPartition == 0 && skipable) {
+        skipable = false
       }
 
-      if(afterCounter == beforeCounter){
-        // skip getting vertex information through graph
-        messages = GraphXUtils.mapReduceTripletsIntoGPU_Skipping(g, ifFilteredCounter,
-          algorithm.lambda_GPUExecute_skipStep, algorithm.lambda_globalReduceFunc)
+      var everskip = false
 
-        messageCheckPointer.update(messages.asInstanceOf[RDD[(VertexId, A)]])
+      if (skipable) {
+        everskip = true
 
-        iterUpdate = iterUpdate.leftZipJoin(messages)((vid, updateSource, message) => {
-          if (message.nonEmpty) (message.get, iterTimes)
-          else updateSource
-        }).cache()
-
-        // to let the next iter know
-        prevIterSkipped = true
+        messages.unpersist(blocking = false)
       }
-      else if (prevIterSkipped){
-        // run the main process
-        // if the prev iter skipped the sync, the iter need to catch all data
-        val prevSkippingDirection : EdgeDirection = null
-        messages = GraphXUtils.mapReduceTripletsIntoGPU(g, ifFilteredCounter,
-          algorithm.lambda_GPUExecute, algorithm.lambda_globalReduceFunc,
-          Some((oldMessages, prevSkippingDirection)))
 
-        messageCheckPointer.update(messages.asInstanceOf[RDD[(VertexId, A)]])
+      var skipTimes = 1
+      while (skipable) {
+        checkSkippable = GraphXUtils.mapReduceTripletsIntoGPUSkip_skipping(
+          g, skipTimes, algorithm.lambda_SkipVertexIntoGPU).collectAsMap()
 
-        iterUpdate = iterUpdate.leftZipJoin(messages)((vid, updateSource, message) => {
-          if (message.nonEmpty) (message.get, iterTimes)
-          else updateSource
-        }).cache()
+        println(checkSkippable)
 
-        val delayedUpdateInfo = iterUpdate.mapPartitions(i => {
-          val filteredResult = new ArrayBuffer[(VertexId, A)]
-          var temp : (VertexId, (A, Int)) = null
-          while (i.hasNext) {
-            temp = i.next()
-            if(temp._2._2 < iterTimes) {
-              filteredResult. += ((temp._1, temp._2._1))
-            }
+        // TODO: detect active messages in partition
+        // TODO: if all partition has no active nodes, then force skipable to false
+        activeMessagesInPartition = 0
+        for (partition <- checkSkippable) {
+          activeMessagesInPartition += partition._2._2
+          if (partition._2._1){
+            skipable = false
           }
-          filteredResult.iterator
-        }).partitionBy(g.vertices.partitioner.get).cache()
+        }
+        if (activeMessagesInPartition == 0 && skipable) {
+          skipable = false
+        }
+        if (skipable) skipTimes += 1
 
-        val delayedUpdateMessage = g.vertices.aggregateUsingIndex(
-          delayedUpdateInfo, algorithm.lambda_globalReduceFunc).cache()
+      }
+
+      var oldMessages : VertexRDD[A] = null
+
+      if (everskip) {
+
+        // all merged messages include inner old messages
+        val messagesRemained = GraphXUtils.mapReduceTripletsIntoGPUSkip_fetchOldMsg(
+          g, algorithm.lambda_getOldMessages,
+          algorithm.lambda_globalOldMsgReduceFunc)
+          .flatMap(elem => if (elem._2._1) Some((elem._1, elem._2._3)) else None)
+
+        messagesRemained.count()
 
         // merge the messages into graph
-        g = g.joinVertices(delayedUpdateMessage)((vid, v1, v2) =>
+        g = g.joinVertices(messagesRemained)((vid, v1, v2) =>
           algorithm.lambda_globalVertexFunc(vid, v1, v2))
 
         graphCheckPointer.update(g)
 
-        prevIterSkipped = false
+        messagesRemained.unpersist(blocking = false)
+
+        // if last skip make the oldmessage zero, force skipable to false
+        oldMessages = GraphXUtils.mapReduceTripletsIntoGPUSkip_fetch(g,
+          algorithm.lambda_getMessages, algorithm.lambda_globalReduceFunc)
+        messageCheckPointer.update(oldMessages.asInstanceOf[RDD[(VertexId, A)]])
+
+        oldMessages.count()
       }
-      else{
-        // run the main process
-        messages = GraphXUtils.mapReduceTripletsIntoGPU(g, ifFilteredCounter,
-          algorithm.lambda_GPUExecute, algorithm.lambda_globalReduceFunc,
-          Some((oldMessages, activeDirection)))
 
-        messageCheckPointer.update(messages.asInstanceOf[RDD[(VertexId, A)]])
+      else {
 
-        iterUpdate = iterUpdate.leftZipJoin(messages)((vid, updateSource, message) => {
-          if (message.nonEmpty) (message.get, iterTimes)
-          else updateSource
-        }).cache()
+        oldMessages = messages
 
-        prevIterSkipped = false
       }
+
+      checkSkippable = GraphXUtils.mapReduceTripletsIntoGPUSkip_normal(g,
+        algorithm.lambda_VertexIntoGPU, Some((oldMessages, activeDirection))).collectAsMap()
+
+      messages = GraphXUtils.mapReduceTripletsIntoGPUSkip_fetch(g,
+        algorithm.lambda_getMessages, algorithm.lambda_globalReduceFunc)
+      messageCheckPointer.update(messages.asInstanceOf[RDD[(VertexId, A)]])
 
       // get the amount of active vertices
       activeMessages = messages.count()
@@ -226,16 +210,6 @@ object PregelGPUSkipping extends Logging{
        */
 
       oldMessages.unpersist(blocking = false)
-
-      // Not skipping
-      if(afterCounter != beforeCounter) {
-        prevG.unpersistVertices(blocking = false)
-        prevG.edges.unpersist(blocking = false)
-      }
-
-      // save for detecting if next iter can skip
-      beforeCounter = tempBeforeCounter
-      afterCounter = ifFilteredCounter.sum
 
       val endTime = System.nanoTime()
 
@@ -256,20 +230,6 @@ object PregelGPUSkipping extends Logging{
 
     }
 
-    if (prevIterSkipped) {
-      // in order to get all vertices information through graph
-      // when the last step skipped the sync
-      // here g.vertices stands for regarding all the vertices as activated
-      messages = GraphXUtils.mapReduceTripletsIntoGPU_FinalCollect(g,
-        algorithm.lambda_GPUExecute_finalCollect, algorithm.lambda_globalReduceFunc)
-
-      g = g.joinVertices(messages)((vid, v1, v2) =>
-        algorithm.lambda_globalVertexFunc(vid, v1, v2))
-
-      graphCheckPointer.update(g)
-    }
-
-    iterUpdate.unpersist(false)
     messageCheckPointer.unpersistDataSet()
     graphCheckPointer.deleteAllCheckpoints()
     messageCheckPointer.deleteAllCheckpoints()
