@@ -2,7 +2,7 @@ package edu.ustc.nodb.PregelGPU.algorithm.SSSPshm
 
 import edu.ustc.nodb.PregelGPU.algorithm.SPMap
 import edu.ustc.nodb.PregelGPU.plugin.partitionStrategy.EdgePartitionPreSearch
-import edu.ustc.nodb.PregelGPU.template.lambdaShmTemplete
+import edu.ustc.nodb.PregelGPU.algoTemplate.lambdaShmTemplete
 import org.apache.spark.broadcast.Broadcast
 import org.apache.spark.graphx.util.collection.GraphXPrimitiveKeyOpenHashMap
 import org.apache.spark.graphx.util.collection.shmManager.shmArrayWriter

@@ -2,11 +2,12 @@ package edu.ustc.nodb.PregelGPU
 
 import java.io.{File, PrintWriter}
 
-import edu.ustc.nodb.PregelGPU.template.lambdaTemplete
-import edu.ustc.nodb.PregelGPU.plugin.checkPointer.{PeriodicGraphCheckpointer, PeriodicRDDCheckpointer}
+import edu.ustc.nodb.PregelGPU.algoTemplate.lambdaTemplete
 import org.apache.spark.graphx._
+import org.apache.spark.graphx.util.PeriodicGraphCheckpointer
 import org.apache.spark.internal.Logging
 import org.apache.spark.rdd.RDD
+import org.apache.spark.rdd.util.PeriodicRDDCheckpointer
 import org.apache.spark.{SparkConf, TaskContext}
 
 import scala.reflect.ClassTag

@@ -1,7 +1,7 @@
 package edu.ustc.nodb.PregelGPU.algorithm.CC
 
 import edu.ustc.nodb.PregelGPU.algorithm.LPAPair
-import edu.ustc.nodb.PregelGPU.template.lambdaShmTemplete
+import edu.ustc.nodb.PregelGPU.algoTemplate.lambdaShmTemplete
 import org.apache.spark.graphx.util.collection.GraphXPrimitiveKeyOpenHashMap
 import org.apache.spark.graphx.util.collection.shmManager.shmArrayWriter
 import org.apache.spark.graphx.util.collection.shmManager.shmArrayWriterImpl.{shmArrayWriterBoolean, shmArrayWriterDouble, shmArrayWriterLong}

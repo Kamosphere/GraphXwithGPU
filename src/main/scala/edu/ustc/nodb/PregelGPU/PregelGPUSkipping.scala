@@ -1,6 +1,6 @@
 package edu.ustc.nodb.PregelGPU
 
-import edu.ustc.nodb.PregelGPU.template.lambdaTemplete
+import edu.ustc.nodb.PregelGPU.algoTemplate.lambdaTemplete
 import org.apache.spark.graphx._
 import org.apache.spark.graphx.util.PeriodicGraphCheckpointer
 import org.apache.spark.internal.Logging

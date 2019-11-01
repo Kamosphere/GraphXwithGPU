@@ -4,7 +4,7 @@ import java.io.{File, PrintWriter}
 
 import edu.ustc.nodb.PregelGPU.algorithm.SPMap
 import edu.ustc.nodb.PregelGPU.plugin.partitionStrategy.EdgePartitionPreSearch
-import edu.ustc.nodb.PregelGPU.template.lambdaTemplete
+import edu.ustc.nodb.PregelGPU.algoTemplate.lambdaTemplete
 import org.apache.spark.broadcast.Broadcast
 import org.apache.spark.graphx.{Edge, Graph, VertexId}
 import org.apache.spark.util.LongAccumulator
