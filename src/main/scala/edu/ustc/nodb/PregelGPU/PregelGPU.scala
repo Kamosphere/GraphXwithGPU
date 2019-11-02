@@ -100,9 +100,6 @@ object PregelGPU extends Logging{
 
     var afterCounter = ifFilteredCounter.value
 
-    var prevIterSkipped = false
-
-    iterTimes = 1
     var prevG : Graph[VD, ED] = null
 
     val ifRepartition = false
@@ -124,14 +121,11 @@ object PregelGPU extends Logging{
       // so if afterCounter is 0, all the partition could skip sync
       val tempBeforeCounter = ifFilteredCounter.sum
 
-      //if(! prevIterSkipped){
+      // merge the messages into graph
+      g = g.joinVertices(messages)((vid, v1, v2) =>
+        algorithm.lambda_globalVertexFunc(vid, v1, v2))
 
-        // merge the messages into graph
-        g = g.joinVertices(messages)((vid, v1, v2) =>
-          algorithm.lambda_globalVertexFunc(vid, v1, v2))
-
-        graphCheckPointer.update(g)
-      //}
+      graphCheckPointer.update(g)
 
       val oldMessages = messages
 

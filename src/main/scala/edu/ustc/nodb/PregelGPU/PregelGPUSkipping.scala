@@ -1,5 +1,7 @@
 package edu.ustc.nodb.PregelGPU
 
+import java.io.{File, PrintWriter}
+
 import edu.ustc.nodb.PregelGPU.algoTemplate.lambdaTemplete
 import org.apache.spark.graphx._
 import org.apache.spark.graphx.util.PeriodicGraphCheckpointer
@@ -80,7 +82,6 @@ object PregelGPUSkipping extends Logging{
       ", next iter active node amount: " + activeMessages)
     println("-------------------------")
 
-    iterTimes = 1
     var prevG : Graph[VD, ED] = null
 
     val ifRepartition = false
@@ -100,7 +101,6 @@ object PregelGPUSkipping extends Logging{
         algorithm.lambda_globalVertexFunc(vid, v1, v2))
 
       graphCheckPointer.update(g)
-
 
       if(ifRepartition) {
 
@@ -145,8 +145,6 @@ object PregelGPUSkipping extends Logging{
 
         println(checkSkippable)
 
-        // TODO: detect active messages in partition
-        // TODO: if all partition has no active nodes, then force skipable to false
         activeMessagesInPartition = 0
         for (partition <- checkSkippable) {
           activeMessagesInPartition += partition._2._2
@@ -164,16 +162,15 @@ object PregelGPUSkipping extends Logging{
       var oldMessages : VertexRDD[A] = null
 
       if (everskip) {
-
         // all merged messages include inner old messages
         val messagesRemained = GraphXUtils.mapReduceTripletsIntoGPUSkip_fetchOldMsg(
           g, algorithm.lambda_getOldMessages,
           algorithm.lambda_globalOldMsgReduceFunc)
-          .flatMap(elem => if (elem._2._1) Some((elem._1, elem._2._3)) else None)
+          .flatMap(elem => if (elem._2._1) Some((elem._1, elem._2._3)) else Some((elem._1, elem._2._3)))
 
         messagesRemained.count()
 
-        // merge the messages into graph
+        // merge the old messages into graph
         g = g.joinVertices(messagesRemained)((vid, v1, v2) =>
           algorithm.lambda_globalVertexFunc(vid, v1, v2))
 
@@ -187,16 +184,19 @@ object PregelGPUSkipping extends Logging{
         messageCheckPointer.update(oldMessages.asInstanceOf[RDD[(VertexId, A)]])
 
         oldMessages.count()
+
+        val prevSkippingDirection : EdgeDirection = null
+
+        checkSkippable = GraphXUtils.mapReduceTripletsIntoGPUSkip_normal(g,
+          algorithm.lambda_VertexIntoGPU, Some((oldMessages, prevSkippingDirection))).collectAsMap()
       }
 
       else {
-
         oldMessages = messages
 
+        checkSkippable = GraphXUtils.mapReduceTripletsIntoGPUSkip_normal(g,
+          algorithm.lambda_VertexIntoGPU, Some((oldMessages, activeDirection))).collectAsMap()
       }
-
-      checkSkippable = GraphXUtils.mapReduceTripletsIntoGPUSkip_normal(g,
-        algorithm.lambda_VertexIntoGPU, Some((oldMessages, activeDirection))).collectAsMap()
 
       messages = GraphXUtils.mapReduceTripletsIntoGPUSkip_fetch(g,
         algorithm.lambda_getMessages, algorithm.lambda_globalReduceFunc)
@@ -224,7 +224,6 @@ object PregelGPUSkipping extends Logging{
       println("Whole iteration time: " + (endTime - startTime) +
         ", next iter active node amount: " + activeMessages)
       println("-------------------------")
-
 
       iterTimes = iterTimes + 1
 

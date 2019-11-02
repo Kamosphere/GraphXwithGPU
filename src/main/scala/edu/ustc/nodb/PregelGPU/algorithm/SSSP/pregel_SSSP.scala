@@ -127,8 +127,6 @@ class pregel_SSSP(allSource: Broadcast[ArrayBuffer[VertexId]],
       }
     }
 
-    println(filteredVertex)
-
     val endTimeA = System.nanoTime()
 
     val startTimeB = System.nanoTime()
@@ -178,30 +176,6 @@ class pregel_SSSP(allSource: Broadcast[ArrayBuffer[VertexId]],
 
     controller.GPUMsgExecute(vertexID, vertexActive, vertexAttr, vertexCount)
 
-  }
-
-  override def lambda_GPUExecute_skipStep
-  (pid: Int): (Array[VertexId], Array[SPMap], Boolean) = {
-
-    val vertexCount = partitionInnerData(pid)._1
-    val edgeCount = partitionInnerData(pid)._2
-
-    val sourceArray = allSource.value
-    controller = new GPUController(vertexSum, vertexCount, edgeCount, sourceArray, pid)
-
-    controller.GPUIterSkipCollect(vertexCount)
-  }
-
-  override def lambda_GPUExecute_finalCollect
-  (pid: Int): (Array[VertexId], Array[SPMap], Boolean) = {
-
-    val vertexCount = partitionInnerData(pid)._1
-    val edgeCount = partitionInnerData(pid)._2
-
-    val sourceArray = allSource.value
-    controller = new GPUController(vertexSum, vertexCount, edgeCount, sourceArray, pid)
-
-    controller.GPUFinalCollect(vertexCount)
   }
 
   override def lambda_shutDown

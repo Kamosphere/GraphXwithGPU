@@ -121,74 +121,6 @@ class GPUController(vertexSum: Long,
 
   }
 
-  // execute algorithm while prev iter skipped
-  def GPUIterSkipCollect(vertexCount: Int):
-  (Array[VertexId], Array[SPMap], Boolean) = {
-
-    val startTime = System.nanoTime()
-    // pass vertices through JNI and get arrayBuffer back
-    var underIndex = native.nativeSkipStep(vertexSum,
-      vertexCount, edgeCount, sourceSize, pid,
-      resultID, resultAttr)
-
-    val needCombine = if (underIndex <= 0) false else true
-    underIndex = math.abs(underIndex)
-
-    val endTime = System.nanoTime()
-    val startTime2 = System.nanoTime()
-
-    val results = vertexAttrPackage(underIndex)
-
-    val endTime2 = System.nanoTime()
-
-    if (envControl.openTimeLog){
-      println("In partition " + pid +
-        ", (GPUEnvTime) Time for executing from GPU env: " + (endTime - startTime))
-      println("In partition " + pid +
-        ", (PackagingTime) Time for packaging in JVM: " + (endTime2 - startTime2))
-
-      logInfo("In partition " + pid +
-        ", (GPUEnvTime) Time for executing from GPU env: " + (endTime - startTime))
-      logInfo("In partition " + pid +
-        ", (PackagingTime) Time for packaging in JVM: " + (endTime2 - startTime2))
-    }
-
-    (resultID, results, needCombine)
-
-  }
-
-  // execute algorithm in final step
-  def GPUFinalCollect(vertexCount: Int):
-  (Array[VertexId], Array[SPMap], Boolean) = {
-
-    val startTime = System.nanoTime()
-
-    // pass vertices through JNI and get array back
-    val underIndex = native.nativeStepFinal(vertexSum,
-      vertexCount, edgeCount, sourceSize, pid,
-      resultID, resultAttr)
-
-    val endTime = System.nanoTime()
-    val startTime2 = System.nanoTime()
-
-    val results = vertexAttrPackage(underIndex)
-    val endTime2 = System.nanoTime()
-
-    if (envControl.openTimeLog){
-      println("In partition " + pid +
-        ", (GPUEnvTime) Time for executing from GPU env: " + (endTime - startTime))
-      println("In partition " + pid +
-        ", (PackagingTime) Time for packaging in JVM: " + (endTime2 - startTime2))
-
-      logInfo("In partition " + pid +
-        ", (GPUEnvTime) Time for executing from GPU env: " + (endTime - startTime))
-      logInfo("In partition " + pid +
-        ", (PackagingTime) Time for packaging in JVM: " + (endTime2 - startTime2))
-    }
-
-    (resultID, results, false)
-  }
-
   //-----------------
   // New version of skipping
   //-----------------
@@ -271,7 +203,7 @@ class GPUController(vertexSum: Long,
     (resultID, resultActive, resultTimeStamp, results)
   }
 
-  // execute algorithm in final step
+  // execute algorithm in GPU itself
   def skipVertexIntoGPU(vertexCount: Int, iterTimes: Int):
   (Boolean, Int) = {
 

@@ -23,7 +23,6 @@ object SSSPGPUTest{
 
     val sc = new SparkContext(conf)
 
-    sc.setCheckpointDir("./checkpoint/")
     if(envControl.controller != 0){
       sc.setLogLevel("ERROR")
     }
@@ -94,9 +93,8 @@ object SSSPGPUTest{
       PregelGPUSkipping.close(GPUResult, algorithm)
     }
 
-
-    val k = StdIn.readInt()
-    println(k)
+    //val k = StdIn.readInt()
+    //println(k)
 
   }
 

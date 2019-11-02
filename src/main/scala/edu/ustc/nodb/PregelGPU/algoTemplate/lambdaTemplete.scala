@@ -41,12 +41,6 @@ abstract class lambdaTemplete[VD: ClassTag, ED: ClassTag, A: ClassTag] extends S
   (pid: Int, idArr: Array[VertexId], activeArr: Array[Boolean], vertexAttr: Array[VD]):
   (Array[VertexId], Array[A], Boolean)
 
-  def lambda_GPUExecute_skipStep
-  (pid: Int): (Array[VertexId], Array[A], Boolean)
-
-  def lambda_GPUExecute_finalCollect
-  (pid: Int): (Array[VertexId], Array[A], Boolean)
-
   def lambda_shutDown
   (pid: Int, iter: Iterator[(VertexId, VD)]):
   Unit

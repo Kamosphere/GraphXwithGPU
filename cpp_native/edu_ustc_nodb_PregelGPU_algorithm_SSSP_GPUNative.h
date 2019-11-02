@@ -25,22 +25,6 @@ JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_algorithm_SSSP_GPUNative_nat
 
 /*
  * Class:     edu_ustc_nodb_PregelGPU_algorithm_SSSP_GPUNative
- * Method:    nativeSkipStep
- * Signature: (JIIII[J[D)I
- */
-JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_algorithm_SSSP_GPUNative_nativeSkipStep
-  (JNIEnv *, jobject, jlong, jint, jint, jint, jint, jlongArray, jdoubleArray);
-
-/*
- * Class:     edu_ustc_nodb_PregelGPU_algorithm_SSSP_GPUNative
- * Method:    nativeStepFinal
- * Signature: (JIIII[J[D)I
- */
-JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_algorithm_SSSP_GPUNative_nativeStepFinal
-  (JNIEnv *, jobject, jlong, jint, jint, jint, jint, jlongArray, jdoubleArray);
-
-/*
- * Class:     edu_ustc_nodb_PregelGPU_algorithm_SSSP_GPUNative
  * Method:    nativeStepVertexInput
  * Signature: (J[J[Z[DIIII)I
  */

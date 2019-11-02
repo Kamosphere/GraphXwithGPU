@@ -50,8 +50,8 @@ JNIEXPORT jboolean JNICALL Java_edu_ustc_nodb_PregelGPU_algorithm_SSSP_GPUNative
 
     int *initVSet = new int [lenMarkID];
 
-    for(int i = 0; i < lenMarkID; i++){
-
+    for(int i = 0; i < lenMarkID; i++)
+    {
         jobject start = env->CallObjectMethod(markId, id_ArrayList_get, i);
         jlong jMarkIDUnit = env->CallLongMethod(start, longValue);
         vertices.at(jMarkIDUnit).initVIndex = i;
@@ -68,21 +68,18 @@ JNIEXPORT jboolean JNICALL Java_edu_ustc_nodb_PregelGPU_algorithm_SSSP_GPUNative
     long* EdgeDstTemp = env->GetLongArrayElements(jEdgeDst, &isCopy);
     double * EdgeAttrTemp = env->GetDoubleArrayElements(jEdgeAttr, &isCopy);
 
-    for(int i = 0; i < lenFiltered; i++){
+    for(int i = 0; i < lenFiltered; i++)
+    {
         filteredV[FilteredVertexTemp[i]] = true;
     }
 
-    for (int i = 0; i < lenEdge; i++) {
-
+    for (int i = 0; i < lenEdge; i++)
+    {
         int jSrcId_get = EdgeSrcTemp[i];
-        //jlong SrcId_get = env->CallLongMethod(jSrcId, longValue);
         int jDstId_get = EdgeDstTemp[i];
-        //jlong DstId_get = env->CallLongMethod(jDstId, longValue);
         double jAttr_get = EdgeAttrTemp[i];
-        //jdouble Attr_get = env->CallDoubleMethod(jAttr, doubleValue);
 
         edges.emplace_back(Edge(jSrcId_get, jDstId_get, jAttr_get));
-
     }
 
     env->ReleaseLongArrayElements(jEdgeSrc, EdgeSrcTemp, 0);
@@ -91,7 +88,8 @@ JNIEXPORT jboolean JNICALL Java_edu_ustc_nodb_PregelGPU_algorithm_SSSP_GPUNative
 
     initProber detector = initProber(partitionID);
     bool status = detector.run();
-    if(! status) {
+    if(! status)
+    {
         throwIllegalArgument(env, "Cannot detect existing server");
         return false;
     }
@@ -101,14 +99,16 @@ JNIEXPORT jboolean JNICALL Java_edu_ustc_nodb_PregelGPU_algorithm_SSSP_GPUNative
     int chk = 0;
 
     chk = execute.connect();
-    if (chk == -1){
+    if (chk == -1)
+    {
         throwIllegalArgument(env, "Cannot establish the connection with server correctly");
         return false;
     }
 
     chk = execute.transfer(vValues, &vertices[0], &edges[0], initVSet, filteredV, timestamp);
 
-    if(chk == -1){
+    if(chk == -1)
+    {
         throwIllegalArgument(env, "Cannot establish the connection with server correctly");
         return false;
     }
@@ -125,10 +125,8 @@ JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_algorithm_SSSP_GPUNative_nat
         jint vertexCount, jint edgeCount, jint markIdLen, jint pid, jlongArray returnId, jdoubleArray returnAttr){
 
     //---------Debug tools---------
-
     // jclass n_sztool = env->FindClass("edu/ustc/nodb/matrix/SizesTool");
     // jmethodID id_getSize = env->GetStaticMethodID(n_sztool, "getObjectSize", "(Ljava/lang/Object;)J");
-
     //-----------------------------
 
     //---------Time evaluating---------
@@ -153,7 +151,8 @@ JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_algorithm_SSSP_GPUNative_nat
     int chk = 0;
 
     chk = execute.connect();
-    if (chk == -1){
+    if (chk == -1)
+    {
         throwIllegalArgument(env, "Cannot establish the connection with server correctly");
     }
 
@@ -162,14 +161,17 @@ JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_algorithm_SSSP_GPUNative_nat
     vector<Vertex> vertices = vector<Vertex>();
     double *vValues = new double [vertexAllSum * lenMarkID];
 
-    for(int i = 0; i < vertexAllSum; i++){
+    for(int i = 0; i < vertexAllSum; i++)
+    {
         vertices.emplace_back(Vertex(i, false, INVALID_INITV_INDEX));
-        for(int j = 0; j < lenMarkID; j++){
+        for(int j = 0; j < lenMarkID; j++)
+        {
             vValues[i * lenMarkID + j] = INT32_MAX;
         }
     }
 
-    for(jint i = 0; i < lenMarkID; i++){
+    for(jint i = 0; i < lenMarkID; i++)
+    {
         vertices.at(execute.initVSet[i]).initVIndex = i;
     }
 
@@ -179,21 +181,22 @@ JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_algorithm_SSSP_GPUNative_nat
     jboolean * VertexActiveTemp = env->GetBooleanArrayElements(jVertexActive, &isCopy);
     double* VertexAttrTemp = env->GetDoubleArrayElements(jVertexAttr, &isCopy);
 
-    for (int i = 0; i < lenVertex; i++) {
-
+    for (int i = 0; i < lenVertex; i++)
+    {
         // jlong sig = env->CallStaticLongMethod(n_sztool, id_getSize, vertexLL);
 
         long jVertexId_get = VertexIDTemp[i];
         bool jVertexActive_get = VertexActiveTemp[i];
 
-        for(int j = 0; j < lenMarkID; j++){
+        for(int j = 0; j < lenMarkID; j++)
+        {
             double jDis = VertexAttrTemp[i * lenMarkID + j];
             int index = vertices.at(execute.initVSet[j]).initVIndex;
-            if(index != INVALID_INITV_INDEX)vValues[jVertexId_get * lenMarkID + index] = jDis;
+            if(index != INVALID_INITV_INDEX)
+                vValues[jVertexId_get * lenMarkID + index] = jDis;
         }
 
         vertices.at(jVertexId_get).isActive = jVertexActive_get;
-
     }
 
     env->ReleaseLongArrayElements(jVertexId, VertexIDTemp, 0);
@@ -221,7 +224,8 @@ JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_algorithm_SSSP_GPUNative_nat
 
     chk = execute.update(vValues, &vertices[0]);
 
-    if(chk == -1){
+    if(chk == -1)
+    {
         throwIllegalArgument(env, "Cannot establish the connection with server correctly");
     }
 
@@ -244,15 +248,19 @@ JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_algorithm_SSSP_GPUNative_nat
     vector<double> cPlusReturnAttr = vector<double>();
 
     bool allGained = true;
-    for (int i = 0; i < vertexAllSum; i++) {
-        if (execute.vSet[i].isActive) {
-            // copy data
+    for (int i = 0; i < vertexAllSum; i++)
+    {
+        if (execute.vSet[i].isActive)
+        {
+            // copy msg data that activated
             cPlusReturnId.emplace_back(i);
-            for (int j = 0; j < lenMarkID; j++) {
-                cPlusReturnAttr.emplace_back(execute.vValues[i * lenMarkID + j]);
+            for (int j = 0; j < lenMarkID; j++)
+            {
+                cPlusReturnAttr.emplace_back(execute.mValues[i * lenMarkID + j]);
             }
             // detect if the vertex is filtered
-            if(! execute.filteredV[i]){
+            if(! execute.filteredV[i])
+            {
                 allGained = false;
             }
         }
@@ -277,163 +285,8 @@ JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_algorithm_SSSP_GPUNative_nat
      */
     //---------Time evaluating---------
 
-    if(allGained){
-        return static_cast<int>(0-cPlusReturnId.size());
-    }
-    else{
-        return static_cast<int>(cPlusReturnId.size());
-    }
-
-}
-
-JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_algorithm_SSSP_GPUNative_nativeSkipStep
-(JNIEnv * env, jobject superClass,
-        jlong vertexSum, jint vertexLen, jint edgeLen, jint markIdLen, jint pid, jlongArray returnId, jdoubleArray returnAttr){
-
-    //---------Time evaluating---------
-    auto startTimeA = std::chrono::high_resolution_clock::now();
-
-    /*
-    string fileNameOutputEdgeLog = "testLogCPlusBreakDownPid" + to_string(pid)
-                                   + "Time" + to_string(startTimeA.time_since_epoch().count()) + ".txt";
-    string pathFile = "/usr/local/ssspexample/outputlog/";
-    std::ofstream Tout(pathFile + fileNameOutputEdgeLog, fstream::out | fstream::app);
-     */
-    //---------Time evaluating---------
-
-    int vertexAllSum = static_cast<int>(vertexSum);
-    int partitionID = static_cast<int>(pid);
-    int lenMarkID = static_cast<int>(markIdLen);
-    int lenEdge = static_cast<int>(edgeLen);
-
-    UtilClient<double, double> execute = UtilClient<double, double>(vertexAllSum, lenEdge, lenMarkID, partitionID);
-
-    int chk = 0;
-
-    chk = execute.connect();
-    if (chk == -1){
-        throwIllegalArgument(env, "Cannot establish the connection with server correctly");
-    }
-
-    //---------Time evaluating---------
-    std::chrono::nanoseconds durationA = std::chrono::high_resolution_clock::now() - startTimeA;
-    auto startTime = std::chrono::high_resolution_clock::now();
-    //---------Time evaluating---------
-
-    execute.request();
-
-    //---------Time evaluating---------
-    std::chrono::nanoseconds duration = std::chrono::high_resolution_clock::now() - startTime;
-    auto startTimeB = std::chrono::high_resolution_clock::now();
-    //---------Time evaluating---------
-
-    vector<long> cPlusReturnId = vector<long>();
-    vector<double> cPlusReturnAttr = vector<double>();
-
-    bool allGained = true;
-    for (int i = 0; i < vertexAllSum; i++) {
-        if (execute.vSet[i].isActive) {
-            // copy data
-            cPlusReturnId.emplace_back(i);
-            for (int j = 0; j < lenMarkID; j++) {
-                cPlusReturnAttr.emplace_back(execute.vValues[i * lenMarkID + j]);
-            }
-
-            // detect if the vertex is filtered
-            if(! execute.filteredV[i]){
-                allGained = false;
-            }
-        }
-    }
-
-    env->SetLongArrayRegion(returnId, 0, cPlusReturnId.size(), &cPlusReturnId[0]);
-    env->SetDoubleArrayRegion(returnAttr, 0, cPlusReturnAttr.size(), &cPlusReturnAttr[0]);
-
-    execute.disconnect();
-
-    //---------Time evaluating---------
-    std::chrono::nanoseconds durationB = std::chrono::high_resolution_clock::now() - startTimeB;
-
-    std::string output = std::string();
-    output += "Time of partition " + to_string(pid) + " in c++: " + to_string(durationA.count()) + " "
-              + to_string(duration.count()) + " " + to_string(durationB.count());
-
-    /*
-    Tout<<output<<endl;
-
-    Tout.close();
-     */
-    //---------Time evaluating---------
-
-    if(allGained){
-        return static_cast<int>(0-cPlusReturnId.size());
-    }
-    else{
-        return static_cast<int>(cPlusReturnId.size());
-    }
-}
-
-JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_algorithm_SSSP_GPUNative_nativeStepFinal
-(JNIEnv * env, jobject superClass,
-        jlong vertexSum, jint vertexLen, jint edgeLen, jint markIdLen, jint pid, jlongArray returnId, jdoubleArray returnAttr) {
-
-    //---------Time evaluating---------
-    auto startTimeA = std::chrono::high_resolution_clock::now();
-
-    /*
-    string fileNameOutputEdgeLog = "testLogCPlusBreakDownPid" + to_string(pid)
-                                   + "Time" + to_string(startTimeA.time_since_epoch().count()) + ".txt";
-    string pathFile = "/usr/local/ssspexample/outputlog/";
-    std::ofstream Tout(pathFile + fileNameOutputEdgeLog, fstream::out | fstream::app);
-     */
-    //---------Time evaluating---------
-
-    int vertexAllSum = static_cast<int>(vertexSum);
-    int partitionID = static_cast<int>(pid);
-    int lenMarkID = static_cast<int>(markIdLen);
-    int lenEdge = static_cast<int>(edgeLen);
-
-    UtilClient<double, double> execute = UtilClient<double, double>(vertexAllSum, lenEdge, lenMarkID, partitionID);
-
-    int chk = 0;
-
-    chk = execute.connect();
-    if (chk == -1){
-        throwIllegalArgument(env, "Cannot establish the connection with server correctly");
-    }
-
-    vector<long> cPlusReturnId = vector<long>();
-    vector<double> cPlusReturnAttr = vector<double>();
-
-    for(int i = 0; i < vertexAllSum; i++){
-        bool idFiltered = execute.filteredV[i];
-        if(idFiltered){
-            cPlusReturnId.emplace_back(i);
-            for (int j = 0; j < lenMarkID; j++) {
-                cPlusReturnAttr.emplace_back(execute.vValues[i * lenMarkID + j]);
-            }
-        }
-    }
-
-    env->SetLongArrayRegion(returnId, 0, cPlusReturnId.size(), &cPlusReturnId[0]);
-    env->SetDoubleArrayRegion(returnAttr, 0, cPlusReturnAttr.size(), &cPlusReturnAttr[0]);
-    execute.disconnect();
-
-    //---------Time evaluating---------
-    std::chrono::nanoseconds durationA = std::chrono::high_resolution_clock::now() - startTimeA;
-
-    std::string output = std::string();
-    output += "Time of partition " + to_string(pid) + " in c++ for all merging: " + to_string(durationA.count());
-
-    /*
-    Tout<<output<<endl;
-
-    Tout.close();
-     */
-    //---------Time evaluating---------
-
-    return static_cast<int>(cPlusReturnId.size());
-
+    if(allGained) return static_cast<int>(0 - cPlusReturnId.size());
+    else return static_cast<int>(cPlusReturnId.size());
 }
 
 //------------------------
@@ -471,20 +324,22 @@ JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_algorithm_SSSP_GPUNative_nat
         throwIllegalArgument(env, "Cannot establish the connection with server correctly");
     }
 
-
     // Init the vertices
 
     vector<Vertex> vertices = vector<Vertex>();
     double *vValues = new double [vertexAllSum * lenMarkID];
 
-    for(int i = 0; i < vertexAllSum; i++){
+    for(int i = 0; i < vertexAllSum; i++)
+    {
         vertices.emplace_back(Vertex(i, false, INVALID_INITV_INDEX));
-        for(int j = 0; j < lenMarkID; j++){
+        for(int j = 0; j < lenMarkID; j++)
+        {
             vValues[i * lenMarkID + j] = INT32_MAX;
         }
     }
 
-    for(jint i = 0; i < lenMarkID; i++){
+    for(jint i = 0; i < lenMarkID; i++)
+    {
         vertices.at(execute.initVSet[i]).initVIndex = i;
     }
 
@@ -494,21 +349,21 @@ JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_algorithm_SSSP_GPUNative_nat
     jboolean * VertexActiveTemp = env->GetBooleanArrayElements(jVertexActive, &isCopy);
     double* VertexAttrTemp = env->GetDoubleArrayElements(jVertexAttr, &isCopy);
 
-    for (int i = 0; i < lenVertex; i++) {
-
+    for (int i = 0; i < lenVertex; i++)
+    {
         // jlong sig = env->CallStaticLongMethod(n_sztool, id_getSize, vertexLL);
 
         long jVertexId_get = VertexIDTemp[i];
         bool jVertexActive_get = VertexActiveTemp[i];
 
-        for(int j = 0; j < lenMarkID; j++){
+        for(int j = 0; j < lenMarkID; j++)
+        {
             double jDis = VertexAttrTemp[i * lenMarkID + j];
             int index = vertices.at(execute.initVSet[j]).initVIndex;
-            if(index != INVALID_INITV_INDEX)vValues[jVertexId_get * lenMarkID + index] = jDis;
+            if(index != INVALID_INITV_INDEX)
+                vValues[jVertexId_get * lenMarkID + index] = jDis;
         }
-
         vertices.at(jVertexId_get).isActive = jVertexActive_get;
-
     }
 
     env->ReleaseLongArrayElements(jVertexId, VertexIDTemp, 0);
@@ -545,7 +400,7 @@ JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_algorithm_SSSP_GPUNative_nat
     auto startTime = std::chrono::high_resolution_clock::now();
     //---------Time evaluating---------
 
-    // execute sssp using GPU in server-client mode
+    // execute using GPU in server-client mode
 
     execute.request();
 
@@ -557,25 +412,22 @@ JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_algorithm_SSSP_GPUNative_nat
 
     int activeCount = 0;
     bool allGained = true;
-    for (int i = 0; i < vertexAllSum; i++) {
-        if (execute.vSet[i].isActive) {
+    for (int i = 0; i < vertexAllSum; i++)
+    {
+        if (execute.vSet[i].isActive)
+        {
             activeCount ++ ;
-
             // detect if the vertex is filtered
-            if(! execute.filteredV[i]){
+            if(! execute.filteredV[i])
+            {
                 allGained = false;
             }
         }
     }
 
-    if(allGained){
-        return static_cast<int>(0-activeCount);
-    }
-    else{
-        return static_cast<int>(activeCount);
-    }
+    if(allGained) return static_cast<int>(0 - activeCount);
+    else return static_cast<int>(activeCount);
 }
-
 
 
 JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_algorithm_SSSP_GPUNative_nativeStepGetMessages
@@ -605,7 +457,8 @@ JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_algorithm_SSSP_GPUNative_nat
     int chk = 0;
 
     chk = execute.connect();
-    if (chk == -1){
+    if (chk == -1)
+    {
         throwIllegalArgument(env, "Cannot establish the connection with server correctly");
     }
 
@@ -637,13 +490,14 @@ JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_algorithm_SSSP_GPUNative_nat
     vector<long> cPlusReturnId = vector<long>();
     vector<double> cPlusReturnAttr = vector<double>();
 
-    for (int i = 0; i < vertexAllSum; i++) {
-        if (execute.vSet[i].isActive) {
-            // copy data
-
-            // TODO: what should i copy?
+    for (int i = 0; i < vertexAllSum; i++)
+    {
+        if (execute.vSet[i].isActive)
+        {
+            // copy msg data that activated
             cPlusReturnId.emplace_back(i);
-            for (int j = 0; j < lenMarkID; j++) {
+            for (int j = 0; j < lenMarkID; j++)
+            {
                 cPlusReturnAttr.emplace_back(execute.mValues[i * lenMarkID + j]);
             }
         }
@@ -699,7 +553,8 @@ JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_algorithm_SSSP_GPUNative_nat
     int chk = 0;
 
     chk = execute.connect();
-    if (chk == -1) {
+    if (chk == -1)
+    {
         throwIllegalArgument(env, "Cannot establish the connection with server correctly");
     }
 
@@ -733,14 +588,16 @@ JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_algorithm_SSSP_GPUNative_nat
     vector<int> cPlusReturnTimeStamp = vector<int>();
     vector<double> cPlusReturnAttr = vector<double>();
 
-    for (int i = 0; i < vertexAllSum; i++) {
-        if (execute.timestamp[i] != -1) {
-            // copy data
-            // TODO: what should i copy?
+    for (int i = 0; i < vertexAllSum; i++)
+    {
+        if (execute.timestamp[i] != -1)
+        {
+            // copy vertex data that once activated
             cPlusReturnId.emplace_back(i);
             cPlusReturnActive.emplace_back(execute.vSet[i].isActive);
             cPlusReturnTimeStamp.emplace_back(execute.timestamp[i]);
-            for (int j = 0; j < lenMarkID; j++) {
+            for (int j = 0; j < lenMarkID; j++)
+            {
                 cPlusReturnAttr.emplace_back(execute.vValues[i * lenMarkID + j]);
             }
             // reset timestamp
@@ -798,7 +655,8 @@ JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_algorithm_SSSP_GPUNative_nat
     int chk = 0;
 
     chk = execute.connect();
-    if (chk == -1){
+    if (chk == -1)
+    {
         throwIllegalArgument(env, "Cannot establish the connection with server correctly");
     }
 
@@ -816,25 +674,22 @@ JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_algorithm_SSSP_GPUNative_nat
 
     int activeCount = 0;
     bool allGained = true;
-    for (int i = 0; i < vertexAllSum; i++) {
-        if (execute.vSet[i].isActive) {
+    for (int i = 0; i < vertexAllSum; i++)
+    {
+        if (execute.vSet[i].isActive)
+        {
             activeCount ++ ;
-            // TODO:when the first time of iter skip?
             execute.timestamp[i] = iterTimes;
-
             // detect if the vertex is filtered
-            if(! execute.filteredV[i]){
+            if(! execute.filteredV[i])
+            {
                 allGained = false;
             }
         }
     }
 
-    if(allGained){
-        return static_cast<int>(0-activeCount);
-    }
-    else{
-        return static_cast<int>(activeCount);
-    }
+    if(allGained) return static_cast<int>(0-activeCount);
+    else return static_cast<int>(activeCount);
 }
 
 // server shutdown

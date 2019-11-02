@@ -107,6 +107,8 @@ object PregelGPUShm extends Logging{
 
     val ifRepartition = false
 
+    var prevIterSkipped = false
+
     // loop
     while(activeMessages > 0 && iterTimes < maxIterations) {
 
@@ -188,11 +190,48 @@ object PregelGPUShm extends Logging{
 
       }
 
-      // run the main process
-      messages = GraphXUtils.mapReduceTripletsIntoGPUInShm(g, ifFilteredCounter,
-        algorithm.identifier, algorithm.lambda_shmInit, algorithm.lambda_shmWrite,
-        algorithm.lambda_GPUExecute, algorithm.lambda_globalReduceFunc,
-        Some((oldMessages, activeDirection)))
+      if(envControl.runningInSkip){
+
+        if(afterCounter == beforeCounter){
+          // skip getting vertex information through graph
+          messages = GraphXUtils.mapReduceTripletsIntoGPU_SkippingInShm(g, ifFilteredCounter,
+            algorithm.lambda_GPUExecute_skipStep, algorithm.lambda_globalReduceFunc)
+
+          // to let the next iter know
+          prevIterSkipped = true
+        }
+
+        else if (prevIterSkipped){
+          // run the main process
+          // if the prev iter skipped the sync, the iter need to catch all data
+          val prevSkippingDirection : EdgeDirection = null
+          messages = GraphXUtils.mapReduceTripletsIntoGPUInShm(g, ifFilteredCounter,
+            algorithm.identifier, algorithm.lambda_shmInit, algorithm.lambda_shmWrite,
+            algorithm.lambda_GPUExecute, algorithm.lambda_globalReduceFunc,
+            Some((oldMessages, prevSkippingDirection)))
+
+          prevIterSkipped = false
+        }
+
+        else{
+          // run the main process
+          messages = GraphXUtils.mapReduceTripletsIntoGPUInShm(g, ifFilteredCounter,
+            algorithm.identifier, algorithm.lambda_shmInit, algorithm.lambda_shmWrite,
+            algorithm.lambda_GPUExecute, algorithm.lambda_globalReduceFunc,
+            Some((oldMessages, activeDirection)))
+
+          prevIterSkipped = false
+        }
+      }
+      else{
+        // run the main process
+        messages = GraphXUtils.mapReduceTripletsIntoGPUInShm(g, ifFilteredCounter,
+          algorithm.identifier, algorithm.lambda_shmInit, algorithm.lambda_shmWrite,
+          algorithm.lambda_GPUExecute, algorithm.lambda_globalReduceFunc,
+          Some((oldMessages, activeDirection)))
+
+        prevIterSkipped = false
+      }
 
       messageCheckPointer.update(messages.asInstanceOf[RDD[(VertexId, A)]])
 
@@ -204,8 +243,11 @@ object PregelGPUShm extends Logging{
        */
 
       oldMessages.unpersist(blocking = false)
-      prevG.unpersistVertices(blocking = false)
-      prevG.edges.unpersist(blocking = false)
+      // Not skipping
+      if(afterCounter != beforeCounter) {
+        prevG.unpersistVertices(blocking = false)
+        prevG.edges.unpersist(blocking = false)
+      }
 
       // save for detecting if next iter can skip
       beforeCounter = tempBeforeCounter
@@ -226,6 +268,21 @@ object PregelGPUShm extends Logging{
       println("-------------------------")
 
       iterTimes = iterTimes + 1
+
+    }
+
+    if(envControl.runningInSkip){
+
+      // in order to get all vertices information through graph
+      // when the last step skipped the sync
+      // here g.vertices stands for regarding all the vertices as activated
+      messages = GraphXUtils.mapReduceTripletsIntoGPU_FinalCollectInShm(g,
+        algorithm.lambda_GPUExecute_finalCollect, algorithm.lambda_globalReduceFunc)
+
+      g = g.joinVertices(messages)((vid, v1, v2) =>
+        algorithm.lambda_globalVertexMergeFunc(vid, v1, v2))
+
+      graphCheckPointer.update(g)
 
     }
 

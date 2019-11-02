@@ -5,7 +5,7 @@ object envControl {
   val controller : Int = 1
 
   // true open skipping, false for close skipping
-  val runningInSkip : Boolean = true
+  val runningInSkip : Boolean = false
 
   // For repartitioning the graph that construct from several sub graphs
   // Test for best situation of skipping

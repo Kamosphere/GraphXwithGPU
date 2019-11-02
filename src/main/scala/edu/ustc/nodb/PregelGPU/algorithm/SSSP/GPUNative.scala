@@ -32,26 +32,6 @@ class GPUNative extends Serializable {
                                    resultAttr: Array[Double]):
   Int
 
-  // native function to execute algorithm while prev iter skipped
-  @native def nativeSkipStep(vertexSum: Long,
-                             vertexCount: Int,
-                             edgeSize: Int,
-                             markIdSize: Int,
-                             pid: Int,
-                             resultID: Array[Long],
-                             resultAttr: Array[Double]):
-  Int
-
-  // native function to execute algorithm for final step
-  @native def nativeStepFinal(vertexSum: Long,
-                              vertexCount: Int,
-                              edgeSize: Int,
-                              markIdSize: Int,
-                              pid: Int,
-                              resultID: Array[Long],
-                              resultAttr: Array[Double]):
-  Int
-
   // new native function to execute algorithm
   @native def nativeStepVertexInput(vertexSum: Long,
                                     VertexID: Array[Long],
@@ -63,7 +43,7 @@ class GPUNative extends Serializable {
                                     pid: Int):
   Int
 
-  // new native function to fetch info in executing
+  // new native function to fetch message in executing
   @native def nativeStepGetMessages(vertexSum: Long,
                                     resultID: Array[Long],
                                     resultAttr: Array[Double],
@@ -73,7 +53,7 @@ class GPUNative extends Serializable {
                                     pid: Int):
   Int
 
-  // new native function to fetch info in several times executing
+  // new native function to fetch merged vertex info after several times executing
   @native def nativeStepGetOldMessages(vertexSum: Long,
                                        resultID: Array[Long],
                                        resultActive: Array[Boolean],
@@ -85,7 +65,7 @@ class GPUNative extends Serializable {
                                        pid: Int):
   Int
 
-  // new native function to execute algorithm while prev iter skipped
+  // new native function to execute algorithm when iter skipped
   @native def nativeSkipVertexInput(vertexSum: Long,
                                     vertexCount: Int,
                                     edgeCount: Int,
