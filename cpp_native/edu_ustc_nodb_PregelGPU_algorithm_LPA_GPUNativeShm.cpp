@@ -2,12 +2,10 @@
 
 #include "util/JNIPlugin.h"
 
-#include <sys/stat.h>
 #include <sys/mman.h>
 #include <fcntl.h>
 #include <cerrno>
 #include <cstring>
-#include <dirent.h>
 #include <zconf.h>
 #include <algorithm>
 #include <algo/LabelPropagation/LabelPropagation.h>
@@ -220,12 +218,12 @@ JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_algorithm_LPA_GPUNativeShm_n
 
     //---------Time evaluating---------
     auto startTimeA = std::chrono::high_resolution_clock::now();
-    /*
+
     string fileNameOutputEdgeLog = "testLogCPlusBreakDownPid" + to_string(pid)
                                    + "Time" + to_string(startTimeA.time_since_epoch().count()) + ".txt";
     string pathFile = "/usr/local/ssspexample/outputlog/";
     std::ofstream Tout(pathFile + fileNameOutputEdgeLog, fstream::out | fstream::app);
-     */
+
     //---------Time evaluating---------
 
     int vertexAllSum = static_cast<int>(vertexSum);
@@ -424,11 +422,11 @@ JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_algorithm_LPA_GPUNativeShm_n
     std::string output = std::string();
     output += "Time of partition " + to_string(pid) + " in c++: " + to_string(durationA.count()) + " "
               + to_string(duration.count()) + " " + to_string(durationB.count());
-    /*
+
     Tout<<output<<endl;
 
     Tout.close();
-     */
+
     //---------Time evaluating---------
 
     if(allGained){
@@ -446,12 +444,12 @@ JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_algorithm_LPA_GPUNativeShm_n
 
     //---------Time evaluating---------
     auto startTimeA = std::chrono::high_resolution_clock::now();
-    /*
+
     string fileNameOutputEdgeLog = "testLogCPlusBreakDownPid" + to_string(pid)
                                    + "Time" + to_string(startTimeA.time_since_epoch().count()) + ".txt";
     string pathFile = "/usr/local/ssspexample/outputlog/";
     std::ofstream Tout(pathFile + fileNameOutputEdgeLog, fstream::out | fstream::app);
-     */
+
     //---------Time evaluating---------
 
     jclass writerClass = env->GetObjectClass(shmWriter);
@@ -562,11 +560,11 @@ JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_algorithm_LPA_GPUNativeShm_n
     output += "Time of partition " + to_string(pid) + " in c++: " + to_string(durationA.count()) + " "
               + to_string(duration.count()) + " " + to_string(durationB.count());
 
-    /*
+
     Tout<<output<<endl;
 
     Tout.close();
-     */
+
     //---------Time evaluating---------
 
     if(allGained){
@@ -584,12 +582,12 @@ JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_algorithm_LPA_GPUNativeShm_n
     //---------Time evaluating---------
     auto startTimeA = std::chrono::high_resolution_clock::now();
 
-    /*
+
     string fileNameOutputEdgeLog = "testLogCPlusBreakDownPid" + to_string(pid)
                                    + "Time" + to_string(startTimeA.time_since_epoch().count()) + ".txt";
     string pathFile = "/usr/local/ssspexample/outputlog/";
     std::ofstream Tout(pathFile + fileNameOutputEdgeLog, fstream::out | fstream::app);
-     */
+
     //---------Time evaluating---------
 
     jclass writerClass = env->GetObjectClass(shmWriter);
@@ -682,11 +680,11 @@ JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_algorithm_LPA_GPUNativeShm_n
     std::string output = std::string();
     output += "Time of partition " + to_string(pid) + " in c++ for all merging: " + to_string(durationA.count());
 
-    /*
+
     Tout<<output<<endl;
 
     Tout.close();
-     */
+
     //---------Time evaluating---------
 
     return static_cast<int>(cPlusReturnId.size());

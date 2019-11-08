@@ -4,6 +4,7 @@ import edu.ustc.nodb.PregelGPU.algorithm.SSSP.pregel_SSSP
 import edu.ustc.nodb.PregelGPU.plugin.graphGenerator
 import edu.ustc.nodb.PregelGPU.plugin.partitionStrategy.EdgePartitionNumHookedTest
 import edu.ustc.nodb.PregelGPU.{PregelGPU, PregelGPUSkipping, envControl}
+import org.apache.spark.graphx.GraphXUtils
 import org.apache.spark.graphx.PartitionStrategy.{EdgePartition2D, RandomVertexCut}
 import org.apache.spark.{SparkConf, SparkContext}
 
@@ -31,12 +32,12 @@ object SSSPGPUTest{
     var parts = Some(args(0).toInt)
     if(parts.isEmpty) parts = Some(4)
 
-    val definedGraphVertices = envControl.allTestGraphVertices * 4
+    val definedGraphVertices = envControl.allTestGraphVertices
 
     val preDefinedGraphVertices = definedGraphVertices / 4
 
     // load graph from file
-    var sourceFile = "testGraph"+preDefinedGraphVertices+"x4.txt"
+    var sourceFile = "testGraph"+definedGraphVertices+".txt"
     if(envControl.controller == 0) {
       conf.set("fs.defaultFS", "hdfs://192.168.1.10:9000")
       sourceFile = "hdfs://192.168.1.10:9000/sourcegraph/" + sourceFile
@@ -44,8 +45,11 @@ object SSSPGPUTest{
 
     envControl.skippingPartSize = preDefinedGraphVertices
 
+    conf.set("spark.serializer", "org.apache.spark.serializer.KryoSerializer")
+    GraphXUtils.registerKryoClasses(conf)
+
     val graph = graphGenerator.readFile(sc, sourceFile)(parts.get)
-      .partitionBy(EdgePartitionNumHookedTest)
+      .partitionBy(RandomVertexCut)
 
     // running SSSP
 
@@ -67,7 +71,7 @@ object SSSPGPUTest{
       val algorithm = new pregel_SSSP(allSourceList, vertexSum, edgeSum, parts.get)
       val GPUResult = PregelGPU.run(graph)(algorithm)
       // val q = ssspGPUResult.vertices.count()
-      println(GPUResult.vertices.collect().mkString("\n"))
+      println(GPUResult.vertices.take(100000).mkString("\n"))
       val endNew = System.nanoTime()
 
       println("-------------------------")
@@ -83,7 +87,7 @@ object SSSPGPUTest{
       val algorithm = new pregel_SSSP(allSourceList, vertexSum, edgeSum, parts.get)
       val GPUResult = PregelGPUSkipping.run(graph)(algorithm)
       // val q = ssspGPUResult.vertices.count()
-      println(GPUResult.vertices.collect().mkString("\n"))
+      println(GPUResult.vertices.take(100000).mkString("\n"))
       val endNew = System.nanoTime()
 
       println("-------------------------")

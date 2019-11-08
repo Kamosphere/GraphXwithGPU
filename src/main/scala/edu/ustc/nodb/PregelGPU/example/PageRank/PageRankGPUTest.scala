@@ -5,7 +5,7 @@ import edu.ustc.nodb.PregelGPU.algorithm.PageRank.pregel_PRShm
 import edu.ustc.nodb.PregelGPU.algorithm.SSSP.pregel_SSSP
 import edu.ustc.nodb.PregelGPU.plugin.graphGenerator
 import edu.ustc.nodb.PregelGPU.{PregelGPU, PregelGPUShm, PregelGPUSkipping, envControl}
-import org.apache.spark.graphx.{EdgeDirection, Graph}
+import org.apache.spark.graphx.{EdgeDirection, Graph, GraphXUtils}
 import org.apache.spark.graphx.PartitionStrategy.{EdgePartition2D, RandomVertexCut}
 import org.apache.spark.{SparkConf, SparkContext}
 
@@ -45,15 +45,17 @@ object PageRankGPUTest{
 
     envControl.skippingPartSize = preDefinedGraphVertices
 
+    conf.set("spark.serializer", "org.apache.spark.serializer.KryoSerializer")
+    GraphXUtils.registerKryoClasses(conf)
+
     val graph = graphGenerator.readFile(sc, sourceFile)(parts.get)
-      .partitionBy(EdgePartition2D)
+      .partitionBy(RandomVertexCut)
 
     // running PR
 
     println("-------------------------")
 
     val sourceList = 1L
-    val allSourceList = sc.broadcast(Option(sourceList))
 
     val shmIdentifier = new Array[String](4)
     shmIdentifier(0) = "ID"
@@ -65,7 +67,7 @@ object PageRankGPUTest{
     val vertexSum = graph.vertices.count()
     val edgeSum = graph.edges.count()
 
-    val algorithm = new pregel_PRShm(allSourceList, shmIdentifier,
+    val algorithm = new pregel_PRShm(shmIdentifier,
       vertexSum, edgeSum, 0.001, 0.15, parts.get)
 
     val startNew = System.nanoTime()
@@ -75,7 +77,7 @@ object PageRankGPUTest{
     val GPUNormalize = GPUResult.mapVertices((vid, attr) => attr._1)
     val normalizedResult = normalizeRankSum(GPUNormalize, algorithm.personalized)
     // val q = ssspGPUResult.vertices.count()
-    println(normalizedResult.vertices.collect().mkString("\n"))
+    println(normalizedResult.vertices.take(100000).mkString("\n"))
     val endNew = System.nanoTime()
 
     println("-------------------------")
@@ -84,8 +86,8 @@ object PageRankGPUTest{
 
     PregelGPUShm.close(GPUResult, algorithm)
 
-    val k = StdIn.readInt()
-    println(k)
+    //val k = StdIn.readInt()
+    //println(k)
 
   }
 

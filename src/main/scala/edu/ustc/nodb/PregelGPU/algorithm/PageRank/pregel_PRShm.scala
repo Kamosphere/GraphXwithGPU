@@ -15,19 +15,19 @@ import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 import scala.reflect.ClassTag
 
-class pregel_PRShm(allSource: Broadcast[Option[VertexId]],
-                   shmIdentifier: Array[String],
+class pregel_PRShm(shmIdentifier: Array[String],
                    vertexSum: Long,
                    edgeSum: Long,
                    tol: Double, resetProb: Double = 0.15,
-                   parts: Int) extends lambdaShmTemplete[PRPair, Double, Double] {
+                   parts: Int,
+                   allSource: Option[VertexId] = None) extends lambdaShmTemplete[PRPair, Double, Double] {
 
   var controller: GPUControllerShm = _
 
   override var initSource: Array[VertexId] = _
 
-  val personalized : Boolean = allSource.value.isDefined
-  val initSrc : VertexId = allSource.value.getOrElse(-1L)
+  val personalized : Boolean = allSource.isDefined
+  val initSrc : VertexId = allSource.getOrElse(-1L)
 
   override var partitionInnerData : collection.Map[Int, (Int, Int)] = _
 

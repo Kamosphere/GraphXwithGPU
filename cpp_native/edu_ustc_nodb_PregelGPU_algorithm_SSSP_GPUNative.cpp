@@ -132,12 +132,12 @@ JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_algorithm_SSSP_GPUNative_nat
     //---------Time evaluating---------
     auto startTimeA = std::chrono::high_resolution_clock::now();
 
-    /*
+
     string fileNameOutputEdgeLog = "testLogCPlusBreakDownPid" + to_string(pid)
                                    + "Time" + to_string(startTimeA.time_since_epoch().count()) + ".txt";
     string pathFile = "/usr/local/ssspexample/outputlog/";
     std::ofstream Tout(pathFile + fileNameOutputEdgeLog, fstream::out | fstream::app);
-     */
+
     //---------Time evaluating---------
 
     int vertexAllSum = static_cast<int>(vertexSum);
@@ -301,12 +301,12 @@ JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_algorithm_SSSP_GPUNative_nat
     //---------Time evaluating---------
     auto startTimeA = std::chrono::high_resolution_clock::now();
 
-    /*
+
     string fileNameOutputEdgeLog = "testLogCPlusBreakDownPid" + to_string(pid)
                                    + "Time" + to_string(startTimeA.time_since_epoch().count()) + ".txt";
     string pathFile = "/usr/local/ssspexample/outputlog/";
     std::ofstream Tout(pathFile + fileNameOutputEdgeLog, fstream::out | fstream::app);
-     */
+
     //---------Time evaluating---------
 
     int vertexAllSum = static_cast<int>(vertexSum);
@@ -438,12 +438,12 @@ JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_algorithm_SSSP_GPUNative_nat
     //---------Time evaluating---------
     auto startTimeA = std::chrono::high_resolution_clock::now();
 
-    /*
+
     string fileNameOutputEdgeLog = "testLogCPlusBreakDownPid" + to_string(pid)
                                    + "Time" + to_string(startTimeA.time_since_epoch().count()) + ".txt";
     string pathFile = "/usr/local/ssspexample/outputlog/";
     std::ofstream Tout(pathFile + fileNameOutputEdgeLog, fstream::out | fstream::app);
-     */
+
     //---------Time evaluating---------
 
     int vertexAllSum = static_cast<int>(vertexSum);
@@ -515,11 +515,11 @@ JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_algorithm_SSSP_GPUNative_nat
     output += "Time of partition " + to_string(pid) + " in fetching data in c++: "
               + to_string(duration.count()) + " " + to_string(durationB.count());
 
-    /*
+
     Tout<<output<<endl;
 
     Tout.close();
-     */
+
     //---------Time evaluating---------
 
     return static_cast<int>(cPlusReturnId.size());
@@ -534,12 +534,12 @@ JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_algorithm_SSSP_GPUNative_nat
     //---------Time evaluating---------
     auto startTimeA = std::chrono::high_resolution_clock::now();
 
-    /*
+
     string fileNameOutputEdgeLog = "testLogCPlusBreakDownPid" + to_string(pid)
                                    + "Time" + to_string(startTimeA.time_since_epoch().count()) + ".txt";
     string pathFile = "/usr/local/ssspexample/outputlog/";
     std::ofstream Tout(pathFile + fileNameOutputEdgeLog, fstream::out | fstream::app);
-     */
+
     //---------Time evaluating---------
 
     int vertexAllSum = static_cast<int>(vertexSum);
@@ -637,12 +637,12 @@ JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_algorithm_SSSP_GPUNative_nat
     //---------Time evaluating---------
     auto startTimeA = std::chrono::high_resolution_clock::now();
 
-    /*
+
     string fileNameOutputEdgeLog = "testLogCPlusBreakDownPid" + to_string(pid)
                                    + "Time" + to_string(startTimeA.time_since_epoch().count()) + ".txt";
     string pathFile = "/usr/local/ssspexample/outputlog/";
     std::ofstream Tout(pathFile + fileNameOutputEdgeLog, fstream::out | fstream::app);
-     */
+
     //---------Time evaluating---------
 
     int vertexAllSum = static_cast<int>(vertexSum);

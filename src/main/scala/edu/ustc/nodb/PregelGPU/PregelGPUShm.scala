@@ -35,7 +35,9 @@ object PregelGPUShm extends Logging{
       checkpointInterval, graph.vertices.sparkContext)
     graphCheckPointer.update(g)
 
-    val countOutDegree = g.outDegrees.collectAsMap()
+    // val countOutDegree = g.outDegrees.collectAsMap()
+
+    val countOutDegree : Map[VertexId, Int] = Map()
 
     val sc = org.apache.spark.SparkContext.getOrCreate()
 
@@ -85,7 +87,7 @@ object PregelGPUShm extends Logging{
       val pid = TaskContext.getPartitionId()
       var temp : EdgeTriplet[VD, ED]  = null
 
-      val writer = new PrintWriter(new File("/home/liqi/IdeaProjects/GraphXwithGPU/logGPU/" +
+      val writer = new PrintWriter(new File("/home/liqi/IdeaProjects/GraphXwithGPU/logGPUShm/" +
         "testGPUEdgeLog_pid" + pid + "_iter" + iterTimes + ".txt"))
       while(iter.hasNext){
         temp = iter.next()
@@ -178,6 +180,8 @@ object PregelGPUShm extends Logging{
       })
       */
 
+
+      /*
       logInfo("In iteration " + iterTimes + ", beforeCounter is " + beforeCounter
         + ", afterCounter is " + afterCounter)
       println("In iteration " + iterTimes + ", beforeCounter is " + beforeCounter
@@ -190,6 +194,9 @@ object PregelGPUShm extends Logging{
 
       }
 
+       */
+
+      /*
       if(envControl.runningInSkip){
 
         if(afterCounter == beforeCounter){
@@ -232,6 +239,15 @@ object PregelGPUShm extends Logging{
 
         prevIterSkipped = false
       }
+       */
+
+      // run the main process
+      messages = GraphXUtils.mapReduceTripletsIntoGPUInShm(g, ifFilteredCounter,
+        algorithm.identifier, algorithm.lambda_shmInit, algorithm.lambda_shmWrite,
+        algorithm.lambda_GPUExecute, algorithm.lambda_globalReduceFunc,
+        Some((oldMessages, activeDirection)))
+
+      prevIterSkipped = false
 
       messageCheckPointer.update(messages.asInstanceOf[RDD[(VertexId, A)]])
 
@@ -271,6 +287,7 @@ object PregelGPUShm extends Logging{
 
     }
 
+    /*
     if(envControl.runningInSkip){
 
       // in order to get all vertices information through graph
@@ -285,6 +302,8 @@ object PregelGPUShm extends Logging{
       graphCheckPointer.update(g)
 
     }
+
+     */
 
     messageCheckPointer.unpersistDataSet()
     graphCheckPointer.deleteAllCheckpoints()

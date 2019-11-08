@@ -5,7 +5,7 @@ import edu.ustc.nodb.PregelGPU.plugin.graphGenerator
 import edu.ustc.nodb.PregelGPU.plugin.partitionStrategy.EdgePartitionNumHookedTest
 import edu.ustc.nodb.PregelGPU.{PregelGPUShm, envControl}
 import org.apache.spark.graphx.PartitionStrategy.{EdgePartition2D, RandomVertexCut}
-import org.apache.spark.graphx.VertexId
+import org.apache.spark.graphx.{GraphXUtils, VertexId}
 import org.apache.spark.{SparkConf, SparkContext}
 
 import scala.collection.mutable.ArrayBuffer
@@ -31,12 +31,12 @@ object SSSPGPUShmTest{
     var parts = Some(args(0).toInt)
     if(parts.isEmpty) parts = Some(4)
 
-    val definedGraphVertices = envControl.allTestGraphVertices * 4
+    val definedGraphVertices = envControl.allTestGraphVertices
 
     val preDefinedGraphVertices = definedGraphVertices / 4
 
     // load graph from file
-    var sourceFile = "testGraph"+preDefinedGraphVertices+"x4.txt"
+    var sourceFile = "testGraph"+definedGraphVertices+".txt"
     if(envControl.controller == 0) {
       conf.set("fs.defaultFS", "hdfs://192.168.1.10:9000")
       sourceFile = "hdfs://192.168.1.10:9000/sourcegraph/" + sourceFile
@@ -44,8 +44,11 @@ object SSSPGPUShmTest{
 
     envControl.skippingPartSize = preDefinedGraphVertices
 
+    conf.set("spark.serializer", "org.apache.spark.serializer.KryoSerializer")
+    GraphXUtils.registerKryoClasses(conf)
+
     val graph = graphGenerator.readFile(sc, sourceFile)(parts.get)
-      .partitionBy(EdgePartitionNumHookedTest)
+      .partitionBy(RandomVertexCut)
 
     // running SSSP
 
@@ -72,10 +75,11 @@ object SSSPGPUShmTest{
 
     val spGraph = graph.mapVertices { (vid, attr) =>
       if (allSourceList.value.contains(vid)) makeMap(vid -> 0) else makeMap()
-    }.cache()
+    }
+
     val GPUResult = PregelGPUShm.run(spGraph)(algorithm)
     // val q = ssspGPUResult.vertices.count()
-    println(GPUResult.vertices.collect().mkString("\n"))
+    println(GPUResult.vertices.take(100000).mkString("\n"))
     val endNew = System.nanoTime()
 
     println("-------------------------")

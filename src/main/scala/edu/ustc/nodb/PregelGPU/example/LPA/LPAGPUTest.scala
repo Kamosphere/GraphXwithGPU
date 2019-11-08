@@ -4,7 +4,7 @@ import edu.ustc.nodb.PregelGPU.algorithm.LPA.pregel_LPAShm
 import edu.ustc.nodb.PregelGPU.algorithm.SSSP.pregel_SSSP
 import edu.ustc.nodb.PregelGPU.plugin.graphGenerator
 import edu.ustc.nodb.PregelGPU.{PregelGPU, PregelGPUShm, PregelGPUSkipping, envControl}
-import org.apache.spark.graphx.EdgeDirection
+import org.apache.spark.graphx.{EdgeDirection, GraphXUtils}
 import org.apache.spark.graphx.PartitionStrategy.{EdgePartition2D, RandomVertexCut}
 import org.apache.spark.{SparkConf, SparkContext}
 
@@ -44,8 +44,11 @@ object LPAGPUTest{
 
     envControl.skippingPartSize = preDefinedGraphVertices
 
+    conf.set("spark.serializer", "org.apache.spark.serializer.KryoSerializer")
+    GraphXUtils.registerKryoClasses(conf)
+
     val graph = graphGenerator.readFile(sc, sourceFile)(parts.get)
-      .partitionBy(EdgePartition2D)
+      .partitionBy(RandomVertexCut)
 
     // running LPA
 
@@ -66,9 +69,9 @@ object LPAGPUTest{
     val lpaGraph = graph.mapVertices { case (vid, _) => (vid, 0L) }
 
     val startNew = System.nanoTime()
-    val GPUResult = PregelGPUShm.run(lpaGraph, EdgeDirection.Out, 50)(algorithm)
+    val GPUResult = PregelGPUShm.run(lpaGraph, EdgeDirection.Out, 20)(algorithm)
     // val q = ssspGPUResult.vertices.count()
-    println(GPUResult.vertices.collect().mkString("\n"))
+    println(GPUResult.vertices.take(100000).mkString("\n"))
     val endNew = System.nanoTime()
 
     println("-------------------------")
@@ -77,8 +80,8 @@ object LPAGPUTest{
 
     PregelGPUShm.close(GPUResult, algorithm)
 
-    val k = StdIn.readInt()
-    println(k)
+    //val k = StdIn.readInt()
+    //println(k)
 
   }
 

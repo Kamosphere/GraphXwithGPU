@@ -3,6 +3,7 @@ package edu.ustc.nodb.PregelGPU.example.SSSP
 import edu.ustc.nodb.PregelGPU.plugin.graphGenerator
 import edu.ustc.nodb.PregelGPU.envControl
 import edu.ustc.nodb.PregelGPU.plugin.partitionStrategy.EdgePartitionNumHookedTest
+import org.apache.spark.graphx.GraphXUtils
 import org.apache.spark.graphx.PartitionStrategy.{EdgePartition2D, RandomVertexCut}
 import org.apache.spark.{SparkConf, SparkContext}
 
@@ -33,7 +34,7 @@ object SSSPSparkTest{
     val preDefinedGraphVertices = definedGraphVertices / 4
 
     // load graph from file
-    var sourceFile = "testGraph"+definedGraphVertices+"x4.txt"
+    var sourceFile = "testGraph"+definedGraphVertices+".txt"
     if(envControl.controller == 0) {
       conf.set("fs.defaultFS", "hdfs://192.168.1.10:9000")
       sourceFile = "hdfs://192.168.1.10:9000/sourcegraph/" + sourceFile
@@ -41,8 +42,11 @@ object SSSPSparkTest{
 
     envControl.skippingPartSize = preDefinedGraphVertices
 
+    conf.set("spark.serializer", "org.apache.spark.serializer.KryoSerializer")
+    GraphXUtils.registerKryoClasses(conf)
+
     val graph = graphGenerator.readFile(sc, sourceFile)(parts.get)
-      .partitionBy(EdgePartitionNumHookedTest)
+      .partitionBy(RandomVertexCut)
 
     // running SSSP
 
@@ -64,7 +68,7 @@ object SSSPSparkTest{
     val ssspResult = ssspTest.run()
     // val d = ssspResult.vertices.count()
     val endNormal = System.nanoTime()
-    println(ssspResult.vertices.collect().mkString("\n"))
+    println(ssspResult.vertices.take(100000).mkString("\n"))
 
     println("-------------------------")
 

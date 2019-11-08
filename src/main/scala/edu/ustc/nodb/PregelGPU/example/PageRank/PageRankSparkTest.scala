@@ -2,7 +2,7 @@ package edu.ustc.nodb.PregelGPU.example.PageRank
 
 import edu.ustc.nodb.PregelGPU.envControl
 import edu.ustc.nodb.PregelGPU.plugin.graphGenerator
-import org.apache.spark.graphx.Graph
+import org.apache.spark.graphx.{Graph, GraphXUtils}
 import org.apache.spark.graphx.PartitionStrategy.{EdgePartition2D, RandomVertexCut}
 import org.apache.spark.{SparkConf, SparkContext}
 
@@ -41,8 +41,11 @@ object PageRankSparkTest{
 
     envControl.skippingPartSize = preDefinedGraphVertices
 
+    conf.set("spark.serializer", "org.apache.spark.serializer.KryoSerializer")
+    GraphXUtils.registerKryoClasses(conf)
+
     val graph = graphGenerator.readFile(sc, sourceFile)(parts.get)
-      .partitionBy(EdgePartition2D)
+      .partitionBy(RandomVertexCut)
 
     // running PR
 
@@ -58,10 +61,10 @@ object PageRankSparkTest{
     val ssspTest = new PregelSparkPageRank
 
     val startNormal = System.nanoTime()
-    val ssspResult = ssspTest.runUntilConvergenceWithOptions(graph, 0.001, 0.15, allSourceList.value)
+    val ssspResult = ssspTest.runUntilConvergenceWithOptions(graph, 0.001, 0.15)
     // val d = ssspResult.vertices.count()
     val endNormal = System.nanoTime()
-    println(ssspResult.vertices.collect().mkString("\n"))
+    println(ssspResult.vertices.take(100000).mkString("\n"))
 
     println("-------------------------")
 

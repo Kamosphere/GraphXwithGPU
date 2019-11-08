@@ -30,7 +30,6 @@ class PregelSparkPageRank extends Serializable {
       .mapVertices { (id, attr) =>
       if (id == src) (0.0, Double.NegativeInfinity) else (0.0, 0.0)
     }
-      .cache()
 
     // Define the three functions needed to implement PageRank in the GraphX
     // version of Pregel

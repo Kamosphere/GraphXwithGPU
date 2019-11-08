@@ -2,12 +2,10 @@
 
 #include "util/JNIPlugin.h"
 
-#include <sys/stat.h>
 #include <sys/mman.h>
 #include <fcntl.h>
 #include <cerrno>
 #include <cstring>
-#include <dirent.h>
 #include <zconf.h>
 #include <algorithm>
 #include <algo/PageRank/PageRank.h>
@@ -115,6 +113,11 @@ JNIEXPORT jboolean JNICALL Java_edu_ustc_nodb_PregelGPU_algorithm_PageRank_GPUNa
             vertices.at(jMarkIDUnit).initVIndex = i;
             initVSet[i] = jMarkIDUnit;
         }
+
+        // Special situation if all src is required to calculate
+        if (jMarkIDUnit == -1) {
+            initVSet[i] = jMarkIDUnit;
+        }
         env->DeleteLocalRef(start);
     }
 
@@ -220,12 +223,12 @@ JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_algorithm_PageRank_GPUNative
     //---------Time evaluating---------
     auto startTimeA = std::chrono::high_resolution_clock::now();
 
-    /*
+
     string fileNameOutputEdgeLog = "testLogCPlusBreakDownPid" + to_string(pid)
                                    + "Time" + to_string(startTimeA.time_since_epoch().count()) + ".txt";
     string pathFile = "/usr/local/ssspexample/outputlog/";
     std::ofstream Tout(pathFile + fileNameOutputEdgeLog, fstream::out | fstream::app);
-     */
+
     //---------Time evaluating---------
 
     int vertexAllSum = static_cast<int>(vertexSum);
@@ -255,7 +258,9 @@ JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_algorithm_PageRank_GPUNative
     }
 
     for(jint i = 0; i < lenMarkID; i++){
-        vertices.at(execute.initVSet[i]).initVIndex = i;
+        if(execute.initVSet[i] != -1){
+            vertices.at(execute.initVSet[i]).initVIndex = i;
+        }
     }
 
     // read vertices attributes from shm files
@@ -309,10 +314,10 @@ JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_algorithm_PageRank_GPUNative
     // test for multi-threading environment
 /*
     auto startTimeAll = std::chrono::high_resolution_clock::now();
-    string pathFile = "/home/liqi/IdeaProjects/GraphXwithGPU/logPageRankGPU/1/";
+    string pathFileA = "/home/liqi/IdeaProjects/GraphXwithGPU/logPageRankGPU/1/";
     string fileNameOutputVertexLog = "testLogCPlusVertexPid" + to_string(pid) + "time" +
                                    to_string(startTimeAll.time_since_epoch().count()) + ".txt";
-    std::ofstream Fout(pathFile + fileNameOutputVertexLog, fstream::out | fstream::app);
+    std::ofstream Fout(pathFileA + fileNameOutputVertexLog, fstream::out | fstream::app);
 
     Fout<<"-----------------Before-----------------"<<endl;
 
@@ -326,6 +331,7 @@ JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_algorithm_PageRank_GPUNative
     }
 
     Fout<<"-----------------Before-----------------"<<endl;
+    Fout.close();
 */
     chk = execute.update(vValues, &vertices[0]);
 
@@ -334,10 +340,10 @@ JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_algorithm_PageRank_GPUNative
     }
 /*
     auto startTimeAll2 = std::chrono::high_resolution_clock::now();
-    string pathFile2 = "/home/liqi/IdeaProjects/GraphXwithGPU/logPageRankGPU/2/";
+    string pathFileB = "/home/liqi/IdeaProjects/GraphXwithGPU/logPageRankGPU/2/";
     string fileNameOutputVertexLog2 = "testLogCPlusVertexPid" + to_string(pid) + "time" +
-                                   to_string(startTimeAll.time_since_epoch().count()) + ".txt";
-    std::ofstream Gout(pathFile2 + fileNameOutputVertexLog2, fstream::out | fstream::app);
+                                   to_string(startTimeAll2.time_since_epoch().count()) + ".txt";
+    std::ofstream Gout(pathFileB + fileNameOutputVertexLog2, fstream::out | fstream::app);
 
     Gout<<"-----------------Before-----------------"<<endl;
 
@@ -351,6 +357,7 @@ JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_algorithm_PageRank_GPUNative
     }
 
     Gout<<"-----------------Before-----------------"<<endl;
+    Gout.close();
 */
 /*
     string fileNameOutputEdgeLog = "testLogCPlusEdgePid" + to_string(pid) + "time" +
@@ -388,7 +395,7 @@ JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_algorithm_PageRank_GPUNative
     auto startTimeAll3 = std::chrono::high_resolution_clock::now();
     string pathFile3 = "/home/liqi/IdeaProjects/GraphXwithGPU/logPageRankGPU/3/";
     string fileNameOutputVertexLog3 = "testLogCPlusVertexPid" + to_string(pid) + "time" +
-                                      to_string(startTimeAll.time_since_epoch().count()) + ".txt";
+                                      to_string(startTimeAll3.time_since_epoch().count()) + ".txt";
     std::ofstream Hout(pathFile3 + fileNameOutputVertexLog3, fstream::out | fstream::app);
 
     Hout<<"-----------------After-----------------"<<endl;
@@ -403,15 +410,16 @@ JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_algorithm_PageRank_GPUNative
     }
 
     Hout<<"-----------------After-----------------"<<endl;
-*/
-    /*
-    auto startTimeAll2 = std::chrono::high_resolution_clock::now();
-    string pathFile2 = "/home/liqi/IdeaProjects/GraphXwithGPU/logPageRankGPU/2/";
-    string fileNameOutputResultLog = "testLogCPlusResultPid" + to_string(pid) + "time" +
-                               to_string(startTimeAll2.time_since_epoch().count()) + ".txt";
-    std::ofstream Fout(pathFile2 + fileNameOutputResultLog, fstream::out | fstream::app);
+    Hout.close();
 
-    Fout<<"-----------------After-----------------"<<endl;
+
+    auto startTimeAll4 = std::chrono::high_resolution_clock::now();
+    string pathFile4 = "/home/liqi/IdeaProjects/GraphXwithGPU/logPageRankGPU/4/";
+    string fileNameOutputResultLog4 = "testLogCPlusResultPid" + to_string(pid) + "time" +
+                               to_string(startTimeAll4.time_since_epoch().count()) + ".txt";
+    std::ofstream kout(pathFile4 + fileNameOutputResultLog4, fstream::out | fstream::app);
+
+    kout<<"-----------------After-----------------"<<endl;
 
     for (int i = 0; i < execute.eCount; i++) {
         int messageVertex = execute.mValues[i].destVId;
@@ -420,14 +428,14 @@ JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_algorithm_PageRank_GPUNative
             outputT += to_string(messageVertex) + " : {";
             outputT += " [ " + to_string(execute.mValues[i].rank) + " ] ";
             outputT += " } ";
-            Fout << outputT << endl;
+            kout << outputT << endl;
         }
     }
 
-    Fout<<"-----------------After-----------------"<<endl;
-    Fout.close();
-     */
+    kout<<"-----------------After-----------------"<<endl;
+    kout.close();
 
+*/
 
     vector<long> cPlusReturnId = vector<long>();
     vector<double> cPlusReturnAttr = vector<double>();
@@ -436,13 +444,13 @@ JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_algorithm_PageRank_GPUNative
     for (int i = 0; i < execute.eCount; i++) {
         int messageVertex = execute.mValues[i].destVId;
         if (messageVertex != -1) {
-            if (execute.vSet[messageVertex].isActive){
+            //if (execute.vSet[messageVertex].isActive){
                 cPlusReturnId.emplace_back(messageVertex);
                 cPlusReturnAttr.emplace_back(execute.mValues[i].rank);
                 if(! execute.filteredV[messageVertex]){
                     allGained = false;
                 }
-            }
+            //}
         }
     }
 
@@ -482,11 +490,10 @@ JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_algorithm_PageRank_GPUNative
     output += "Time of partition " + to_string(pid) + " in c++: " + to_string(durationA.count()) + " "
               + to_string(duration.count()) + " " + to_string(durationB.count());
 
-    /*
     Tout<<output<<endl;
 
     Tout.close();
-     */
+
     //---------Time evaluating---------
 
     if(allGained){
@@ -505,12 +512,12 @@ JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_algorithm_PageRank_GPUNative
     //---------Time evaluating---------
     auto startTimeA = std::chrono::high_resolution_clock::now();
 
-    /*
+
     string fileNameOutputEdgeLog = "testLogCPlusBreakDownPid" + to_string(pid)
                                    + "Time" + to_string(startTimeA.time_since_epoch().count()) + ".txt";
     string pathFile = "/usr/local/ssspexample/outputlog/";
     std::ofstream Tout(pathFile + fileNameOutputEdgeLog, fstream::out | fstream::app);
-     */
+
     //---------Time evaluating---------
 
     jclass writerClass = env->GetObjectClass(shmWriter);
@@ -596,11 +603,11 @@ JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_algorithm_PageRank_GPUNative
     output += "Time of partition " + to_string(pid) + " in c++: " + to_string(durationA.count()) + " "
               + to_string(duration.count()) + " " + to_string(durationB.count());
 
-    /*
+
     Tout<<output<<endl;
 
     Tout.close();
-     */
+
     //---------Time evaluating---------
 
     if(allGained){
@@ -671,7 +678,6 @@ JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_algorithm_PageRank_GPUNative
         throwIllegalArgument(env, "Cannot construct shared data memory");
     }
 
-
     execute.disconnect();
 
     // fill them into scala object
@@ -693,11 +699,11 @@ JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_algorithm_PageRank_GPUNative
     std::string output = std::string();
     output += "Time of partition " + to_string(pid) + " in c++ for all merging: " + to_string(durationA.count());
 
-    /*
+
     Tout<<output<<endl;
 
     Tout.close();
-     */
+
     //---------Time evaluating---------
     return static_cast<int>(cPlusReturnId.size());
 

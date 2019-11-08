@@ -2,6 +2,7 @@ package edu.ustc.nodb.PregelGPU.example.CC
 
 import edu.ustc.nodb.PregelGPU.envControl
 import edu.ustc.nodb.PregelGPU.plugin.graphGenerator
+import org.apache.spark.graphx.GraphXUtils
 import org.apache.spark.graphx.PartitionStrategy.{EdgePartition2D, RandomVertexCut}
 import org.apache.spark.{SparkConf, SparkContext}
 
@@ -38,8 +39,11 @@ object CCSparkTest{
 
     envControl.skippingPartSize = preDefinedGraphVertices
 
+    conf.set("spark.serializer", "org.apache.spark.serializer.KryoSerializer")
+    GraphXUtils.registerKryoClasses(conf)
+
     val graph = graphGenerator.readFile(sc, sourceFile)(parts.get)
-      .partitionBy(EdgePartition2D)
+      .partitionBy(RandomVertexCut)
 
     // running CC
 
@@ -55,7 +59,7 @@ object CCSparkTest{
     val CCResult = CCTest.run(graph)
     // val d = ssspResult.vertices.count()
     val endNormal = System.nanoTime()
-    println(CCResult.vertices.collect().mkString("\n"))
+    println(CCResult.vertices.take(100000).mkString("\n"))
 
     println("-------------------------")
 

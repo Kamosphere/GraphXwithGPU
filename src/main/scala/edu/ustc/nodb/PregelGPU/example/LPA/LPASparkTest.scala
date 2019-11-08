@@ -2,6 +2,7 @@ package edu.ustc.nodb.PregelGPU.example.LPA
 
 import edu.ustc.nodb.PregelGPU.envControl
 import edu.ustc.nodb.PregelGPU.plugin.graphGenerator
+import org.apache.spark.graphx.GraphXUtils
 import org.apache.spark.graphx.PartitionStrategy.{EdgePartition2D, RandomVertexCut}
 import org.apache.spark.{SparkConf, SparkContext}
 
@@ -40,8 +41,11 @@ object LPASparkTest{
 
     envControl.skippingPartSize = preDefinedGraphVertices
 
+    conf.set("spark.serializer", "org.apache.spark.serializer.KryoSerializer")
+    GraphXUtils.registerKryoClasses(conf)
+
     val graph = graphGenerator.readFile(sc, sourceFile)(parts.get)
-      .partitionBy(EdgePartition2D)
+      .partitionBy(RandomVertexCut)
 
     // running LPA
 
@@ -54,10 +58,10 @@ object LPASparkTest{
     val LPATest = new PregelSparkLPA(graph)
 
     val startNormal = System.nanoTime()
-    val LPAResult = LPATest.run(50)
+    val LPAResult = LPATest.run(20)
     // val d = ssspResult.vertices.count()
     val endNormal = System.nanoTime()
-    println(LPAResult.vertices.collect().mkString("\n"))
+    println(LPAResult.vertices.take(100000).mkString("\n"))
 
     println("-------------------------")
 
