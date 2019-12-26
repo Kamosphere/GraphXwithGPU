@@ -1,9 +1,7 @@
 package edu.ustc.nodb.PregelGPU.algorithm.LPA
 
 import edu.ustc.nodb.PregelGPU.algorithm.LPAPair
-import edu.ustc.nodb.PregelGPU.plugin.partitionStrategy.EdgePartitionPreSearch
 import edu.ustc.nodb.PregelGPU.algoTemplate.lambdaShmTemplete
-import org.apache.spark.broadcast.Broadcast
 import org.apache.spark.graphx.util.collection.GraphXPrimitiveKeyOpenHashMap
 import org.apache.spark.graphx.util.collection.shmManager.shmArrayWriter
 import org.apache.spark.graphx.util.collection.shmManager.shmArrayWriterImpl.{shmArrayWriterBoolean, shmArrayWriterDouble, shmArrayWriterLong}
@@ -106,7 +104,8 @@ class pregel_LPAShm(shmIdentifier: Array[String],
     // Detect if a vertex could satisfy the skip condition
     val filteredVertex = new ArrayBuffer[Long]
     for (part <- VertexNumList) {
-      if (countOutDegree.getOrElse(part._1, -1) == part._2) {
+      // vertex has no out degree is also satisfy
+      if (countOutDegree.getOrElse(part._1, 0) == part._2) {
         filteredVertex. += (part._1)
       }
     }

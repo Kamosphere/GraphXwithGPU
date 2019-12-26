@@ -1,16 +1,12 @@
 package edu.ustc.nodb.PregelGPU.example.PageRank
 
-import edu.ustc.nodb.PregelGPU.algorithm.LPA.pregel_LPAShm
 import edu.ustc.nodb.PregelGPU.algorithm.PageRank.pregel_PRShm
-import edu.ustc.nodb.PregelGPU.algorithm.SSSP.pregel_SSSP
 import edu.ustc.nodb.PregelGPU.plugin.graphGenerator
-import edu.ustc.nodb.PregelGPU.{PregelGPU, PregelGPUShm, PregelGPUSkipping, envControl}
-import org.apache.spark.graphx.{EdgeDirection, Graph, GraphXUtils}
-import org.apache.spark.graphx.PartitionStrategy.{EdgePartition2D, RandomVertexCut}
+import edu.ustc.nodb.PregelGPU.{PregelGPUShm, envControl}
+import org.apache.spark.graphx.{EdgeDirection, Graph}
+import org.apache.spark.graphx.PartitionStrategy._
 import org.apache.spark.{SparkConf, SparkContext}
 
-import scala.collection.mutable.ArrayBuffer
-import scala.io.StdIn
 
 object PageRankGPUTest{
 
@@ -32,21 +28,31 @@ object PageRankGPUTest{
     var parts = Some(args(0).toInt)
     if(parts.isEmpty) parts = Some(4)
 
-    val definedGraphVertices = envControl.allTestGraphVertices
 
-    val preDefinedGraphVertices = definedGraphVertices / 4
+    //------for different type of graph
 
-    // load graph from file
-    var sourceFile = "testGraph"+definedGraphVertices+".txt"
-    if(envControl.controller == 0) {
-      conf.set("fs.defaultFS", "hdfs://192.168.1.10:9000")
-      sourceFile = "hdfs://192.168.1.10:9000/sourcegraph/" + sourceFile
+    var sourceFile: String = ""
+
+    sourceFile = envControl.datasetType match {
+      case 0 =>
+        val definedGraphVertices = envControl.allTestGraphVertices
+        val preDefinedGraphVertices = definedGraphVertices / 4
+        envControl.skippingPartSize = preDefinedGraphVertices
+        "testGraph"+definedGraphVertices+".txt"
+      case 1 =>
+        "testGraph_road-road-usa.mtx.txt"
+      case 2 =>
+        "testGraph_com-orkut.ungraph.txt.txt"
+      case 3 =>
+        "testGraph_soc-LiveJournal1.txt.txt"
+      case 4 =>
+        "testGraph_wiki-topcats.txt.txt"
     }
 
-    envControl.skippingPartSize = preDefinedGraphVertices
-
-    conf.set("spark.serializer", "org.apache.spark.serializer.KryoSerializer")
-    GraphXUtils.registerKryoClasses(conf)
+    if(envControl.controller == 0) {
+      conf.set("fs.defaultFS", "hdfs://192.168.1.2:9000")
+      sourceFile = "hdfs://192.168.1.2:9000/sourcegraph/" + sourceFile
+    }
 
     val graph = graphGenerator.readFile(sc, sourceFile)(parts.get)
       .partitionBy(RandomVertexCut)

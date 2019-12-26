@@ -91,7 +91,6 @@ JNIEXPORT jboolean JNICALL Java_edu_ustc_nodb_PregelGPU_algorithm_LPA_GPUNativeS
     jmethodID getReaderSize = env->GetMethodID(readerClass, "getSizeByIndex", "(I)I");
 
     //---------Entity---------
-
     int lenFiltered = env->GetArrayLength(jFilteredVertex);
 
     int vertexAllSum = static_cast<int>(vertexSum);
@@ -99,19 +98,20 @@ JNIEXPORT jboolean JNICALL Java_edu_ustc_nodb_PregelGPU_algorithm_LPA_GPUNativeS
 
     int chk = 0;
     //Init the Graph with blank vertices
-
     vector<Vertex> vertices = vector<Vertex>();
     auto *vValues = new LPA_Value [vertexAllSum];
+
     bool* filteredV = new bool [vertexAllSum];
+    memset(filteredV, false, sizeof(bool) * vertexAllSum);
+
     int* timestamp = new int [vertexAllSum];
+    memset(timestamp, -1, sizeof(int) * vertexAllSum);
 
     vector<Edge> edges = vector<Edge>();
 
     for(int i = 0; i < vertexAllSum; i++){
-        filteredV[i] = false;
         vertices.emplace_back(Vertex(i, false, INVALID_INITV_INDEX));
         vValues[i] = LPA_Value(i, i, 0);
-        timestamp[i] = -1;
     }
 
     // fill markID, which stored the landmark
@@ -186,7 +186,6 @@ JNIEXPORT jboolean JNICALL Java_edu_ustc_nodb_PregelGPU_algorithm_LPA_GPUNativeS
     }
 
     chk = execute.transfer(vValues, &vertices[0], &edges[0], initVSet, filteredV, timestamp);
-
     if(chk == -1){
         throwIllegalArgument(env, "Cannot transfer with server correctly");
         return false;
@@ -242,12 +241,23 @@ JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_algorithm_LPA_GPUNativeShm_n
     }
 
     // Init the vertices
+    int maxLPA_ValueAmount = 0;
+
+    if (lenEdge > vertexAllSum)
+        maxLPA_ValueAmount = lenEdge;
+    else
+        maxLPA_ValueAmount = vertexAllSum;
+
     vector<Vertex> vertices = vector<Vertex>();
-    auto *vValues = new LPA_Value [lenEdge];
+    auto *vValues = new LPA_Value [maxLPA_ValueAmount];
 
     for(int i = 0; i < vertexAllSum; i++){
         vertices.emplace_back(Vertex(i, false, INVALID_INITV_INDEX));
         vValues[i] = LPA_Value(i, i, 0);
+    }
+
+    for(int i = vertexAllSum; i < maxLPA_ValueAmount; i++) {
+        vValues[i] = LPA_Value(-1, -1, -1);
     }
 
     // read vertices attributes from shm files
@@ -348,14 +358,16 @@ JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_algorithm_LPA_GPUNativeShm_n
     unordered_pairMap mergeMsg = unordered_pairMap(edgeCount);
 
     for (int i = 0; i < execute.eCount; i++) {
-        pair<int, int> elem = make_pair(execute.mValues[i].destVId, execute.mValues[i].label);
-        auto search = mergeMsg.find(elem);
-        if (search != mergeMsg.end()){
-            int count = search->second + 1;
-            mergeMsg[elem] = count;
-        }
-        else {
-            mergeMsg[elem] = 1;
+        if (execute.mValues[i].destVId != -1){
+            pair<int, int> elem = make_pair(execute.mValues[i].destVId, execute.mValues[i].label);
+            auto search = mergeMsg.find(elem);
+            if (search != mergeMsg.end()){
+                int count = search->second + 1;
+                mergeMsg[elem] = count;
+            }
+            else {
+                mergeMsg[elem] = 1;
+            }
         }
     }
 
@@ -485,14 +497,16 @@ JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_algorithm_LPA_GPUNativeShm_n
     unordered_pairMap mergeMsg = unordered_pairMap(lenEdge);
 
     for (int i = 0; i < execute.eCount; i++) {
-        pair<int, int> elem = make_pair(execute.mValues[i].destVId, execute.mValues[i].label);
-        auto search = mergeMsg.find(elem);
-        if (search != mergeMsg.end()){
-            int count = search->second + 1;
-            mergeMsg[elem] = count;
-        }
-        else {
-            mergeMsg[elem] = 1;
+        if (execute.mValues[i].destVId != -1){
+            pair<int, int> elem = make_pair(execute.mValues[i].destVId, execute.mValues[i].label);
+            auto search = mergeMsg.find(elem);
+            if (search != mergeMsg.end()){
+                int count = search->second + 1;
+                mergeMsg[elem] = count;
+            }
+            else {
+                mergeMsg[elem] = 1;
+            }
         }
     }
 
@@ -612,14 +626,16 @@ JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_algorithm_LPA_GPUNativeShm_n
             unordered_pairMap(lenEdge);
 
     for (int i = 0; i < execute.eCount; i++) {
-        pair<int, int> elem = make_pair(execute.mValues[i].destVId, execute.mValues[i].label);
-        auto search = mergeMsg.find(elem);
-        if (search != mergeMsg.end()){
-            int count = search->second + 1;
-            mergeMsg[elem] = count;
-        }
-        else {
-            mergeMsg[elem] = 1;
+        if (execute.mValues[i].destVId != -1){
+            pair<int, int> elem = make_pair(execute.mValues[i].destVId, execute.mValues[i].label);
+            auto search = mergeMsg.find(elem);
+            if (search != mergeMsg.end()){
+                int count = search->second + 1;
+                mergeMsg[elem] = count;
+            }
+            else {
+                mergeMsg[elem] = 1;
+            }
         }
     }
 

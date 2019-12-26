@@ -18,6 +18,14 @@ object envControl {
   // For global test of all algorithms
   val allTestGraphVertices = 100000
 
+  // For dataset type
+  // 0 for random graph
+  // 1 for WRN
+  // 2 for orkut
+  // 3 for Livejournal
+  // 4 for wiki-topcats
+  val datasetType = 1
+
   // For executing script type, 0 for CPU, other for GPU
-  val runningScriptType = 0
+  val runningScriptType = 1
 }

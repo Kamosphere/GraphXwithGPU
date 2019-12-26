@@ -271,8 +271,8 @@ class GPUControllerShm(vertexSum: Long,
       val localId = global2local(globalId)
       resultBitSet.set(localId)
 
-      // For every single array only carry one data, it should be sum
-      resultAttr(localId) += tempAttr
+      // Sum was completed in C++
+      resultAttr(localId) = tempAttr
     }
 
     (resultBitSet, resultAttr)

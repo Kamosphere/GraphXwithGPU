@@ -92,11 +92,16 @@ object PregelGPUShm extends Logging{
       while(iter.hasNext){
         temp = iter.next()
         var chars = ""
+        /*
         chars = chars + " " + temp.srcId + " : " + temp.srcAttr
         chars = chars + " -> " + temp.dstId + " : " + temp.dstAttr
         chars = chars + " Edge attr: " + temp.attr
-        writer.write("In iter " + iterTimes + " of part" + pid + " , edge data: "
-          + chars + '\n')
+
+         */
+        chars = chars + temp.srcId + " " + temp.dstId + " " + temp.attr
+        //writer.write("In iter " + iterTimes + " of part" + pid + " , edge data: "
+        //  + chars + '\n')
+        writer.write(chars + '\n')
 
       }
       writer.close()

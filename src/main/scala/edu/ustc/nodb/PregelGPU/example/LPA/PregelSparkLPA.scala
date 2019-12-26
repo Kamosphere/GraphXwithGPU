@@ -27,13 +27,25 @@ class PregelSparkLPA [VD, ED: ClassTag](graph: Graph[VD, ED]) extends Serializab
     if (message.isEmpty) attr else message.maxBy(_._2)
   }
 
-  val initialMessage = Map[VertexId, Long]()
+  val initialMessage: Map[VertexId, VertexId] = Map[VertexId, Long]()
 
   def run(maxSteps: Int): Graph[(VertexId, Long), ED] = {
 
     require(maxSteps > 0, s"Maximum of steps must be greater than 0, but got $maxSteps")
 
     val lpaGraph = graph.mapVertices { case (vid, _) => (vid, 0L) }
+
+    Pregel(lpaGraph, initialMessage, maxIterations = maxSteps, EdgeDirection.Out)(
+      vprog = vertexProgram,
+      sendMsg = sendMessage,
+      mergeMsg = mergeMessage)
+  }
+
+  def runInContinue(prevGraph: Graph[(VertexId, Long), ED], maxSteps: Int): Graph[(VertexId, Long), ED] = {
+
+    require(maxSteps > 0, s"Maximum of steps must be greater than 0, but got $maxSteps")
+
+    val lpaGraph = prevGraph
 
     Pregel(lpaGraph, initialMessage, maxIterations = maxSteps, EdgeDirection.Out)(
       vprog = vertexProgram,

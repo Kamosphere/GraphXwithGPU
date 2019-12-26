@@ -270,16 +270,20 @@ class GPUControllerShm(vertexSum: Long,
       val globalId = resultIDReader.shmArrayReaderGetByIndex(i)
       tempAttr = (resultAttrKeyReader.shmArrayReaderGetByIndex(i),
         resultAttrValueReader.shmArrayReaderGetByIndex(i))
+      val localId = global2local.getOrElse(globalId, -1)
+      if (localId == -1) {
 
-      val localId = global2local(globalId)
-
-      if (resultBitSet.get(localId)) {
-        resultAttr(localId). += (tempAttr)
       }
       else {
-        resultBitSet.set(localId)
-        resultAttr(localId) = Map[VertexId, Long](tempAttr)
+        if (resultBitSet.get(localId)) {
+          resultAttr(localId). += (tempAttr)
+        }
+        else {
+          resultBitSet.set(localId)
+          resultAttr(localId) = Map[VertexId, Long](tempAttr)
+        }
       }
+
     }
 
     (resultBitSet, resultAttr)

@@ -88,16 +88,17 @@ JNIEXPORT jboolean JNICALL Java_edu_ustc_nodb_PregelGPU_algorithm_CC_GPUNativeSh
 
     vector<Vertex> vertices = vector<Vertex>();
     int *vValues = new int [vertexAllSum];
-    bool* filteredV = new bool [vertexAllSum];
+    memset(vValues, INT32_MAX, sizeof(int) * vertexAllSum);
+
+    bool* filteredV = new bool [vertexAllSum]();
+
     int* timestamp = new int [vertexAllSum];
+    memset(timestamp, -1, sizeof(int) * vertexAllSum);
 
     vector<Edge> edges = vector<Edge>();
 
     for(int i = 0; i < vertexAllSum; i++){
-        filteredV[i] = false;
         vertices.emplace_back(Vertex(i, false, INVALID_INITV_INDEX));
-        vValues[i] = INT32_MAX;
-        timestamp[i] = -1;
     }
 
     // fill markID, which stored the landmark
@@ -192,6 +193,10 @@ JNIEXPORT jboolean JNICALL Java_edu_ustc_nodb_PregelGPU_algorithm_CC_GPUNativeSh
 */
     execute.disconnect();
 
+    shm_unlink(EdgeSrcTempName.c_str());
+    shm_unlink(EdgeDstTempName.c_str());
+    shm_unlink(EdgeAttrTempName.c_str());
+
     return true;
 }
 
@@ -244,10 +249,10 @@ JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_algorithm_CC_GPUNativeShm_na
 
     vector<Vertex> vertices = vector<Vertex>();
     int *vValues = new int [vertexAllSum];
+    memset(vValues, INT32_MAX, sizeof(int) * vertexAllSum);
 
     for(int i = 0; i < vertexAllSum; i++){
         vertices.emplace_back(Vertex(i, false, INVALID_INITV_INDEX));
-        vValues[i] = INT32_MAX;
     }
 
     for(jint i = 0; i < lenMarkID; i++){

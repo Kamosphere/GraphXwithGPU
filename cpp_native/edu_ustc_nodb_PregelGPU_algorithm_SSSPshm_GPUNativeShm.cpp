@@ -75,6 +75,11 @@ JNIEXPORT jboolean JNICALL Java_edu_ustc_nodb_PregelGPU_algorithm_SSSPshm_GPUNat
     jmethodID getReaderName = env->GetMethodID(readerClass, "getNameByIndex", "(I)Ljava/lang/String;");
     jmethodID getReaderSize = env->GetMethodID(readerClass, "getSizeByIndex", "(I)I");
 
+
+    string fileNameOutputEdgeLog = "testTransfer" + to_string(pid) + ".txt";
+    string pathFile = "/usr/local/ssspexample/outputlog/";
+    std::ofstream Tout(pathFile + fileNameOutputEdgeLog, fstream::out | fstream::app);
+
     //---------Entity---------
 
     int lenMarkID = env->CallIntMethod(markId, id_ArrayList_size);
@@ -87,19 +92,18 @@ JNIEXPORT jboolean JNICALL Java_edu_ustc_nodb_PregelGPU_algorithm_SSSPshm_GPUNat
     //Init the Graph with blank vertices
 
     vector<Vertex> vertices = vector<Vertex>();
-    double *vValues = new double [vertexAllSum * lenMarkID];
-    bool* filteredV = new bool [vertexAllSum];
-    int* timestamp = new int [vertexAllSum];
-
     vector<Edge> edges = vector<Edge>();
 
+    double *vValues = new double [vertexAllSum * lenMarkID];
+    memset(vValues, INT32_MAX, sizeof(double) * vertexAllSum * lenMarkID);
+
+    bool* filteredV = new bool [vertexAllSum]();
+
+    int* timestamp = new int [vertexAllSum];
+    memset(timestamp, -1, sizeof(int) * vertexAllSum);
+
     for(int i = 0; i < vertexAllSum; i++){
-        filteredV[i] = false;
         vertices.emplace_back(Vertex(i, false, INVALID_INITV_INDEX));
-        for(int j = 0; j < lenMarkID; j++){
-            vValues[i * lenMarkID + j] = INT32_MAX;
-        }
-        timestamp[i] = -1;
     }
 
     // fill markID, which stored the landmark
@@ -182,12 +186,26 @@ JNIEXPORT jboolean JNICALL Java_edu_ustc_nodb_PregelGPU_algorithm_SSSPshm_GPUNat
         return false;
     }
 
+
+    //---------Time evaluating---------
+    auto startTime = std::chrono::high_resolution_clock::now();
+    //---------Time evaluating---------
+
+    // execute sssp using GPU in server-client mode
+
     chk = execute.transfer(vValues, &vertices[0], &edges[0], initVSet, filteredV, timestamp);
+
+    //---------Time evaluating---------
+    std::chrono::nanoseconds duration = std::chrono::high_resolution_clock::now() - startTime;
+
+    Tout << duration.count() << endl;
 
     if(chk == -1){
         throwIllegalArgument(env, "Cannot transfer with server correctly");
         return false;
     }
+
+    Tout.close();
 
 /*
     string fileNameOutputEdgeLog = "testLogCPlusEdgePid" + to_string(pid) + ".txt";
@@ -203,6 +221,10 @@ JNIEXPORT jboolean JNICALL Java_edu_ustc_nodb_PregelGPU_algorithm_SSSPshm_GPUNat
     Fout.close();
 */
     execute.disconnect();
+
+    shm_unlink(EdgeSrcTempName.c_str());
+    shm_unlink(EdgeDstTempName.c_str());
+    shm_unlink(EdgeAttrTempName.c_str());
 
     return true;
 }
@@ -256,16 +278,15 @@ JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_algorithm_SSSPshm_GPUNativeS
     // Init the vertices
 
     vector<Vertex> vertices = vector<Vertex>();
-    double *vValues = new double [vertexAllSum * lenMarkID];
-
     for(int i = 0; i < vertexAllSum; i++){
         vertices.emplace_back(Vertex(i, false, INVALID_INITV_INDEX));
-        for(int j = 0; j < lenMarkID; j++){
-            vValues[i * lenMarkID + j] = INT32_MAX;
-        }
     }
 
-    for(jint i = 0; i < lenMarkID; i++){
+    double *vValues = new double [vertexAllSum * lenMarkID];
+    memset(vValues, INT32_MAX, sizeof(double) * vertexAllSum * lenMarkID);
+
+    for(jint i = 0; i < lenMarkID; i++)
+    {
         vertices.at(execute.initVSet[i]).initVIndex = i;
     }
 
@@ -297,6 +318,11 @@ JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_algorithm_SSSPshm_GPUNativeS
         throwIllegalArgument(env, "Shared memory corruption");
     }
 
+    int avCount = 0;
+    std::vector<int> avSet;
+    avSet.reserve(vertexAllSum);
+    avSet.assign(vertexAllSum, 0);
+
     for (int i = 0; i < sizeID; i++) {
 
         // jlong sig = env->CallStaticLongMethod(n_sztool, id_getSize, vertexLL);
@@ -312,9 +338,48 @@ JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_algorithm_SSSPshm_GPUNativeS
 
         vertices.at(jVertexId_get).isActive = jVertexActive_get;
 
+        if (jVertexActive_get)
+        {
+            avSet.at(avCount) = jVertexId_get;
+            avCount++;
+        }
+
     }
 
-    chk = execute.update(vValues, &vertices[0]);
+    // std::cout << "avCount: " << avCount << std::endl;
+
+    /*
+    for(jint i = 0; i < lenMarkID; i++)
+    {
+        cout << "partition " << pid << " " << execute.initVSet[i] << " " << vertices.at(execute.initVSet[i]).initVIndex<< endl;
+        vValues[execute.initVSet[i] * lenMarkID + i] = 0;
+    }
+     */
+/*
+    auto startTimeAll = std::chrono::high_resolution_clock::now();
+    string fileNameOutputLog = "testLogCPlusPid" + to_string(pid) + "time" +
+                               to_string(startTimeAll.time_since_epoch().count()) + ".txt";
+    string pathFile2 = "/home/liqi/IdeaProjects/GraphXwithGPU/logSSSPGPU/";
+    std::ofstream Gout(pathFile2 + fileNameOutputLog, fstream::out | fstream::app);
+
+    Gout<<"-----------------Before-----------------"<<endl;
+
+    for(int i = 0;i < vertexAllSum; i++){
+        if (vertices[i].isActive) {
+            std::string outputT = "In partition " + to_string(pid) + " , ";
+            outputT += to_string(i) + " active status: " + to_string(vertices[i].isActive) + " : {";
+            for (int j = 0 ; j < markIdLen; j++){
+                outputT += " [ " + to_string(vValues[i * markIdLen + j]) + " ] ";
+            }
+            outputT += " } ";
+            Gout<<outputT<<endl;
+        }
+    }
+
+    Gout<<"-----------------Before-----------------"<<endl;
+    Gout.close();
+*/
+    chk = execute.update(vValues, &vertices[0], &avSet[0], avCount);
 
     if(chk == -1){
         throwIllegalArgument(env, "Cannot update with server correctly");
@@ -353,6 +418,31 @@ JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_algorithm_SSSPshm_GPUNativeS
 
     execute.request();
 
+/*
+    auto startTimeAll3 = std::chrono::high_resolution_clock::now();
+    string fileNameOutputLog3 = "testLogCAfterPlusPid" + to_string(pid) + "time" +
+                               to_string(startTimeAll.time_since_epoch().count()) + ".txt";
+    string pathFile3 = "/home/liqi/IdeaProjects/GraphXwithGPU/logSSSPGPU/";
+    std::ofstream Gzout(pathFile3 + fileNameOutputLog3, fstream::out | fstream::app);
+
+    Gzout<<"-----------------after-----------------"<<endl;
+
+    for(int i = 0;i < vertexAllSum; i++){
+        if (execute.vSet[i].isActive) {
+            std::string outputT = "In partition " + to_string(pid) + " , ";
+            outputT += to_string(i) + " active status: " + to_string(execute.vSet[i].isActive) + " : {";
+            for (int j = 0 ; j < markIdLen; j++){
+                outputT += " [ " + to_string(execute.vValues[i * markIdLen + j]) + " ] ";
+            }
+            outputT += " } ";
+            Gzout<<outputT<<endl;
+        }
+
+    }
+
+    Gzout<<"-----------------after-----------------"<<endl;
+    Gzout.close();
+*/
     //---------Time evaluating---------
     std::chrono::nanoseconds duration = std::chrono::high_resolution_clock::now() - startTime;
 
@@ -412,7 +502,6 @@ JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_algorithm_SSSPshm_GPUNativeS
     std::string output = std::string();
     output += "Time of partition " + to_string(pid) + " in c++: " + to_string(durationA.count()) + " "
               + to_string(duration.count()) + " " + to_string(durationB.count());
-
 
     Tout<<output<<endl;
 

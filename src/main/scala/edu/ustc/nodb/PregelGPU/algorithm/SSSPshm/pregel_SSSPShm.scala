@@ -111,7 +111,8 @@ class pregel_SSSPShm(allSource: Broadcast[ArrayBuffer[VertexId]],
     // Detect if a vertex could satisfy the skip condition
     val filteredVertex = new ArrayBuffer[Long]
     for (part <- VertexNumList) {
-      if (countOutDegree.getOrElse(part._1, -1) == part._2) {
+      // vertex has no out degree is also satisfy
+      if (countOutDegree.getOrElse(part._1, 0) == part._2) {
         filteredVertex. += (part._1)
       }
     }

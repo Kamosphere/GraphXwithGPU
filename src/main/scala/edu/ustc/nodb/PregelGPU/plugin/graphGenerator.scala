@@ -36,12 +36,16 @@ object graphGenerator {
   def readFile(sc: SparkContext, sourceFile: String)
               (implicit parts: Int = 4): Graph[Long, Double] = {
 
-    val vertex: RDD[(VertexId, VertexId)] = sc.textFile(sourceFile).map{
+
+    val vertexSource: RDD[VertexId] = sc.textFile(sourceFile).flatMap{
       lines => {
         val para = lines.split(" ")
-        (para(0).toLong, para(0).toLong)
+        Iterator(para(0).toLong, para(1).toLong)
       }
-    }.repartition(parts)
+    }
+
+    val maxNode = vertexSource.reduce((x, y) => math.max(x, y))
+
     val edge: RDD[Edge[Double]] = sc.textFile(sourceFile).map{
       lines => {
         val para = lines.split(" ")
@@ -49,6 +53,10 @@ object graphGenerator {
         Edge(para(0).toLong, para(1).toLong, q)
       }
     }.repartition(parts)
+
+    val vertex: RDD[(VertexId, VertexId)] = sc.parallelize(0L to maxNode, parts).map( v => {
+      (v, v)
+    }).repartition(parts)
 
     val graph = Graph(vertex, edge)
 

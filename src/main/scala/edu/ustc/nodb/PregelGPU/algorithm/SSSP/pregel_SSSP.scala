@@ -1,7 +1,5 @@
 package edu.ustc.nodb.PregelGPU.algorithm.SSSP
 
-import java.io.{File, PrintWriter}
-
 import edu.ustc.nodb.PregelGPU.algorithm.SPMap
 import edu.ustc.nodb.PregelGPU.plugin.partitionStrategy.EdgePartitionPreSearch
 import edu.ustc.nodb.PregelGPU.algoTemplate.lambdaTemplete
@@ -122,7 +120,8 @@ class pregel_SSSP(allSource: Broadcast[ArrayBuffer[VertexId]],
     // Detect if a vertex could satisfy the skip condition
     val filteredVertex = new ArrayBuffer[Long]
     for (part <- VertexNumList) {
-      if (countOutDegree.getOrElse(part._1, -1) == part._2) {
+      // vertex has no out degree is also satisfy
+      if (countOutDegree.getOrElse(part._1, 0) == part._2) {
         filteredVertex. += (part._1)
       }
     }

@@ -1,3 +1,4 @@
+#include <cstring>
 #include "edu_ustc_nodb_PregelGPU_algorithm_SSSP_GPUNative.h"
 
 #include "util/JNIPlugin.h"
@@ -31,19 +32,19 @@ JNIEXPORT jboolean JNICALL Java_edu_ustc_nodb_PregelGPU_algorithm_SSSP_GPUNative
     //Init the Graph with blank vertices
 
     vector<Vertex> vertices = vector<Vertex>();
+
     double *vValues = new double [vertexAllSum * lenMarkID];
-    bool* filteredV = new bool [vertexAllSum];
+    memset(vValues, INT32_MAX, sizeof(double) * vertexAllSum * lenMarkID);
+
+    bool* filteredV = new bool [vertexAllSum]();
+
     int* timestamp = new int [vertexAllSum];
+    memset(timestamp, -1, sizeof(int) * vertexAllSum);
 
     vector<Edge> edges = vector<Edge>();
 
     for(int i = 0; i < vertexAllSum; i++){
-        filteredV[i] = false;
         vertices.emplace_back(Vertex(i, false, INVALID_INITV_INDEX));
-        for(int j = 0; j < lenMarkID; j++){
-            vValues[i * lenMarkID + j] = INT32_MAX;
-        }
-        timestamp[i] = -1;
     }
 
     // fill markID, which stored the landmark
@@ -159,20 +160,17 @@ JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_algorithm_SSSP_GPUNative_nat
     // Init the vertices
 
     vector<Vertex> vertices = vector<Vertex>();
-    double *vValues = new double [vertexAllSum * lenMarkID];
-
-    for(int i = 0; i < vertexAllSum; i++)
-    {
+    for(int i = 0; i < vertexAllSum; i++){
         vertices.emplace_back(Vertex(i, false, INVALID_INITV_INDEX));
-        for(int j = 0; j < lenMarkID; j++)
-        {
-            vValues[i * lenMarkID + j] = INT32_MAX;
-        }
     }
+
+    double *vValues = new double [vertexAllSum * lenMarkID];
+    memset(vValues, INT32_MAX, sizeof(double) * vertexAllSum * lenMarkID);
 
     for(jint i = 0; i < lenMarkID; i++)
     {
         vertices.at(execute.initVSet[i]).initVIndex = i;
+        vertices.at(execute.initVSet[i]).vertexID = execute.initVSet[i];
     }
 
     jboolean isCopy = false;
@@ -180,6 +178,11 @@ JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_algorithm_SSSP_GPUNative_nat
     long* VertexIDTemp = env->GetLongArrayElements(jVertexId, &isCopy);
     jboolean * VertexActiveTemp = env->GetBooleanArrayElements(jVertexActive, &isCopy);
     double* VertexAttrTemp = env->GetDoubleArrayElements(jVertexAttr, &isCopy);
+
+    int avCount = 0;
+    std::vector<int> avSet;
+    avSet.reserve(vertexAllSum);
+    avSet.assign(vertexAllSum, 0);
 
     for (int i = 0; i < lenVertex; i++)
     {
@@ -197,6 +200,12 @@ JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_algorithm_SSSP_GPUNative_nat
         }
 
         vertices.at(jVertexId_get).isActive = jVertexActive_get;
+
+        if (jVertexActive_get)
+        {
+            avSet.at(avCount) = jVertexId_get;
+            avCount++;
+        }
     }
 
     env->ReleaseLongArrayElements(jVertexId, VertexIDTemp, 0);
@@ -222,7 +231,7 @@ JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_algorithm_SSSP_GPUNative_nat
     // test end
 */
 
-    chk = execute.update(vValues, &vertices[0]);
+    chk = execute.update(vValues, &vertices[0], &avSet[0], avCount);
 
     if(chk == -1)
     {
@@ -327,20 +336,17 @@ JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_algorithm_SSSP_GPUNative_nat
     // Init the vertices
 
     vector<Vertex> vertices = vector<Vertex>();
-    double *vValues = new double [vertexAllSum * lenMarkID];
-
-    for(int i = 0; i < vertexAllSum; i++)
-    {
+    for(int i = 0; i < vertexAllSum; i++){
         vertices.emplace_back(Vertex(i, false, INVALID_INITV_INDEX));
-        for(int j = 0; j < lenMarkID; j++)
-        {
-            vValues[i * lenMarkID + j] = INT32_MAX;
-        }
     }
+
+    double *vValues = new double [vertexAllSum * lenMarkID];
+    memset(vValues, INT32_MAX, sizeof(double) * vertexAllSum * lenMarkID);
 
     for(jint i = 0; i < lenMarkID; i++)
     {
         vertices.at(execute.initVSet[i]).initVIndex = i;
+        vertices.at(execute.initVSet[i]).vertexID = execute.initVSet[i];
     }
 
     jboolean isCopy = false;
@@ -348,6 +354,11 @@ JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_algorithm_SSSP_GPUNative_nat
     long* VertexIDTemp = env->GetLongArrayElements(jVertexId, &isCopy);
     jboolean * VertexActiveTemp = env->GetBooleanArrayElements(jVertexActive, &isCopy);
     double* VertexAttrTemp = env->GetDoubleArrayElements(jVertexAttr, &isCopy);
+
+    int avCount = 0;
+    std::vector<int> avSet;
+    avSet.reserve(vertexAllSum);
+    avSet.assign(vertexAllSum, 0);
 
     for (int i = 0; i < lenVertex; i++)
     {
@@ -363,7 +374,14 @@ JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_algorithm_SSSP_GPUNative_nat
             if(index != INVALID_INITV_INDEX)
                 vValues[jVertexId_get * lenMarkID + index] = jDis;
         }
+
         vertices.at(jVertexId_get).isActive = jVertexActive_get;
+
+        if (jVertexActive_get)
+        {
+            avSet.at(avCount) = jVertexId_get;
+            avCount++;
+        }
     }
 
     env->ReleaseLongArrayElements(jVertexId, VertexIDTemp, 0);
@@ -389,7 +407,7 @@ JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_algorithm_SSSP_GPUNative_nat
     // test end
 */
 
-    chk = execute.update(vValues, &vertices[0]);
+    chk = execute.update(vValues, &vertices[0], &avSet[0], avCount);
 
     if(chk == -1){
         throwIllegalArgument(env, "Cannot establish the connection with server correctly");

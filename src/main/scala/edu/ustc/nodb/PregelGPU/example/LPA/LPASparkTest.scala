@@ -2,11 +2,8 @@ package edu.ustc.nodb.PregelGPU.example.LPA
 
 import edu.ustc.nodb.PregelGPU.envControl
 import edu.ustc.nodb.PregelGPU.plugin.graphGenerator
-import org.apache.spark.graphx.GraphXUtils
-import org.apache.spark.graphx.PartitionStrategy.{EdgePartition2D, RandomVertexCut}
+import org.apache.spark.graphx.PartitionStrategy._
 import org.apache.spark.{SparkConf, SparkContext}
-
-import scala.collection.mutable.ArrayBuffer
 
 object LPASparkTest{
 
@@ -28,21 +25,30 @@ object LPASparkTest{
     var parts = Some(args(0).toInt)
     if(parts.isEmpty) parts = Some(4)
 
-    val definedGraphVertices = envControl.allTestGraphVertices
+    //------for different type of graph
 
-    val preDefinedGraphVertices = definedGraphVertices / 4
+    var sourceFile: String = ""
 
-    // load graph from file
-    var sourceFile = "testGraph"+definedGraphVertices+".txt"
-    if(envControl.controller == 0) {
-      conf.set("fs.defaultFS", "hdfs://192.168.1.10:9000")
-      sourceFile = "hdfs://192.168.1.10:9000/sourcegraph/" + sourceFile
+    sourceFile = envControl.datasetType match {
+      case 0 =>
+        val definedGraphVertices = envControl.allTestGraphVertices
+        val preDefinedGraphVertices = definedGraphVertices / 4
+        envControl.skippingPartSize = preDefinedGraphVertices
+        "testGraph"+definedGraphVertices+".txt"
+      case 1 =>
+        "testGraph_road-road-usa.mtx.txt"
+      case 2 =>
+        "testGraph_com-orkut.ungraph.txt.txt"
+      case 3 =>
+        "testGraph_soc-LiveJournal1.txt.txt"
+      case 4 =>
+        "testGraph_wiki-topcats.txt.txt"
     }
 
-    envControl.skippingPartSize = preDefinedGraphVertices
-
-    conf.set("spark.serializer", "org.apache.spark.serializer.KryoSerializer")
-    GraphXUtils.registerKryoClasses(conf)
+    if(envControl.controller == 0) {
+      conf.set("fs.defaultFS", "hdfs://192.168.1.2:9000")
+      sourceFile = "hdfs://192.168.1.2:9000/sourcegraph/" + sourceFile
+    }
 
     val graph = graphGenerator.readFile(sc, sourceFile)(parts.get)
       .partitionBy(RandomVertexCut)
@@ -58,7 +64,7 @@ object LPASparkTest{
     val LPATest = new PregelSparkLPA(graph)
 
     val startNormal = System.nanoTime()
-    val LPAResult = LPATest.run(20)
+    val LPAResult = LPATest.run(15)
     // val d = ssspResult.vertices.count()
     val endNormal = System.nanoTime()
     println(LPAResult.vertices.take(100000).mkString("\n"))

@@ -7,7 +7,7 @@ import scala.reflect.ClassTag
 class PregelSparkPageRank extends Serializable {
 
   def runUntilConvergenceWithOptions[VD: ClassTag, ED: ClassTag]
-  (graph: Graph[VD, ED], tol: Double, resetProb: Double = 0.15,
+  (graph: Graph[VD, ED], tol: Double, resetProb: Double,
    srcId: Option[VertexId] = None): Graph[Double, Double] =
   {
     require(tol >= 0, s"Tolerance must be no less than 0, but got $tol")
@@ -29,7 +29,7 @@ class PregelSparkPageRank extends Serializable {
       // Set the vertex attributes to (initialPR, delta = 0)
       .mapVertices { (id, attr) =>
       if (id == src) (0.0, Double.NegativeInfinity) else (0.0, 0.0)
-    }
+    }.persist()
 
     // Define the three functions needed to implement PageRank in the GraphX
     // version of Pregel

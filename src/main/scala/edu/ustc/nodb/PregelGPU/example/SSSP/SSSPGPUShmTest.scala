@@ -2,10 +2,10 @@ package edu.ustc.nodb.PregelGPU.example.SSSP
 
 import edu.ustc.nodb.PregelGPU.algorithm.SSSPshm.pregel_SSSPShm
 import edu.ustc.nodb.PregelGPU.plugin.graphGenerator
-import edu.ustc.nodb.PregelGPU.plugin.partitionStrategy.EdgePartitionNumHookedTest
+import edu.ustc.nodb.PregelGPU.plugin.partitionStrategy._
 import edu.ustc.nodb.PregelGPU.{PregelGPUShm, envControl}
-import org.apache.spark.graphx.PartitionStrategy.{EdgePartition2D, RandomVertexCut}
-import org.apache.spark.graphx.{GraphXUtils, VertexId}
+import org.apache.spark.graphx.PartitionStrategy._
+import org.apache.spark.graphx.VertexId
 import org.apache.spark.{SparkConf, SparkContext}
 
 import scala.collection.mutable.ArrayBuffer
@@ -31,32 +31,72 @@ object SSSPGPUShmTest{
     var parts = Some(args(0).toInt)
     if(parts.isEmpty) parts = Some(4)
 
-    val definedGraphVertices = envControl.allTestGraphVertices
+    //------for different type of graph
 
-    val preDefinedGraphVertices = definedGraphVertices / 4
+    var sourceFile: String = ""
 
-    // load graph from file
-    var sourceFile = "testGraph"+definedGraphVertices+".txt"
-    if(envControl.controller == 0) {
-      conf.set("fs.defaultFS", "hdfs://192.168.1.10:9000")
-      sourceFile = "hdfs://192.168.1.10:9000/sourcegraph/" + sourceFile
+    val sourceList = ArrayBuffer[Long]()
+
+    sourceFile = envControl.datasetType match {
+      case 0 =>
+        val definedGraphVertices = envControl.allTestGraphVertices
+        val preDefinedGraphVertices = definedGraphVertices / 4
+        envControl.skippingPartSize = preDefinedGraphVertices
+        sourceList += (1L, preDefinedGraphVertices * 1 + 2L,
+          preDefinedGraphVertices * 2 + 4L,
+          preDefinedGraphVertices * 3 + 7L)
+        "testGraph"+definedGraphVertices+".txt"
+      case 1 =>
+        sourceList += (828192L, 9808777L,
+          13425140L,
+          22675645L)
+        "testGraph_road-road-usa.mtx.txt"
+      case 2 =>
+        sourceList += (435368L, 1052416L,
+          1700856L,
+          2425532L)
+        "testGraph_com-orkut.ungraph.txt.txt"
+
+      case 3 =>
+        sourceList += (1101295L, 2117363L,
+          3430267L,
+          4202807L)
+        "testGraph_soc-LiveJournal1.txt.txt"
+      case 4 =>
+        sourceList += (337151L, 649031L,
+          1041859L,
+          1400923L)
+        "testGraph_wiki-topcats.txt.txt"
+
+      // for skipping
+      /*
+      case 3 =>
+        sourceList += (101295L, 1117363L,
+          2030267L,
+          3202807L)
+        "soc-relabel-graph.txt"
+      case 4 =>
+        sourceList += (377335L, 584383L,
+          1101295L,
+          1400923L)
+        "wiki-relabel-graph.txt"
+      */
     }
 
-    envControl.skippingPartSize = preDefinedGraphVertices
-
-    conf.set("spark.serializer", "org.apache.spark.serializer.KryoSerializer")
-    GraphXUtils.registerKryoClasses(conf)
+    if(envControl.controller == 0) {
+      conf.set("fs.defaultFS", "hdfs://192.168.1.2:9000")
+      sourceFile = "hdfs://192.168.1.2:9000/sourcegraph/" + sourceFile
+    }
 
     val graph = graphGenerator.readFile(sc, sourceFile)(parts.get)
       .partitionBy(RandomVertexCut)
 
-    // running SSSP
-
-    println("-------------------------")
-
-    val sourceList = ArrayBuffer(1L, preDefinedGraphVertices * 1 + 2L,
-      preDefinedGraphVertices * 2 + 4L,
-      preDefinedGraphVertices * 3 + 7L).distinct.sorted
+    // WRNASIA 3019787
+    /*
+    val sourceList = ArrayBuffer(91820L, 3716785L,
+      7053267L,
+      11122108L).distinct.sorted
+     */
 
     val allSourceList = sc.broadcast(sourceList)
 
@@ -92,6 +132,5 @@ object SSSPGPUShmTest{
     //println(k)
 
   }
-
   // scalastyle:on println
 }

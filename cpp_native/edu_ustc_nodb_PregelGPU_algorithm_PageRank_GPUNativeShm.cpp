@@ -9,6 +9,7 @@
 #include <zconf.h>
 #include <algorithm>
 #include <algo/PageRank/PageRank.h>
+#include <unordered_map>
 
 using namespace std;
 
@@ -88,17 +89,17 @@ JNIEXPORT jboolean JNICALL Java_edu_ustc_nodb_PregelGPU_algorithm_PageRank_GPUNa
     //Init the Graph with blank vertices
 
     vector<Vertex> vertices = vector<Vertex>();
-    std::pair<double, double> *vValues = new std::pair<double, double> [vertexAllSum];
-    bool* filteredV = new bool [vertexAllSum];
+    std::pair<double, double> *vValues = new std::pair<double, double> [vertexAllSum]();
+
+    bool* filteredV = new bool [vertexAllSum]();
+
     int* timestamp = new int [vertexAllSum];
+    memset(timestamp, -1, sizeof(int) * vertexAllSum);
 
     vector<Edge> edges = vector<Edge>();
 
     for(int i = 0; i < vertexAllSum; i++){
-        filteredV[i] = false;
         vertices.emplace_back(Vertex(i, false, INVALID_INITV_INDEX));
-        vValues[i] = std::pair<double, double>(0.0, 0.0);
-        timestamp[i] = -1;
     }
 
     // fill markID, which stored the landmark
@@ -197,6 +198,10 @@ JNIEXPORT jboolean JNICALL Java_edu_ustc_nodb_PregelGPU_algorithm_PageRank_GPUNa
     }
     execute.disconnect();
 
+    shm_unlink(EdgeSrcTempName.c_str());
+    shm_unlink(EdgeDstTempName.c_str());
+    shm_unlink(EdgeAttrTempName.c_str());
+
     return true;
 }
 
@@ -250,11 +255,10 @@ JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_algorithm_PageRank_GPUNative
     // Init the vertices
 
     vector<Vertex> vertices = vector<Vertex>();
-    std::pair<double, double> *vValues = new std::pair<double, double> [vertexAllSum];
+    std::pair<double, double> *vValues = new std::pair<double, double> [vertexAllSum]();
 
     for(int i = 0; i < vertexAllSum; i++){
         vertices.emplace_back(Vertex(i, false, INVALID_INITV_INDEX));
-        vValues[i] = std::pair<double, double>(0.0, 0.0);
     }
 
     for(jint i = 0; i < lenMarkID; i++){
@@ -441,16 +445,17 @@ JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_algorithm_PageRank_GPUNative
     vector<double> cPlusReturnAttr = vector<double>();
 
     bool allGained = true;
-    for (int i = 0; i < execute.eCount; i++) {
-        int messageVertex = execute.mValues[i].destVId;
-        if (messageVertex != -1) {
-            //if (execute.vSet[messageVertex].isActive){
-                cPlusReturnId.emplace_back(messageVertex);
+    for (int i = 0; i < vertexAllSum; i++) {
+        if (execute.mValues[i].destVId != -1) {
+            if (execute.vSet[execute.mValues[i].destVId].isActive) {
+                // copy data
+                cPlusReturnId.emplace_back(execute.mValues[i].destVId);
                 cPlusReturnAttr.emplace_back(execute.mValues[i].rank);
-                if(! execute.filteredV[messageVertex]){
+                // detect if the vertex is filtered
+                if(! execute.filteredV[execute.mValues[i].destVId]){
                     allGained = false;
                 }
-            //}
+            }
         }
     }
 
@@ -554,13 +559,14 @@ JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_algorithm_PageRank_GPUNative
     vector<double> cPlusReturnAttr = vector<double>();
 
     bool allGained = true;
-    for (int i = 0; i < execute.eCount; i++) {
-        int messageVertex = execute.mValues[i].destVId;
-        if (messageVertex != -1) {
-            if (execute.vSet[messageVertex].isActive){
-                cPlusReturnId.emplace_back(messageVertex);
+    for (int i = 0; i < vertexAllSum; i++) {
+        if (execute.mValues[i].destVId != -1) {
+            if (execute.vSet[execute.mValues[i].destVId].isActive) {
+                // copy data
+                cPlusReturnId.emplace_back(execute.mValues[i].destVId);
                 cPlusReturnAttr.emplace_back(execute.mValues[i].rank);
-                if(! execute.filteredV[messageVertex]){
+                // detect if the vertex is filtered
+                if(! execute.filteredV[execute.mValues[i].destVId]){
                     allGained = false;
                 }
             }
@@ -652,13 +658,11 @@ JNIEXPORT jint JNICALL Java_edu_ustc_nodb_PregelGPU_algorithm_PageRank_GPUNative
     vector<long> cPlusReturnId = vector<long>();
     vector<double> cPlusReturnAttr = vector<double>();
 
-    for (int i = 0; i < execute.eCount; i++) {
-        int messageVertex = execute.mValues[i].destVId;
-
-        if (messageVertex != -1) {
-            bool idFiltered = execute.filteredV[messageVertex];
-            if(idFiltered){
-                cPlusReturnId.emplace_back(messageVertex);
+    for (int i = 0; i < vertexAllSum; i++) {
+        if (execute.mValues[i].destVId != -1) {
+            if (execute.filteredV[execute.mValues[i].destVId]) {
+                // copy data
+                cPlusReturnId.emplace_back(execute.mValues[i].destVId);
                 cPlusReturnAttr.emplace_back(execute.mValues[i].rank);
             }
         }

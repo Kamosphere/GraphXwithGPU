@@ -114,38 +114,15 @@ object PregelGPUSkipping extends Logging{
             iterTimes, countOutDegree, ifFilteredCounter)
         })
       }
+      var oldMessages : VertexRDD[A] = null
 
-      var skipable = true
-      var activeMessagesInPartition = 0
+      // println(checkSkippable)
 
-      println(checkSkippable)
+      if (envControl.runningInSkip) {
 
-      for (partition <- checkSkippable) {
-        activeMessagesInPartition += partition._2._2
-        if (partition._2._1){
-          skipable = false
-        }
-      }
-      if (activeMessagesInPartition == 0 && skipable) {
-        skipable = false
-      }
+        var skipable = true
+        var activeMessagesInPartition = 0
 
-      var everskip = false
-
-      if (skipable) {
-        everskip = true
-
-        messages.unpersist(blocking = false)
-      }
-
-      var skipTimes = 1
-      while (skipable) {
-        checkSkippable = GraphXUtils.mapReduceTripletsIntoGPUSkip_skipping(
-          g, skipTimes, algorithm.lambda_SkipVertexIntoGPU).collectAsMap()
-
-        println(checkSkippable)
-
-        activeMessagesInPartition = 0
         for (partition <- checkSkippable) {
           activeMessagesInPartition += partition._2._2
           if (partition._2._1){
@@ -155,48 +132,80 @@ object PregelGPUSkipping extends Logging{
         if (activeMessagesInPartition == 0 && skipable) {
           skipable = false
         }
-        if (skipable) skipTimes += 1
 
+        var everskip = false
+
+        if (skipable) {
+          everskip = true
+
+          messages.unpersist(blocking = false)
+        }
+
+        var skipTimes = 1
+        while (skipable) {
+          checkSkippable = GraphXUtils.mapReduceTripletsIntoGPUSkip_skipping(
+            g, skipTimes, algorithm.lambda_SkipVertexIntoGPU).collectAsMap()
+
+          println(checkSkippable)
+
+          activeMessagesInPartition = 0
+          for (partition <- checkSkippable) {
+            activeMessagesInPartition += partition._2._2
+            if (partition._2._1){
+              skipable = false
+            }
+          }
+          if (activeMessagesInPartition == 0 && skipable) {
+            skipable = false
+          }
+          if (skipable) skipTimes += 1
+
+        }
+
+        if (everskip) {
+          // all merged messages include inner old messages
+          val messagesRemained = GraphXUtils.mapReduceTripletsIntoGPUSkip_fetchOldMsg(
+            g, algorithm.lambda_getOldMessages,
+            algorithm.lambda_globalOldMsgReduceFunc)
+            .flatMap(elem => if (elem._2._1) Some((elem._1, elem._2._3)) else Some((elem._1, elem._2._3)))
+
+          messagesRemained.count()
+
+          // merge the old messages into graph
+          g = g.joinVertices(messagesRemained)((vid, v1, v2) =>
+            algorithm.lambda_globalVertexFunc(vid, v1, v2))
+
+          graphCheckPointer.update(g)
+
+          messagesRemained.unpersist(blocking = false)
+
+          // if last skip make the oldmessage zero, force skipable to false
+          oldMessages = GraphXUtils.mapReduceTripletsIntoGPUSkip_fetch(g,
+            algorithm.lambda_getMessages, algorithm.lambda_globalReduceFunc)
+          messageCheckPointer.update(oldMessages.asInstanceOf[RDD[(VertexId, A)]])
+
+          oldMessages.count()
+
+          val prevSkippingDirection : EdgeDirection = null
+
+          checkSkippable = GraphXUtils.mapReduceTripletsIntoGPUSkip_normal(g,
+            algorithm.lambda_VertexIntoGPU, Some((oldMessages, prevSkippingDirection))).collectAsMap()
+        }
+
+        else {
+          oldMessages = messages
+
+          checkSkippable = GraphXUtils.mapReduceTripletsIntoGPUSkip_normal(g,
+            algorithm.lambda_VertexIntoGPU, Some((oldMessages, activeDirection))).collectAsMap()
+        }
       }
-
-      var oldMessages : VertexRDD[A] = null
-
-      if (everskip) {
-        // all merged messages include inner old messages
-        val messagesRemained = GraphXUtils.mapReduceTripletsIntoGPUSkip_fetchOldMsg(
-          g, algorithm.lambda_getOldMessages,
-          algorithm.lambda_globalOldMsgReduceFunc)
-          .flatMap(elem => if (elem._2._1) Some((elem._1, elem._2._3)) else Some((elem._1, elem._2._3)))
-
-        messagesRemained.count()
-
-        // merge the old messages into graph
-        g = g.joinVertices(messagesRemained)((vid, v1, v2) =>
-          algorithm.lambda_globalVertexFunc(vid, v1, v2))
-
-        graphCheckPointer.update(g)
-
-        messagesRemained.unpersist(blocking = false)
-
-        // if last skip make the oldmessage zero, force skipable to false
-        oldMessages = GraphXUtils.mapReduceTripletsIntoGPUSkip_fetch(g,
-          algorithm.lambda_getMessages, algorithm.lambda_globalReduceFunc)
-        messageCheckPointer.update(oldMessages.asInstanceOf[RDD[(VertexId, A)]])
-
-        oldMessages.count()
-
-        val prevSkippingDirection : EdgeDirection = null
-
-        checkSkippable = GraphXUtils.mapReduceTripletsIntoGPUSkip_normal(g,
-          algorithm.lambda_VertexIntoGPU, Some((oldMessages, prevSkippingDirection))).collectAsMap()
-      }
-
       else {
         oldMessages = messages
 
         checkSkippable = GraphXUtils.mapReduceTripletsIntoGPUSkip_normal(g,
           algorithm.lambda_VertexIntoGPU, Some((oldMessages, activeDirection))).collectAsMap()
       }
+
 
       messages = GraphXUtils.mapReduceTripletsIntoGPUSkip_fetch(g,
         algorithm.lambda_getMessages, algorithm.lambda_globalReduceFunc)
