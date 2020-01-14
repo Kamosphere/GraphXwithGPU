@@ -43,8 +43,8 @@ endif()
 
 
 add_library(SSSP_lib SHARED
-        edu_ustc_nodb_PregelGPU_algorithm_SSSP_GPUNative.h
-        edu_ustc_nodb_PregelGPU_algorithm_SSSP_GPUNative.cpp)
+        edu_ustc_nodb_GPUGraphX_algorithm_array_SSSP_GPUNative.h
+        edu_ustc_nodb_GPUGraphX_algorithm_array_SSSP_GPUNative.cpp)
 
 target_link_libraries(SSSP_lib
         srv_UtilClient
@@ -52,8 +52,8 @@ target_link_libraries(SSSP_lib
         JNIPlugin)
 
 add_library(SSSP_lib_Shm SHARED
-        edu_ustc_nodb_PregelGPU_algorithm_SSSPshm_GPUNativeShm.h
-        edu_ustc_nodb_PregelGPU_algorithm_SSSPshm_GPUNativeShm.cpp)
+        edu_ustc_nodb_GPUGraphX_algorithm_shm_SSSP_GPUNativeShm.h
+        edu_ustc_nodb_GPUGraphX_algorithm_shm_SSSP_GPUNativeShm.cpp)
 
 target_link_libraries(SSSP_lib_Shm
         srv_UtilClient
@@ -62,8 +62,8 @@ target_link_libraries(SSSP_lib_Shm
         rt)
 
 add_library(LPA_lib_Shm SHARED
-        edu_ustc_nodb_PregelGPU_algorithm_LPA_GPUNativeShm.h
-        edu_ustc_nodb_PregelGPU_algorithm_LPA_GPUNativeShm.cpp)
+        edu_ustc_nodb_GPUGraphX_algorithm_shm_LP_GPUNativeShm.h
+        edu_ustc_nodb_GPUGraphX_algorithm_shm_LP_GPUNativeShm.cpp)
 
 target_link_libraries(LPA_lib_Shm
         srv_UtilClient
@@ -72,8 +72,8 @@ target_link_libraries(LPA_lib_Shm
         rt)
 
 add_library(PR_lib_Shm SHARED
-        edu_ustc_nodb_PregelGPU_algorithm_PageRank_GPUNativeShm.h
-        edu_ustc_nodb_PregelGPU_algorithm_PageRank_GPUNativeShm.cpp)
+        edu_ustc_nodb_GPUGraphX_algorithm_shm_PageRank_GPUNativeShm.h
+        edu_ustc_nodb_GPUGraphX_algorithm_shm_PageRank_GPUNativeShm.cpp)
 
 target_link_libraries(PR_lib_Shm
         srv_UtilClient
@@ -82,8 +82,8 @@ target_link_libraries(PR_lib_Shm
         rt)
 
 add_library(CC_lib_Shm SHARED
-        edu_ustc_nodb_PregelGPU_algorithm_CC_GPUNativeShm.h
-        edu_ustc_nodb_PregelGPU_algorithm_CC_GPUNativeShm.cpp)
+        edu_ustc_nodb_GPUGraphX_algorithm_shm_CC_GPUNativeShm.h
+        edu_ustc_nodb_GPUGraphX_algorithm_shm_CC_GPUNativeShm.cpp)
 
 target_link_libraries(CC_lib_Shm
         srv_UtilClient

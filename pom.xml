@@ -1,10 +1,10 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
   <modelVersion>4.0.0</modelVersion>
   <groupId>edu.ustc.nodb</groupId>
-  <artifactId>PregelGPU</artifactId>
+  <artifactId>GPUGraphX</artifactId>
   <version>1.1-SNAPSHOT</version>
   <name>${project.artifactId}</name>
-  <description>the PregelGPU app in nodb,ustc</description>
+  <description>the GPUGraphX app in nodb,ustc</description>
   <inceptionYear>2019</inceptionYear>
   <licenses>
     <license>
@@ -21,7 +21,7 @@
     <scala.version>2.11.12</scala.version>
     <scala.compat.version>2.11</scala.compat.version>
     <spec2.version>4.2.0</spec2.version>
-    <spark.version>2.4.5-USTC-NODB-Test</spark.version>
+    <spark.version>2.4.6-USTC-NODB</spark.version>
     <hadoop.version>2.7.0</hadoop.version>
   </properties>
 
@@ -150,7 +150,7 @@
                   <resource>reference.conf</resource>
                 </transformer>
                 <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
-                  <mainClass>edu.ustc.nodb.PregelGPU.example.SSSP.SSSPGPUTest</mainClass>
+                  <mainClass>edu.ustc.nodb.GPUGraphX.example.SSSP.SSSPGPUTest</mainClass>
                 </transformer>
               </transformers>
             </configuration>
