@@ -30,11 +30,11 @@ object SSSPSparkTest{
 
     //------for different type of graph
 
-    var sourceFile: String = ""
+    var sourceFile: String = "/usr/local/sourcegraph/"
 
     val sourceList = ArrayBuffer[Long]()
 
-    sourceFile = envControl.datasetType match {
+    val sourceFileName = envControl.datasetType match {
       case 0 =>
         val definedGraphVertices = envControl.allTestGraphVertices
         val preDefinedGraphVertices = definedGraphVertices / 4
@@ -63,7 +63,14 @@ object SSSPSparkTest{
           1041859L,
           1400923L)
         "testGraph_wiki-topcats.txt.txt"
-
+      case 5 =>
+        sourceList += (0L, 3640680L,
+          18450777L)
+        "twitter.txt"
+      case 6 =>
+        sourceList += (337151L, 22138482L,
+          35528773L)
+        "uk-200705graph.txt"
       // for skipping
       /*
       case 3 =>
@@ -79,11 +86,14 @@ object SSSPSparkTest{
       */
     }
 
-
+    sourceFile = sourceFile + sourceFileName
+/*
     if(envControl.controller == 0) {
       conf.set("fs.defaultFS", "hdfs://192.168.1.2:9000")
       sourceFile = "hdfs://192.168.1.2:9000/sourcegraph/" + sourceFile
     }
+
+ */
 
     val graph = graphGenerator.readFile(sc, sourceFile)(parts.get)
       .partitionBy(RandomVertexCut)

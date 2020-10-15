@@ -1,20 +1,18 @@
 package edu.ustc.nodb.GPUGraphX.example.LPA
 
-import edu.ustc.nodb.GPUGraphX.algorithm.shm.LP.pregel_LPShm
+import edu.ustc.nodb.GPUGraphX.envControl
 import edu.ustc.nodb.GPUGraphX.plugin.graphGenerator
-import edu.ustc.nodb.GPUGraphX.{PregelGPUShm, envControl}
-import org.apache.spark.graphx.EdgeDirection
 import org.apache.spark.graphx.PartitionStrategy._
 import org.apache.spark.{SparkConf, SparkContext}
 
-object LPAGPUTest{
+object LPASparkMapTest{
 
   // scalastyle:on println
 
   def main(args: Array[String]) {
 
     // environment setting
-    val conf = new SparkConf().setAppName("Pregel_LPA_GPU")
+    val conf = new SparkConf().setAppName("Pregel_LPA_MAP")
     if(envControl.controller != 0){
       conf.setMaster("local[4]")
     }
@@ -45,19 +43,19 @@ object LPAGPUTest{
         "testGraph_soc-LiveJournal1.txt.txt"
       case 4 =>
         "testGraph_wiki-topcats.txt.txt"
-      case 5 =>
-        "twitter.txt"
       case 6 =>
         "uk-200705graph.txt"
     }
 
     sourceFile = sourceFile + sourceFileName
-/*
+
+    /*
     if(envControl.controller == 0) {
       conf.set("fs.defaultFS", "hdfs://192.168.1.2:9000")
       sourceFile = "hdfs://192.168.1.2:9000/sourcegraph/" + sourceFile
     }
- */
+
+     */
 
     val graph = graphGenerator.readFile(sc, sourceFile)(parts.get)
       .partitionBy(RandomVertexCut)
@@ -66,36 +64,43 @@ object LPAGPUTest{
 
     println("-------------------------")
 
-    val shmIdentifier = new Array[String](4)
-    shmIdentifier(0) = "ID"
-    shmIdentifier(1) = "Active"
-    shmIdentifier(2) = "PairSource1"
-    shmIdentifier(3) = "PairSource2"
-
     // the quantity of vertices in the whole graph
     val vertexSum = graph.vertices.count()
     val edgeSum = graph.edges.count()
 
-    val algorithm = new pregel_LPShm(shmIdentifier, vertexSum, edgeSum, parts.get)
+    val LPATest = new PregelSparkLPAMap(graph)
 
-    val lpaGraph = graph.mapVertices { case (vid, _) => (vid, 0L) }
-
-    val startNew = System.nanoTime()
-    val GPUResult = PregelGPUShm.run(lpaGraph, EdgeDirection.Out, 15)(algorithm)
-    // val q = ssspGPUResult.vertices.count()
-    println(GPUResult.vertices.take(100000).mkString("\n"))
-    val endNew = System.nanoTime()
+    val startNormal = System.nanoTime()
+    val LPAResult = LPATest.run(15)
+    // val d = ssspResult.vertices.count()
+    val endNormal = System.nanoTime()
+    println(LPAResult.vertices.take(100000).mkString("\n"))
 
     println("-------------------------")
 
-    println(endNew - startNew)
+    println(endNormal - startNormal)
 
-    PregelGPUShm.close(GPUResult, algorithm)
+    println("-------------------------")
 
-    //val k = StdIn.readInt()
-    //println(k)
+    val arrResult = new Array[Int](20)
+
+    val store = LPAResult.vertices.collect()
+
+    for(ss <- store) {
+      for(i <- 0 until 15) {
+        val update = arrResult(i) + ss._2._3(i)._2.toInt
+        arrResult(i) = update
+      }
+    }
+
+    for(unti <- arrResult) {
+      printf("%d ", unti)
+    }
+
+    println("-------------------------")
 
   }
 
   // scalastyle:on println
 }
+

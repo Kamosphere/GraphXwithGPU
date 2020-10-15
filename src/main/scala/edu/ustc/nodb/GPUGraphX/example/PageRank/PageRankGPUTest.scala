@@ -31,9 +31,9 @@ object PageRankGPUTest{
 
     //------for different type of graph
 
-    var sourceFile: String = ""
+    var sourceFile: String = "/usr/local/sourcegraph/"
 
-    sourceFile = envControl.datasetType match {
+    val sourceFileName = envControl.datasetType match {
       case 0 =>
         val definedGraphVertices = envControl.allTestGraphVertices
         val preDefinedGraphVertices = definedGraphVertices / 4
@@ -47,12 +47,21 @@ object PageRankGPUTest{
         "testGraph_soc-LiveJournal1.txt.txt"
       case 4 =>
         "testGraph_wiki-topcats.txt.txt"
+      case 5 =>
+        "twitter.txt"
+      case 6 =>
+        "uk-200705graph.txt"
     }
 
+    sourceFile = sourceFile + sourceFileName
+
+    /*
     if(envControl.controller == 0) {
       conf.set("fs.defaultFS", "hdfs://192.168.1.2:9000")
       sourceFile = "hdfs://192.168.1.2:9000/sourcegraph/" + sourceFile
     }
+
+     */
 
     val graph = graphGenerator.readFile(sc, sourceFile)(parts.get)
       .partitionBy(RandomVertexCut)

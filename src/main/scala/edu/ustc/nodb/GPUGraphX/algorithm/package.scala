@@ -18,7 +18,7 @@ package object algorithm {
   val runningScriptType = 1
 
   // 0 for running in server with standalone, other for local
-  val controller : Int = 1
+  val controller : Int = 0
 
   // For opening time consuming record into log4j
   var openTimeLog : Boolean = false

@@ -2,7 +2,7 @@ package edu.ustc.nodb.GPUGraphX
 
 object envControl {
   // 0 for running in server with standalone, other for local
-  val controller : Int = 1
+  val controller : Int = 0
 
   // true for open skipping, false for close skipping
   val runningInSkip : Boolean = false
@@ -13,7 +13,7 @@ object envControl {
   var skippingPartSize : Int = 1
 
   // For global test of all algorithms
-  val allTestGraphVertices = 4000000
+  val allTestGraphVertices = 40000000
 
   // For dataset type
   // 0 for random graph
@@ -21,7 +21,8 @@ object envControl {
   // 2 for orkut
   // 3 for Livejournal
   // 4 for wiki-topcats
+  // 5 for twitter
+  // 6 for uk
   val datasetType = 0
-
 
 }
