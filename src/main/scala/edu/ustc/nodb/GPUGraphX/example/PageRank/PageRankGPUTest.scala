@@ -53,7 +53,11 @@ object PageRankGPUTest{
         "uk-200705graph.txt"
     }
 
-    sourceFile = sourceFile + sourceFileName
+    if(envControl.controller != 0){
+      sourceFile = sourceFileName
+    } else {
+      sourceFile = sourceFile + sourceFileName
+    }
 
     /*
     if(envControl.controller == 0) {

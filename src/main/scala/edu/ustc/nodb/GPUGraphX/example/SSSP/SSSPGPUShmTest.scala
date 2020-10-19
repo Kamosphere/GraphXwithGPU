@@ -91,7 +91,11 @@ object SSSPGPUShmTest{
       */
     }
 
-    sourceFile = sourceFile + sourceFileName
+    if(envControl.controller != 0){
+      sourceFile = sourceFileName
+    } else {
+      sourceFile = sourceFile + sourceFileName
+    }
     /*
     if(envControl.controller == 0) {
       conf.set("fs.defaultFS", "hdfs://192.168.1.2:9000")
