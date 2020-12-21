@@ -69,16 +69,11 @@ object CCGPUTest{
 
     println("-------------------------")
 
-    val shmIdentifier = new Array[String](3)
-    shmIdentifier(0) = "ID"
-    shmIdentifier(1) = "Active"
-    shmIdentifier(2) = "Attr"
-
     // the quantity of vertices in the whole graph
     val vertexSum = graph.vertices.count()
     val edgeSum = graph.edges.count()
 
-    val algorithm = new pregel_CCShm(shmIdentifier, vertexSum, edgeSum, parts.get)
+    val algorithm = new pregel_CCShm(vertexSum, edgeSum, parts.get)
 
     val ccGraph = graph.mapVertices { case (vid, _) => vid }
 

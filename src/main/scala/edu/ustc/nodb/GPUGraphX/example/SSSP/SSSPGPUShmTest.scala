@@ -116,16 +116,11 @@ object SSSPGPUShmTest{
 
     val allSourceList = sc.broadcast(sourceList)
 
-    val shmIdentifier = new Array[String](3)
-    shmIdentifier(0) = "ID"
-    shmIdentifier(1) = "active"
-    shmIdentifier(2) = "Attr"
-
     // the quantity of vertices in the whole graph
     val vertexSum = graph.vertices.count()
     val edgeSum = graph.edges.count()
 
-    val algorithm = new pregel_SSSPShm(allSourceList, shmIdentifier, vertexSum, edgeSum, parts.get)
+    val algorithm = new pregel_SSSPShm(allSourceList, vertexSum, edgeSum, parts.get)
 
     val startNew = System.nanoTime()
 

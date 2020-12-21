@@ -15,8 +15,7 @@ import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 import scala.sys.process.Process
 
-class pregel_LPShm(shmIdentifier: Array[String],
-                   vertexSum: Long,
+class pregel_LPShm(vertexSum: Long,
                    edgeSum: Long,
                    parts: Int) extends algoShmTemplete[(VertexId, Long), Double, LPAPair] {
 
@@ -26,7 +25,11 @@ class pregel_LPShm(shmIdentifier: Array[String],
 
   override var partitionInnerData : collection.Map[Int, (Int, Int)] = _
 
-  override var identifier: Array[String] = shmIdentifier
+  override var identifier: Array[String] = new Array[String](4)
+  identifier(0) = "ID"
+  identifier(1) = "Active"
+  identifier(2) = "PairSource1"
+  identifier(3) = "PairSource2"
 
   override def fillPartitionInnerData(newMap: collection.Map[Int,(Int,Int)]) : Unit = {
     partitionInnerData = newMap

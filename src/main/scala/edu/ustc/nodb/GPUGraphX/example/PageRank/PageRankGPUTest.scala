@@ -76,18 +76,12 @@ object PageRankGPUTest{
 
     val sourceList = 1L
 
-    val shmIdentifier = new Array[String](4)
-    shmIdentifier(0) = "ID"
-    shmIdentifier(1) = "Active"
-    shmIdentifier(2) = "PairSource1"
-    shmIdentifier(3) = "PairSource2"
-
     // the quantity of vertices in the whole graph
     val vertexSum = graph.vertices.count()
     val edgeSum = graph.edges.count()
 
-    val algorithm = new pregel_PRShm(shmIdentifier,
-      vertexSum, edgeSum, 0.001, 0.15, parts.get)
+    val algorithm = new pregel_PRShm(vertexSum, edgeSum,
+      0.001, 0.15, parts.get)
 
     val startNew = System.nanoTime()
 

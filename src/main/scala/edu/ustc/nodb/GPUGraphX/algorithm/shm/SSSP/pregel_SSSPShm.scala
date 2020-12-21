@@ -18,7 +18,6 @@ import scala.collection.mutable.ArrayBuffer
 import scala.sys.process.Process
 
 class pregel_SSSPShm(allSource: Broadcast[ArrayBuffer[VertexId]],
-                     shmIdentifier: Array[String],
                      vertexSum: Long,
                      edgeSum: Long,
                      parts: Int) extends algoShmTemplete[SPMap, Double, SPMap] {
@@ -31,7 +30,10 @@ class pregel_SSSPShm(allSource: Broadcast[ArrayBuffer[VertexId]],
 
   override var partitionInnerData : collection.Map[Int, (Int, Int)] = _
 
-  override var identifier: Array[String] = shmIdentifier
+  override var identifier: Array[String] = new Array[String](3)
+  identifier(0) = "ID"
+  identifier(1) = "active"
+  identifier(2) = "Attr"
 
   override def fillPartitionInnerData(newMap: collection.Map[Int,(Int,Int)]) : Unit = {
     partitionInnerData = newMap

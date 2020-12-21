@@ -12,8 +12,7 @@ import org.apache.spark.util.collection.BitSet
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 
-class pregel_CCShm(shmIdentifier: Array[String],
-                   vertexSum: Long,
+class pregel_CCShm(vertexSum: Long,
                    edgeSum: Long,
                    parts: Int) extends algoShmTemplete[VertexId, Double, Long] {
 
@@ -23,7 +22,10 @@ class pregel_CCShm(shmIdentifier: Array[String],
 
   override var partitionInnerData : collection.Map[Int, (Int, Int)] = _
 
-  override var identifier: Array[String] = shmIdentifier
+  override var identifier: Array[String] = new Array[String](3)
+  identifier(0) = "ID"
+  identifier(1) = "Active"
+  identifier(2) = "Attr"
 
   override def fillPartitionInnerData(newMap: collection.Map[Int,(Int,Int)]) : Unit = {
     partitionInnerData = newMap

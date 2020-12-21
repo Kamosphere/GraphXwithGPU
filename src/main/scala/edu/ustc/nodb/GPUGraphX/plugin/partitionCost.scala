@@ -1,12 +1,7 @@
 package edu.ustc.nodb.GPUGraphX.plugin
 
-import java.io.{File, PrintWriter}
-
 import edu.ustc.nodb.GPUGraphX.envControl
-import edu.ustc.nodb.GPUGraphX.plugin.partitionStrategy.{EdgePartitionLivejournal, EdgePartitionNumHookedTest, EdgePartitionWRN, EdgePartitionwikiTopcats}
-import org.apache.spark.graphx.{EdgeTriplet, Graph, GraphXUtils}
-import org.apache.spark.graphx.PartitionStrategy.{EdgePartition2D, RandomVertexCut}
-import org.apache.spark.{SparkConf, SparkContext, TaskContext}
+import org.apache.spark.{SparkConf, SparkContext}
 
 object partitionCost {
 
@@ -40,7 +35,6 @@ object partitionCost {
     //envControl.skippingPartSize = 1000000
 
     val graph = graphGenerator.readFile(sc, sourceFile)(parts.get)
-      .partitionBy(EdgePartitionwikiTopcats)
 
     /*
     val graphwash = graph.groupEdges((e1, e2) => e1)

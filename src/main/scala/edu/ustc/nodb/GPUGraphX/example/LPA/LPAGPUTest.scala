@@ -70,17 +70,11 @@ object LPAGPUTest{
 
     println("-------------------------")
 
-    val shmIdentifier = new Array[String](4)
-    shmIdentifier(0) = "ID"
-    shmIdentifier(1) = "Active"
-    shmIdentifier(2) = "PairSource1"
-    shmIdentifier(3) = "PairSource2"
-
     // the quantity of vertices in the whole graph
     val vertexSum = graph.vertices.count()
     val edgeSum = graph.edges.count()
 
-    val algorithm = new pregel_LPShm(shmIdentifier, vertexSum, edgeSum, parts.get)
+    val algorithm = new pregel_LPShm(vertexSum, edgeSum, parts.get)
 
     val lpaGraph = graph.mapVertices { case (vid, _) => (vid, 0L) }
 
