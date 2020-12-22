@@ -2,7 +2,7 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>edu.ustc.nodb</groupId>
   <artifactId>GPUGraphX</artifactId>
-  <version>1.1-SNAPSHOT</version>
+  <version>1.1</version>
   <name>${project.artifactId}</name>
   <description>the GPUGraphX app in nodb,ustc</description>
   <inceptionYear>2019</inceptionYear>
