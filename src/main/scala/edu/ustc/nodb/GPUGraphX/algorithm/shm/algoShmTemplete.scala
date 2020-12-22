@@ -13,9 +13,9 @@ with packagerShmTemplete[VD, ED, A] with pregelShmTemplete[VD, ED, A] {
 
   var identifier : Array[String]
 
-  var activeDirection: EdgeDirection = EdgeDirection.Either
+  var activeDirection: EdgeDirection
 
-  var maxIterations: Int = Int.MaxValue
+  var maxIterations: Int
 
   def fillPartitionInnerData(newMap: collection.Map[Int,(Int,Int)]) : Unit
 
