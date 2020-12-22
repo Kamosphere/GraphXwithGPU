@@ -17,10 +17,7 @@ object PregelGPUShm extends Logging{
   // scalastyle:off println
 
   def run[VD: ClassTag, ED: ClassTag, A: ClassTag]
-  (graph: Graph[VD, ED],
-   activeDirection: EdgeDirection = EdgeDirection.Either,
-   maxIterations: Int = Int.MaxValue)
-  (algorithm: algoShmTemplete[VD, ED, A])
+  (graph: Graph[VD, ED], algorithm: algoShmTemplete[VD, ED, A])
   : Graph[VD, ED] = {
 
     val startTime = System.nanoTime()
@@ -117,7 +114,7 @@ object PregelGPUShm extends Logging{
     var prevIterSkipped = false
 
     // loop
-    while(activeMessages > 0 && iterTimes < maxIterations) {
+    while(activeMessages > 0 && iterTimes < algorithm.maxIterations) {
 
       logInfo("Pregel Start iteration " + iterTimes)
       println("Pregel Start iteration " + iterTimes)
@@ -250,7 +247,7 @@ object PregelGPUShm extends Logging{
       messages = GraphXUtils.mapReduceTripletsIntoGPUInShm(g, ifFilteredCounter,
         algorithm.identifier, algorithm.lambda_shmInit, algorithm.lambda_shmWrite,
         algorithm.lambda_GPUExecute, algorithm.lambda_globalReduceFunc,
-        Some((oldMessages, activeDirection)))
+        Some((oldMessages, algorithm.activeDirection)))
 
       prevIterSkipped = false
 

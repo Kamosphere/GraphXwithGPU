@@ -86,7 +86,7 @@ object PageRankGPUTest{
     val startNew = System.nanoTime()
 
     val testGraph = algorithm.graphInit(graph)
-    val GPUResult = PregelGPUShm.run(testGraph, EdgeDirection.Either)(algorithm)
+    val GPUResult = PregelGPUShm.run(testGraph, algorithm)
     val GPUNormalize = GPUResult.mapVertices((vid, attr) => attr._1)
     val normalizedResult = normalizeRankSum(GPUNormalize, algorithm.personalized)
     // val q = ssspGPUResult.vertices.count()

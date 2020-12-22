@@ -79,7 +79,7 @@ object LPAGPUTest{
     val lpaGraph = graph.mapVertices { case (vid, _) => (vid, 0L) }
 
     val startNew = System.nanoTime()
-    val GPUResult = PregelGPUShm.run(lpaGraph, EdgeDirection.Out, 15)(algorithm)
+    val GPUResult = PregelGPUShm.run(lpaGraph, algorithm)
     // val q = ssspGPUResult.vertices.count()
     println(GPUResult.vertices.take(100000).mkString("\n"))
     val endNew = System.nanoTime()

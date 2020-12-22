@@ -128,7 +128,7 @@ object SSSPGPUShmTest{
       if (allSourceList.value.contains(vid)) makeMap(vid -> 0) else makeMap()
     }
 
-    val GPUResult = PregelGPUShm.run(spGraph)(algorithm)
+    val GPUResult = PregelGPUShm.run(spGraph, algorithm)
     // val q = ssspGPUResult.vertices.count()
     println(GPUResult.vertices.take(100000).mkString("\n"))
     val endNew = System.nanoTime()

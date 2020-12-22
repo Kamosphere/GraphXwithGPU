@@ -1,6 +1,6 @@
 package edu.ustc.nodb.GPUGraphX.algorithm.shm
 
-import org.apache.spark.graphx.{Graph, VertexId}
+import org.apache.spark.graphx.{EdgeDirection, Graph, VertexId}
 
 import scala.reflect.ClassTag
 
@@ -12,6 +12,10 @@ with packagerShmTemplete[VD, ED, A] with pregelShmTemplete[VD, ED, A] {
   var initSource : Array[VertexId]
 
   var identifier : Array[String]
+
+  var activeDirection: EdgeDirection = EdgeDirection.Either
+
+  var maxIterations: Int = Int.MaxValue
 
   def fillPartitionInnerData(newMap: collection.Map[Int,(Int,Int)]) : Unit
 

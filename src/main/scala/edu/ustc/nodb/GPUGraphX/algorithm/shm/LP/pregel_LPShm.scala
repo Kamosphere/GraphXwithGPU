@@ -7,7 +7,7 @@ import org.apache.spark.graphx.util.collection.GraphXPrimitiveKeyOpenHashMap
 import org.apache.spark.graphx.util.collection.shmManager.shmArrayWriter
 import org.apache.spark.graphx.util.collection.shmManager.shmArrayWriterImpl.{shmArrayWriterBoolean, shmArrayWriterDouble, shmArrayWriterLong}
 import org.apache.spark.graphx.util.collection.shmManager.shmNamePackager.shmWriterPackager
-import org.apache.spark.graphx.{Edge, Graph, VertexId}
+import org.apache.spark.graphx.{Edge, EdgeDirection, Graph, VertexId}
 import org.apache.spark.util.LongAccumulator
 import org.apache.spark.util.collection.BitSet
 
@@ -30,6 +30,10 @@ class pregel_LPShm(vertexSum: Long,
   identifier(1) = "Active"
   identifier(2) = "PairSource1"
   identifier(3) = "PairSource2"
+
+  override var activeDirection: EdgeDirection = EdgeDirection.Out
+
+  override var maxIterations: Int = 15
 
   override def fillPartitionInnerData(newMap: collection.Map[Int,(Int,Int)]) : Unit = {
     partitionInnerData = newMap

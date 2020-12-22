@@ -78,7 +78,7 @@ object CCGPUTest{
     val ccGraph = graph.mapVertices { case (vid, _) => vid }
 
     val startNew = System.nanoTime()
-    val GPUResult = PregelGPUShm.run(ccGraph, EdgeDirection.Either, 20)(algorithm)
+    val GPUResult = PregelGPUShm.run(ccGraph, algorithm)
     // val q = ssspGPUResult.vertices.count()
     println(GPUResult.vertices.take(100000).mkString("\n"))
     val endNew = System.nanoTime()

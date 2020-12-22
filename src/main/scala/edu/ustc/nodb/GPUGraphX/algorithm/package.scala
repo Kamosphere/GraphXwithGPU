@@ -15,7 +15,7 @@ package object algorithm {
   type PRPair = (Double, Double)
 
   // For executing script type, 0 for CPU, other for GPU
-  val runningScriptType = 1
+  val runningScriptType = 0
 
   // 0 for running in server with standalone, other for local
   val controller : Int = envControl.controller
