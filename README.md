@@ -14,7 +14,7 @@ CUDA is needed for GPU version
 
 Scala 2.11.12 is recommended for capability.
 
-Please use spark 2.4.5-USTC-NODB version in order to support some function 
+Please use spark 2.4.8-USTC-NODB version in order to support some function 
 
 see more information at https://github.com/Kamosphere/spark
 
@@ -23,7 +23,8 @@ see more information at https://github.com/Kamosphere/spark
 This project includes a simple script for UNIX-like system to compile automatically. Just run the autoBuild.sh in {project_path}
 
 ./cpp_native/autoBuild.sh
-before running the scala application
+
+before running application
 
 ## Usage
 
@@ -53,3 +54,13 @@ see more information at https://github.com/thoh-testarossa/Graph_Algo
 ## Todo List
 
 Executing cost reduce
+
+Cost model analysis
+
+## Thanks
+
+The project is developed by the following members:
+@thoh-testarossa Thoh Testarossa
+@Kamosphere Kamosphere
+@cave-g-f cave-g-f
+Thanks Prof.Xike Xie for the guidance.
