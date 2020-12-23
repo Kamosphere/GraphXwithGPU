@@ -16,7 +16,8 @@ Scala 2.11.12 is recommended for capability.
 
 Please use spark 2.4.8-USTC-NODB version in order to support some function 
 
-see more information at https://github.com/Kamosphere/spark
+In order to running demo,  extra c++ library is required at https://github.com/thoh-testarossa/Graph_Algo,
+and please use spark 2.4.8-USTC-NODB version https://github.com/Kamosphere/spark-GPUGraphX
 
 ## Config
 
