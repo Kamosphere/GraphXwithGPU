@@ -60,7 +60,11 @@ Cost model analysis
 ## Thanks
 
 The project is developed by the following members:
+
 @thoh-testarossa Thoh Testarossa
+
 @Kamosphere Kamosphere
+
 @cave-g-f cave-g-f
+
 Thanks Prof.Xike Xie for the guidance.
